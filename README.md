@@ -276,17 +276,11 @@ The MANUS ROS2 driver (`manus_ros2` package) is based on the official MANUS SDK 
 include_right_hand: true
 include_left_hand: true
 
-# Glove ID mapping
-# 手套 ID 映射（由 MANUS Core 分配，通常 0=左手, 1=右手）
-# Check connected glove IDs in MANUS Core software
-# 在 MANUS Core 软件中查看已连接手套的 ID
+# Glove IDs (assigned by MANUS Core, default: 0=left, 1=right)
+# 手套 ID（由 MANUS Core 自动分配，默认 0=左手, 1=右手）
 left_glove_id: 0
 right_glove_id: 1
 ```
-
-> **Note / 说明**: MANUS gloves use IDs assigned by MANUS Core (not serial numbers). The IDs may change when gloves reconnect. Check MANUS Core to verify correct ID mapping.
->
-> MANUS 手套使用由 MANUS Core 分配的 ID（非序列号）。手套重新连接时 ID 可能会变化，请在 MANUS Core 中确认正确的 ID 映射。
 
 ### 6.4 Running MANUS Input / 运行 MANUS 输入
 
