@@ -106,7 +106,7 @@ We welcome contributions to the Wuji ecosystem!
 
 ```bash
 # Install ROS2 Humble (Ubuntu 22.04)
-# 安装 ROS2 Humble - 可参考鱼香ROS一键安装
+# 安装 ROS2 Humble
 sudo apt update
 sudo apt install ros-humble-desktop
 
