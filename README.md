@@ -405,7 +405,7 @@ The MANUS Glove integration in this project uses the official MANUS SDK. We than
 
 ### Related Projects / 相关项目
 
-- **[wuji-retargeting](https://github.com/wuji-technology/wuji_retargeting)** - Hand retargeting algorithm
+- **[wuji-retargeting](https://github.com/wuji-technology/wuji-retargeting)** - Hand retargeting algorithm
 - **[wujihandpy](https://pypi.org/project/wujihandpy/)** - Wuji Hand control SDK
 - **[avp-stream](https://pypi.org/project/avp-stream/)** - Apple Vision Pro streaming library
 
