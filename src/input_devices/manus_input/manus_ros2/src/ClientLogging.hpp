@@ -1,10 +1,12 @@
-#ifndef CLIENT_LOGGING_HPP
-#define CLIENT_LOGGING_HPP
+#ifndef MANUS_ROS2_CLIENT_LOGGING_HPP
+#define MANUS_ROS2_CLIENT_LOGGING_HPP
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <sstream>
+#include <string>
+#include <utility>
 
 namespace ManusSDK
 {
@@ -156,4 +158,4 @@ namespace ManusSDK
 	};
 }
 
-#endif // CLIENT_LOGGING_HPP
+#endif // MANUS_ROS2_CLIENT_LOGGING_HPP
