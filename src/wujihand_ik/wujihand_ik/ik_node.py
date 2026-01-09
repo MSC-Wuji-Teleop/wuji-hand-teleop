@@ -23,7 +23,7 @@ from rclpy.utilities import remove_ros_args
 from wuji_retargeting import Retargeter
 
 
-def load_hand_config(config_path: str | Path) -> Dict[str, any]:
+def load_hand_config(config_path: str | Path) -> Dict[str, Any]:
     """
 
     Args:

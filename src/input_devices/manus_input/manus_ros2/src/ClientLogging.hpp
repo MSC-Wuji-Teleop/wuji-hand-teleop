@@ -1,5 +1,6 @@
 #ifndef CLIENT_LOGGING_HPP
 #define CLIENT_LOGGING_HPP
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <ostream>
