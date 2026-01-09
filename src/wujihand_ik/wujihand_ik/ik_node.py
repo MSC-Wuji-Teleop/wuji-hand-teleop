@@ -240,6 +240,33 @@ class DualWujiHandRetargeting(Node):
             self.left_handcontroller.set_joint_target_position(left_angles.reshape(5, 4))
 
 
+    def _joint_input_callback_joint(self, msg: JointState) -> None:
+        """
+        Handle incoming joint angles directly from JointState message.
+
+        Expected input format:
+            - Single hand: 20 values (5 fingers × 4 joints)
+            - Dual hands: 40 values (right hand first, then left hand)
+        """
+        raw_data = np.array(msg.position, dtype=np.float32)
+        if raw_data.size == 0:
+            return
+
+        try:
+            right_angles, left_angles = self._split_joint_data(raw_data)
+        except ValueError as exc:
+            self.get_logger().error(f"Invalid joint_input payload: {exc}")
+            return
+
+        # Process right hand
+        if right_angles is not None and self.right_handcontroller is not None:
+            self.right_handcontroller.set_joint_target_position(right_angles.reshape(5, 4))
+
+        # Process left hand
+        if left_angles is not None and self.left_handcontroller is not None:
+            self.left_handcontroller.set_joint_target_position(left_angles.reshape(5, 4))
+
+
     def _split_finger_data(self, raw: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """
         Split flattened array into right/left MediaPipe keypoints.

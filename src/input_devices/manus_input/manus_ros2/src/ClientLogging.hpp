@@ -1,5 +1,5 @@
-#ifndef __CLIENT_LOGGING_HPP__
-#define __CLIENT_LOGGING_HPP__
+#ifndef CLIENT_LOGGING_HPP
+#define CLIENT_LOGGING_HPP
 #include <iomanip>
 #include <iostream>
 #include <ostream>
@@ -155,4 +155,4 @@ namespace ManusSDK
 	};
 }
 
-#endif
+#endif // CLIENT_LOGGING_HPP
