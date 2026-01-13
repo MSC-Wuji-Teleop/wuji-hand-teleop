@@ -21,7 +21,7 @@ setup(
     ],
     install_requires=[
         'setuptools',
-        'numpy>=1.24.0',
+        'numpy>=2.0.0',
         'pyyaml>=6.0',
         # Note: The following packages need manual installation:
         # - wujihandpy: pip install wujihandpy

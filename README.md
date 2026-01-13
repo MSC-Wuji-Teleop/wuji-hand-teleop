@@ -52,42 +52,19 @@ We welcome contributions to the Wuji ecosystem!
 ### Data Flow / 数据流
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              Input Devices / 输入设备                │
-├────────────────────────┬────────────────────────────┤
-│   Apple Vision Pro     │       MANUS Glove          │
-└───────────┬────────────┴───────────────┬────────────┘
-            │                            │
-            ▼                            ▼
-┌───────────────────────┐    ┌────────────────────────┐
-│      avp_input        │    │  manus_data_publisher  │
-│   (手部关键点采集)     │    │    (C++ SDK 驱动)      │
-└───────────┬───────────┘    └───────────┬────────────┘
-            │                            │
-            │                            ▼
-            │                ┌────────────────────────┐
-            │                │     manus_input        │
-            │                │ (转换为 MediaPipe 格式) │
-            │                └───────────┬────────────┘
-            │                            │
-            ▼                            ▼
-┌─────────────────────────────────────────────────────┐
-│              /hand_input Topic                       │
-│         Float32MultiArray (126 values)              │
-│      21 keypoints × 3 coords × 2 hands              │
-└────────────────────────┬────────────────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │    wujihand_ik      │
-              │   (手部重定向算法)   │
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │     Wuji Hand       │
-              │     (Hardware)      │
-              └─────────────────────┘
+Input Devices                    ROS Topics
+─────────────                    ──────────
+
+Apple Vision Pro  ───────────►  /hand_input (Float32MultiArray)
+                                    │
+MANUS Glove  ────────────────►      │
+                                    │
+Custom Device  ──────────────►      │
+                                    ▼
+                               wujihand_ik
+                                    │
+                                    ▼
+                               Wuji Hand (Hardware)
 ```
 
 ### Custom Input Device / 自定义输入设备
@@ -418,6 +395,12 @@ MIT License - see [LICENSE](LICENSE)
 ## Maintainer / 维护者
 
 Wuji Technology (support@wuji.tech)
+
+## Contributors / 贡献者
+
+- Guanqi He
+- Wentao Zhang
+- Liang Zhu
 
 ---
 
