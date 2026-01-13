@@ -160,24 +160,24 @@ ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py hand_input:=manus
 
 ### 5.1 Wuji Hand Configuration / Wuji Hand 配置
 
+**Get Wuji Hand Serial Number / 获取序列号:**
+```bash
+lsusb -v -d 0483:2000 | grep iSerial
+```
+
 **File / 文件**: `src/wujihand_ik/wujihand_ik/config/wujihand_ik.yaml`
 
 ```yaml
 # Hand serial numbers (set to null to disable)
 # 手部序列号（设为 null 禁用该手）
-right_hand_serial: "347B38703433"
-left_hand_serial: "3472387D3433"
+right_hand_serial: "347B38703433"  # (for example)
+left_hand_serial: "3472387D3433"  # (for example)
 
 # Input mode (false = use retargeting, true = direct joint angles)
 use_joint_input: false
 
 # Input source: "avp" or "manus"
 input_source: "avp"
-```
-
-**Get Wuji Hand Serial Number / 获取序列号:**
-```bash
-lsusb -v -d 0483:2000 | grep iSerial
 ```
 
 ### 5.2 Apple Vision Pro Configuration / Vision Pro 配置
