@@ -118,6 +118,7 @@ cd ~/ros2_ws/src
 
 # Clone repository
 git clone https://github.com/wuji-technology/wuji-hand-teleop-ros2.git
+git lfs pull
 
 # Build
 cd ~/ros2_ws

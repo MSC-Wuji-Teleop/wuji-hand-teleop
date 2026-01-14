@@ -116,6 +116,7 @@ cd ~/ros2_ws/src
 
 # 克隆仓库
 git clone https://github.com/wuji-technology/wuji-hand-teleop-ros2.git
+git lfs pull
 
 # 编译
 cd ~/ros2_ws
