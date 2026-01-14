@@ -81,13 +81,17 @@ sudo apt install ros-humble-desktop
 
 # Install ROS2 build dependencies
 sudo apt install python3-colcon-common-extensions
+
+# Install Git LFS (required for large files)
+sudo apt install git-lfs
+git lfs install
 ```
 
-### 3.2 Python Dependencies(Conda Recommanded)
+### 3.2 Python Dependencies(Conda Recommended)
 Warning: ROS2 Humble requires Python 3.10. Using other versions in Conda will cause rclpy import errors.
 
 # Hand retargeting algorithm (required)
-refer to https://github.com/wuji-technology/wuji-retargeting. Make sure that you are able to run the example code.
+Refer to https://github.com/wuji-technology/wuji-retargeting. Make sure that you are able to run the example code.
 
 ```bash
 # Create a Conda environment with Python 3.10

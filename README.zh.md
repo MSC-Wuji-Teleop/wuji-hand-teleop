@@ -81,6 +81,10 @@ sudo apt install ros-humble-desktop
 
 # 安装 ROS2 构建依赖
 sudo apt install python3-colcon-common-extensions
+
+# 安装Git LFS (大文件需要)
+sudo apt install git-lfs
+git lfs install
 ```
 
 ### 3.2 Python 依赖（推荐使用Conda）
