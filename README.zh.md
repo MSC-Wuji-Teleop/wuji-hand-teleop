@@ -39,7 +39,7 @@
 
 - **操作系统**: Ubuntu 22.04 LTS
 - **ROS2**: Humble Hawksbill
-- **Python**: 3.10+
+- **Python**: 3.10（ROS2 Humble 严格要求）
 - **硬件**: Wuji Hand（USB 连接）
 
 ---
@@ -83,20 +83,28 @@ sudo apt install ros-humble-desktop
 sudo apt install python3-colcon-common-extensions
 ```
 
-### 3.2 Python 依赖
+### 3.2 Python 依赖（推荐使用Conda）
 
+警告：ROS2 Humble 需要 Python 3.10。在 Conda 中使用其他版本会导致 rclpy 导入错误。
+手部重定向算法（必需）： 请参考 https://github.com/wuji-technology/wuji-retargeting, 请首先跑通样例代码
 ```bash
-# Wuji Hand SDK
-pip3 install --user wujihandpy
+# 创建 Python 3.10 的 Conda 环境
+conda create -n wuji_env python=3.10 -y
 
-# 手部重定向算法（必需）
-pip3 install --user wuji-retargeting
+# 激活环境
+conda activate wuji_env
+
+# 在 Conda 中安装构建工具(在conda中安装wuji-retargeting)
+pip install colcon-common-extensions
+
+# Wuji Hand SDK
+pip install wujihandpy
 
 # 用于 Vision Pro 输入
-pip3 install --user avp-stream
+pip install avp-stream
 
 # 其他依赖
-pip3 install --user numpy pyyaml
+pip install pyyaml
 ```
 
 ### 3.3 克隆与编译
@@ -188,6 +196,25 @@ include_left_hand: true
 | MANUS | `retarget_manus_left.yaml` | 左手（z 轴旋转：+15°） |
 
 > **说明**：由于坐标系差异，MANUS 需要为左右手分别配置。
+
+**缩放参数：**
+
+```yaml
+retarget:
+  # 全局缩放系数
+  scaling: 1.0
+
+  # 各手指分段缩放 [近端, 中段, 远端]
+  segment_scaling:
+    thumb:  [1.0, 1.0, 1.0]
+    index:  [1.0, 1.03, 1.05]
+    middle: [1.0, 1.0, 1.0]
+    ring:   [1.0, 1.0, 1.0]
+    pinky:  [1.05, 1.15, 1.15]
+```
+
+- `scaling`：MediaPipe 手部关键点的全局缩放系数
+- `segment_scaling`：微调各手指分段长度比例。如果手指追踪与您的手部尺寸不匹配，可调整此参数。
 
 ---
 

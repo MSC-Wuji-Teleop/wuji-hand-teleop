@@ -39,7 +39,7 @@ We welcome contributions to the Wuji ecosystem!
 
 - **OS**: Ubuntu 22.04 LTS
 - **ROS2**: Humble Hawksbill
-- **Python**: 3.10+
+- **Python**: 3.10 strictly for ROS2 Humble
 - **Hardware**: Wuji Hand (USB connection)
 
 ---
@@ -83,20 +83,30 @@ sudo apt install ros-humble-desktop
 sudo apt install python3-colcon-common-extensions
 ```
 
-### 3.2 Python Dependencies
-
-```bash
-# Wuji Hand SDK
-pip3 install --user wujihandpy
+### 3.2 Python Dependencies(Conda Recommanded)
+Warning: ROS2 Humble requires Python 3.10. Using other versions in Conda will cause rclpy import errors.
 
 # Hand retargeting algorithm (required)
-pip3 install --user wuji-retargeting
+refer to https://github.com/wuji-technology/wuji-retargeting. Make sure that you are able to run the example code.
+
+```bash
+# Create a Conda environment with Python 3.10
+conda create -n wuji_env python=3.10 -y
+
+# Activate the environment
+conda activate wuji_env
+
+# Install build tools in Conda(Also the wuji-retargeting tools)
+pip install colcon-common-extensions
+
+# Wuji Hand SDK
+pip install wujihandpy
 
 # For Apple Vision Pro input
-pip3 install --user avp-stream
+pip install avp-stream
 
 # Other dependencies
-pip3 install --user numpy pyyaml
+pip install pyyaml
 ```
 
 ### 3.3 Clone and Build
@@ -188,6 +198,25 @@ include_left_hand: true
 | MANUS | `retarget_manus_left.yaml` | Left hand (z-rotation: +15°) |
 
 > **Note**: MANUS requires separate configs for left/right hands due to coordinate system differences.
+
+**Scaling Parameters:**
+
+```yaml
+retarget:
+  # Global scaling for all hand keypoints
+  scaling: 1.0
+
+  # Per-finger segment scaling [proximal, middle, distal]
+  segment_scaling:
+    thumb:  [1.0, 1.0, 1.0]
+    index:  [1.0, 1.03, 1.05]
+    middle: [1.0, 1.0, 1.0]
+    ring:   [1.0, 1.0, 1.0]
+    pinky:  [1.05, 1.15, 1.15]
+```
+
+- `scaling`: Global scale factor for MediaPipe hand keypoints
+- `segment_scaling`: Fine-tune each finger segment length ratio. Adjust if finger tracking doesn't match your hand size.
 
 ---
 
