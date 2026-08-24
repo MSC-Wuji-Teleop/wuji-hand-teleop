@@ -649,7 +649,7 @@ Without an NVIDIA GPU, the build falls back to libx264 software encoding automat
 
 ## System Architecture
 
-> The diagram below shows the **full system** — hand pipeline (the main flow in this README) plus the two arm-input paths covered in [`docs/STEAMVR.md`](docs/STEAMVR.md) (HTC Vive Tracker) and [`docs/PICO.md`](docs/PICO.md) (PICO 4). The hand-only main flow exercises only the `Wuji Glove → wujihand_controller → Wuji Hand` lanes; the arm lanes light up once you add an arm input device.
+> The diagram below shows the **full system** — hand pipeline (the main flow in this README) plus the two arm-input paths covered in [`docs/STEAMVR.md`](docs/STEAMVR.md) (HTC Vive Tracker) and [`docs/PICO.md`](docs/PICO.md) (PICO 4). The hand-only main flow exercises only the `Wuji Glove → wujihand_controller → Wuji Hand` lanes; the arm lanes light up once you add an arm input device. Per-package roles, the process/container model, and system invariants: [`docs/architecture.md`](docs/architecture.md).
 
 ![System dataflow](docs/images/dataflow.png)
 
@@ -833,6 +833,15 @@ For a complete list of hardware components, see the **[Hardware Bill of Material
 | [docs/STEAMVR.md](docs/STEAMVR.md) | Setting up the HTC Vive Tracker arm path: SteamVR null driver, base-station placement, dongle pairing, tracker serial scan |
 | [docs/PICO.md](docs/PICO.md) | Setting up the PICO 4 arm path: Developer Mode, XRoboToolkit APK, ADB reverse-forwarding, H.264 stereo streaming |
 | [docs/tracker-wearing-guide.md](docs/tracker-wearing-guide.md) | Physical tracker placement on the body |
+
+**Repo-level references** (`docs/`) — read when developing on or debugging the stack:
+
+| Document | When to read |
+|---|---|
+| [docs/usage.md](docs/usage.md) | Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules |
+| [docs/architecture.md](docs/architecture.md) | System architecture: data flow, per-package roles, process/container model, config convention, invariants |
+| [docs/wuji-camera-topics.md](docs/wuji-camera-topics.md) | Camera topic map, the 2x2 preview, blank-tile and D405-serial troubleshooting |
+| [docs/wuji-glove-network.md](docs/wuji-glove-network.md) | Wuji Glove UDP networking; the multi-NIC gotcha when a glove is discovered but connect times out |
 
 **Per-package references** — read when working in that area:
 

@@ -1,10 +1,15 @@
-# `docs/` — User-Facing Setup Guides
+# `docs/` — Guides and References
 
-Anything in this folder is meant to be read **once, before first use**, by an operator setting up the hardware. Developer-facing architecture notes live next to the code they describe (e.g. `src/input_devices/pico_input/ARCHITECTURE.md`).
+Two kinds of documents live here: **operator setup guides**, read once before
+first use, and **repo-level references** for developing on or debugging the
+stack. Package-specific deep-dives stay next to the code they describe (e.g.
+`src/input_devices/pico_input/ARCHITECTURE.md`).
 
-The main entry point for the whole project is [`../README.md`](../README.md). The guides below cover the bits that are too long or too device-specific to put inline there.
+The main entry point for the whole project is [`../README.md`](../README.md).
+The documents below cover what is too long or too device-specific to put
+inline there.
 
-## Which guide do I need?
+## Setup guides (read once, before first use)
 
 | If you are setting up… | Read |
 |---|---|
@@ -14,11 +19,23 @@ The main entry point for the whole project is [`../README.md`](../README.md). Th
 
 Pick one arm path. The two are alternatives; you don't need both.
 
+## References (developing and debugging)
+
+| Topic | Read |
+|---|---|
+| Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules | [usage.md](usage.md) |
+| System architecture: data flow, per-package roles, process/container model, config convention, invariants | [architecture.md](architecture.md) |
+| Camera topic map, the 2x2 preview, blank-tile and D405-serial troubleshooting | [wuji-camera-topics.md](wuji-camera-topics.md) |
+| Wuji Glove UDP networking and the multi-NIC routing gotcha (glove discovered but connect times out) | [wuji-glove-network.md](wuji-glove-network.md) |
+
 ## What this folder is not
 
-- **Not** a code reference. For ROS2 topics, node parameters, and per-package layout, see the package READMEs under `src/`.
-- **Not** an architecture deep-dive. For PICO coordinate transforms, incremental-control math, and arm-angle geometry, see [`src/input_devices/pico_input/ARCHITECTURE.md`](../src/input_devices/pico_input/ARCHITECTURE.md).
-- **Not** install instructions for the codebase itself. The supported deployment is Docker — see [Quick Start (Docker)](../README.md#quick-start-docker) in the main README. The Dockerfile is the canonical recipe for host dependencies if you want to roll a bare-metal install yourself (unsupported).
+- **Not** a per-package code reference. For ROS2 topics, node parameters, and
+  package layout, see the package READMEs under `src/`.
+- **Not** install instructions for the codebase itself. The supported
+  deployment is Docker — see [Quick Start (Docker)](../README.md#quick-start-docker)
+  in the main README. The Dockerfile is the canonical recipe for host
+  dependencies if you want to roll a bare-metal install yourself (unsupported).
 
 ## Media
 
