@@ -38,6 +38,15 @@ def generate_launch_description() -> LaunchDescription:
         "right_hand_name", default_value=RIGHT_HAND_NAME,
         description="Right hand wujihandros2 namespace",
     )
+    enable_hand_driver_arg = DeclareLaunchArgument(
+        "enable_hand_driver", default_value="true",
+        description="Spawn wujihand_driver (the only process that touches the physical "
+                     "Wuji Hand). Set false for sim mode: wujihand_controller still runs "
+                     "off real glove input and publishes /left_hand|right_hand/joint_commands "
+                     "unchanged -- pair with g1_world_output/scripts/mujoco_visualizer.py to "
+                     "watch it in MuJoCo with no hand plugged in.",
+    )
+    spawn_hand_driver = IfCondition(LaunchConfiguration("enable_hand_driver"))
 
     left_hand_name = LaunchConfiguration("left_hand_name")
     right_hand_name = LaunchConfiguration("right_hand_name")
@@ -55,6 +64,7 @@ def generate_launch_description() -> LaunchDescription:
         right_serial_arg,
         left_hand_name_arg,
         right_hand_name_arg,
+        enable_hand_driver_arg,
 
         # ==================== WUJIHANDROS2 DRIVERS ====================
         Node(
@@ -70,6 +80,7 @@ def generate_launch_description() -> LaunchDescription:
             }],
             output="screen",
             emulate_tty=True,
+            condition=spawn_hand_driver,
         ),
         Node(
             package="wujihand_driver",
@@ -84,6 +95,7 @@ def generate_launch_description() -> LaunchDescription:
             }],
             output="screen",
             emulate_tty=True,
+            condition=spawn_hand_driver,
         ),
 
         # ==================== MANUS C++ DRIVER (only if input_source = manus) ====================

@@ -102,7 +102,7 @@ RUN if head -c 100 /tmp/xrobotoolkit-pc-service.deb | grep -q 'git-lfs.github.co
 # ROS2 driver: https://github.com/wuji-technology/wujihandros2 (submodule at src/wujihandros2/)
 # C++ SDK deb: https://github.com/wuji-technology/wujihandpy/releases
 # After install: /usr/lib/libwujihandcpp.so + /usr/include/wujihandcpp/
-ARG WUJIHANDCPP_VERSION=1.5.1
+ARG WUJIHANDCPP_VERSION=1.8.0
 RUN wget -q https://github.com/wuji-technology/wujihandpy/releases/download/v${WUJIHANDCPP_VERSION}/wujihandcpp-${WUJIHANDCPP_VERSION}-amd64.deb \
         -O /tmp/wujihandcpp.deb \
     && (dpkg -i /tmp/wujihandcpp.deb || apt-get update && apt-get install -f -y) \
@@ -139,6 +139,14 @@ ARG PIP_TIMEOUT=120
 # pin==4.0.0: Pinocchio rigid-body library used by wuji_retargeting (cmeel wheel
 #   bundles eigenpy + urdfdom; 4.0.0 is the first release whose bundled urdfdom
 #   sonames resolve cleanly and whose eigenpy ABI is rebuilt against NumPy 2).
+# mujoco==3.12.0: needed by g1_world_output's MuJoCo sim-mode tooling --
+#   scripts/sweep_and_visualize.py and scripts/mujoco_visualizer.py, both of
+#   which render g1_wuji2_fixed.xml from this (NumPy 2.x) container, since
+#   g1_world_output's own Pinocchio/NumPy-1.x container is deliberately kept
+#   dependency-minimal (see that package's README). Not used by
+#   wuji-retargeting itself: its installed package doesn't import mujoco
+#   (viz/ isn't on the import path), so this pin exists solely for the G1
+#   sim tooling.
 # Dexterous hand: C++ SDK comes from the deb (see 3b); ROS2 driver via the wujihandros2 submodule.
 RUN if [ -n "${PIP_INDEX_URL}" ]; then \
         pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} \
@@ -146,13 +154,15 @@ RUN if [ -n "${PIP_INDEX_URL}" ]; then \
             opencv-python==4.13.0.92 \
             openvr==2.12.1401 \
             pin==4.0.0 \
+            mujoco==3.12.0 \
             --index-url ${PIP_INDEX_URL}; \
     else \
         pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} \
             numpy==2.2.6 scipy==1.14.1 pyyaml==6.0.2 ruamel.yaml==0.18.6 \
             opencv-python==4.13.0.92 \
             openvr==2.12.1401 \
-            pin==4.0.0; \
+            pin==4.0.0 \
+            mujoco==3.12.0; \
     fi
 
 # -------------------------------------------

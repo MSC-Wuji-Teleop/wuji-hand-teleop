@@ -57,6 +57,13 @@ if [ ! -f "$WS/install/setup.bash" ]; then
     find "$WS/src" -path "*/mujoco-sim/wuji_hand_description" -exec touch {}/COLCON_IGNORE \; 2>/dev/null || true
     find "$WS/src" -path "*/wuji_retargeting/wuji-description" -exec touch {}/COLCON_IGNORE \; 2>/dev/null || true
 
+    # unitree_sdk2_python is only needed for the separate g1_world_output image,
+    # which pip-installs it directly from the submodule at its own build time (see
+    # src/output_devices/g1_world_output/docker/Dockerfile). It is not a colcon
+    # package for this container: its setup.py reads README.md relative to CWD,
+    # which breaks under colcon's build-dir isolation and aborts the whole build.
+    touch "$WS/src/unitree_sdk2_python/COLCON_IGNORE" 2>/dev/null || true
+
     # Git LFS detection: skip manus_ros2 when .so is a pointer file
     MANUS_SO="$WS/src/input_devices/manus_input/manus_ros2/ManusSDK/lib/libManusSDK.so"
     if is_lfs_pointer "$MANUS_SO"; then

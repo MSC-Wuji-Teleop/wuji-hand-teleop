@@ -95,3 +95,52 @@ services:
     stdin_open: true
     tty: true
     command: bash
+
+  # ---------------------------------------------------------------------
+  # g1_world_output: Unitree G1 dual-arm teleop node.
+  # Separate image/container from `teleop` (see src/output_devices/
+  # g1_world_output/docker/Dockerfile for why: it needs a Pinocchio+CasADi
+  # build that's mutually incompatible, NumPy-version-wise, with the pip
+  # Pinocchio build the hand-teleop stack uses). Talks to `teleop` purely
+  # over ROS2/DDS via host networking + the same ROS_DOMAIN_ID/cyclonedds
+  # config, not through a shared filesystem or Python environment.
+  #
+  # profiles: gated behind "g1" so bare `docker compose up/build/down`
+  # (the hand-only + Tianji-arm workflow) never touches this service --
+  # without a real G1 it would just build/start and sit waiting on DDS
+  # forever. Opt in with `docker compose --profile g1 up -d` or by naming
+  # the service directly: `docker compose up -d g1_world_output`.
+  # ---------------------------------------------------------------------
+  g1_world_output:
+    profiles: ["g1"]
+    build:
+      context: ..
+      dockerfile: src/output_devices/g1_world_output/docker/Dockerfile
+    image: g1-world-output:latest
+    container_name: g1-world-output
+    restart: unless-stopped
+
+    network_mode: host   # ROS2 DDS discovery with `teleop` + direct G1 NIC access
+    ipc: host
+
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - TZ=Asia/Shanghai
+
+    volumes:
+      - ../src/output_devices/g1_world_output:/home/wuji/ros2_ws/src/g1_world_output:rw
+      # Read-only: same host files `teleop` sees, so a regenerated model
+      # can't go stale in only one of the two images (see g1_world_output's
+      # own Dockerfile comment).
+      - ../src/g1_wuji2_description:/home/wuji/ros2_ws/src/g1_wuji2_description:ro
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+    user: wuji
+    stdin_open: true
+    tty: true
