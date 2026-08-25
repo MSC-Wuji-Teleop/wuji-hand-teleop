@@ -65,22 +65,22 @@ HAND_JOINT_QOS = QoSProfile(
 
 def find_g1_wuji2_description_dir(start: Path) -> Path:
     """Walk up from `start` for a directory named g1_wuji2_description containing
-    g1_wuji2_fixed.xml -- robust to where this script/repo sits on disk (same idea
+    g1_23_wuji2_fixed.xml -- robust to where this script/repo sits on disk (same idea
     as config_loader.py::G1Config._default_urdf_dir, kept local here rather than
     imported so this script doesn't depend on g1_world_output being colcon-built
     wherever it happens to run)."""
     for parent in start.resolve().parents:
         candidate = parent / "g1_wuji2_description"
-        if (candidate / "g1_wuji2_fixed.xml").exists():
+        if (candidate / "g1_23_wuji2_fixed.xml").exists():
             return candidate
     raise FileNotFoundError(
-        f"Could not find g1_wuji2_description/g1_wuji2_fixed.xml near {start}. "
+        f"Could not find g1_wuji2_description/g1_23_wuji2_fixed.xml near {start}. "
         "Pass --mjcf explicitly."
     )
 
 
 def default_mjcf_path() -> Path:
-    """Resolve g1_wuji2_fixed.xml: ament package share dir first (correct in
+    """Resolve g1_23_wuji2_fixed.xml: ament package share dir first (correct in
     both the source tree and an install tree), falling back to the by-name
     crawl above. Unlike config_loader.py -- which always runs under
     `ros2 launch` in a sourced workspace and treats a missing package as a
@@ -94,12 +94,12 @@ def default_mjcf_path() -> Path:
             get_package_share_directory,
         )
         try:
-            return Path(get_package_share_directory('g1_wuji2_description')) / "g1_wuji2_fixed.xml"
+            return Path(get_package_share_directory('g1_wuji2_description')) / "g1_23_wuji2_fixed.xml"
         except PackageNotFoundError:
             pass
     except ImportError:
         pass
-    return find_g1_wuji2_description_dir(Path(__file__)) / "g1_wuji2_fixed.xml"
+    return find_g1_wuji2_description_dir(Path(__file__)) / "g1_23_wuji2_fixed.xml"
 
 
 def actuator_id(model: mujoco.MjModel, name: str) -> int:

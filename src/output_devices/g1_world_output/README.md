@@ -160,7 +160,7 @@ the box:
 
 - `arm_type: G1_23`
 - `urdf_package_dir: ""` — blank resolves via `get_package_share_directory('g1_wuji2_description')` (requires that package built and `install/setup.bash` sourced); set an absolute path only to override
-- `urdf_filename: g1_wuji2.urdf`
+- `urdf_filename: g1_23_wuji2.urdf`
 - `motion_mode` / `simulation_mode` — DDS channel selection (`rt/lowcmd` vs `rt/arm_sdk`, DDS domain 0 vs 1). Both assume *some* DDS peer answers `rt/lowstate` — neither is a "no hardware needed" switch; that's `--dry-run` (see [Sim mode vs. hardware mode](#sim-mode-vs-hardware-mode))
 - `reset_wrist_pose` — home EE targets used at startup
 

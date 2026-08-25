@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 G1_23_ARM_DOF = 10
 
-# Lock everything except the 10 G1_23 arm joints when using g1_wuji2.urdf.
+# Lock everything except the 10 G1_23 arm joints when using g1_23_wuji2.urdf.
 _G1_23_LOCK_JOINTS = [
     "left_hip_pitch_joint",
     "left_hip_roll_joint",
