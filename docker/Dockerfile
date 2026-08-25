@@ -1,14 +1,20 @@
 # ===========================================
 # Wuji Hand Teleop ROS2 Docker Image
-# Wuji Glove + Wuji Hand (default) + optional HTC Tracker / PICO arm + cameras
+# Unitree G1 (23-DoF) + 2x Wuji Hand 2, driven by Wuji Gloves + PICO 4
 # ===========================================
 #
 # Features:
 #   - Wuji Glove drives the Wuji Hand (wuji_sdk UDP -> wuji_retargeting -> wujihand_driver)
-#   - Optional arm teleop: HTC Vive Tracker (docs/STEAMVR.md) or PICO 4 (docs/PICO.md)
-#   - D405 wrist + head stereo cameras -> ROS2 compressed topics
-#   - MANUS Glove path remains in-tree as community-supported, feature-frozen
-#     (see src/input_devices/manus_input/README.md)
+#   - PICO 4 headset + 4 Motion Trackers for arm input (docs/PICO.md)
+#   - MuJoCo tooling for the G1 sim/dry-run path
+#
+# The G1 arm controller is NOT in this image. It runs in its own container
+# (see src/output_devices/g1_world_output/docker/Dockerfile) because its
+# Pinocchio + CasADi build needs NumPy 1.x while this stack needs 2.x.
+#
+# Prerequisites on the host, both required before building:
+#   git submodule update --init --recursive
+#   git lfs install && git lfs pull
 #
 # Build:
 #   cd docker && docker compose build
@@ -17,17 +23,20 @@
 #   cd docker && docker compose up -d
 #   docker exec -it wuji-hand-teleop bash
 #
-# GPU notes:
-#   H.264 encoding is auto-detected: NVENC when an NVIDIA GPU is present, otherwise libx264 software encoding.
-#   NVENC requires: 1) nvidia-container-toolkit installed on the host  2) uncomment the GPU section in docker-compose.yml
-#   Detection: run `nvidia-smi` on the host; any output means NVENC is available.
-#   Without an NVIDIA GPU, libx264 still keeps up with 2560x720@60fps (about 1 CPU core).
+# Camera notes:
+#   ros-humble-realsense2-camera and ffmpeg are installed for the camera
+#   pipeline in src/camera/, which is currently unwired: it targets D405 wrist
+#   + HBVCAM head hardware we do not have, pending the G1 head cameras
+#   (RealSense D435i built-in, D455 attachment). See docs/wuji-camera-topics.md.
+#   H.264 encoding auto-detects NVENC when an NVIDIA GPU is present, else
+#   libx264. NVENC needs nvidia-container-toolkit on the host plus the GPU
+#   section uncommented in docker-compose.yml.
 #
 # ===========================================
 
 FROM osrf/ros:humble-desktop
 
-LABEL description="Wuji Hand Teleop: Wuji Glove + Wuji Hand (default), optional HTC / PICO arm input, cameras"
+LABEL description="Wuji Hand Teleop: Unitree G1 23-DoF + 2x Wuji Hand 2, Wuji Gloves + PICO 4 input"
 
 # -------------------------------------------
 # 1. Build Arguments
@@ -55,7 +64,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip python3-dev python3-pybind11 \
     # Hardware access
     libusb-1.0-0-dev libncursesw5-dev udev usbutils \
-    # Camera drivers
+    # Camera drivers (src/camera/ is unwired; see the header note)
     ros-humble-realsense2-camera \
     ros-humble-compressed-image-transport \
     # H.264 encoding (head stereo -> PICO VR stream)
@@ -135,7 +144,6 @@ ARG PIP_TIMEOUT=120
 
 # Pinned versions: validated compatible combo.
 # numpy 2.2.6 + scipy 1.14.1: no compatibility warnings.
-# openvr: SteamVR Tracker pathway.
 # pin==4.0.0: Pinocchio rigid-body library used by wuji_retargeting (cmeel wheel
 #   bundles eigenpy + urdfdom; 4.0.0 is the first release whose bundled urdfdom
 #   sonames resolve cleanly and whose eigenpy ABI is rebuilt against NumPy 2).
@@ -152,7 +160,6 @@ RUN if [ -n "${PIP_INDEX_URL}" ]; then \
         pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} \
             numpy==2.2.6 scipy==1.14.1 pyyaml==6.0.2 ruamel.yaml==0.18.6 \
             opencv-python==4.13.0.92 \
-            openvr==2.12.1401 \
             pin==4.0.0 \
             mujoco==3.12.0 \
             --index-url ${PIP_INDEX_URL}; \
@@ -160,7 +167,6 @@ RUN if [ -n "${PIP_INDEX_URL}" ]; then \
         pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} \
             numpy==2.2.6 scipy==1.14.1 pyyaml==6.0.2 ruamel.yaml==0.18.6 \
             opencv-python==4.13.0.92 \
-            openvr==2.12.1401 \
             pin==4.0.0 \
             mujoco==3.12.0; \
     fi

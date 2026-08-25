@@ -10,10 +10,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-# Exception: keep SDK library files
-# tianji_output: fx_kine.py / fx_robot.py load from _internal/lib/ (not lib/).
-!src/output_devices/tianji_output/tianji_output/_internal/lib/*.so
-!**/ManusSDK/lib/*.so
+# Exception: keep vendored SDK library files (tracked via Git LFS).
 !src/input_devices/pico_input/prebuilt/**/*.so
 .Python
 *.egg-info/
@@ -49,7 +46,6 @@ ENV/
 # away from a working default-placeholder config.
 src/output_devices/wujihand_output/config/wujihand_ik.yaml
 src/input_devices/wuji_glove/config/wuji_glove.yaml
-src/input_devices/openvr_input/config/openvr_input.yaml
 src/input_devices/pico_input/config/pico_input.yaml
 src/camera/config/camera_config.yaml
 
