@@ -63,10 +63,6 @@ Visualization Manager:
           Value: true
         right_arm:
           Value: true
-        tianji_left:
-          Value: true
-        tianji_right:
-          Value: true
         world:
           Value: true
       Marker Scale: 0.30000001192092896
@@ -79,11 +75,9 @@ Visualization Manager:
           head:
             {}
           left_wrist:
-            tianji_left:
-              {}
+            {}
           right_wrist:
-            tianji_right:
-              {}
+            {}
           left_arm:
             {}
           right_arm:
@@ -114,20 +108,6 @@ Visualization Manager:
       Name: Right Wrist Axes
       Radius: 0.029999999329447746
       Reference Frame: right_wrist
-      Value: true
-    - Class: rviz_default_plugins/Axes
-      Enabled: true
-      Length: 0.30000001192092896
-      Name: Tianji Left
-      Radius: 0.02500000037252903
-      Reference Frame: tianji_left
-      Value: true
-    - Class: rviz_default_plugins/Axes
-      Enabled: true
-      Length: 0.30000001192092896
-      Name: Tianji Right
-      Radius: 0.02500000037252903
-      Reference Frame: tianji_right
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true

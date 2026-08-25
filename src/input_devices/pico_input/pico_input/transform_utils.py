@@ -110,7 +110,7 @@ def transform_world_to_chest(vector_world, side):
     Note:
         Uses efficient axis mapping (equivalent to rotation matrix transform)
 
-        Coordinate frame definitions (from tianji_robot.yaml):
+        Coordinate frame definitions (from robot_frames.yaml):
           World: X=forward, Y=left, Z=up
           Left Chest:  X=forward, Y=down, Z=left (rotated +90 deg around World X axis)
           Right Chest: X=forward, Y=up, Z=right (rotated -90 deg around World X axis)
@@ -337,7 +337,7 @@ def transform_pico_rotation_to_world(delta_rot_pico, pico_to_robot):
 
     Args:
         delta_rot_pico: Rotation delta in PICO coordinate frame (scipy Rotation object)
-        pico_to_robot: 3x3 transform matrix (det=+1, loaded from tianji_robot.yaml)
+        pico_to_robot: 3x3 transform matrix (det=+1, loaded from robot_frames.yaml)
 
     Returns:
         scipy.spatial.transform.Rotation: Rotation delta in World coordinate frame

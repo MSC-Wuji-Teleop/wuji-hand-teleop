@@ -16,8 +16,8 @@ Data flow:
 
 Dependencies:
   - numpy, scipy (pure math)
-  - tianji_world_output.config_loader (configuration)
-  - tianji_world_output.transform_utils (coordinate transform shared library)
+  - pico_input.config_loader (configuration)
+  - pico_input.transform_utils (coordinate transform shared library)
   - pico_input.one_euro_filter (adaptive filtering)
   - No ROS2 dependency
 """

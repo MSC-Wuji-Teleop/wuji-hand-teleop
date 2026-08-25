@@ -25,7 +25,7 @@ Initialization process:
 
     During initialization:
       - Record user's hand pose in PICO coordinate system: init_tracker_poses[role]
-      - Robot initial pose comes from tianji_robot.yaml (init_pos/init_rot)
+      - Robot initial pose comes from config/robot_frames.yaml (init_pos/init_rot)
 
     During runtime:
       - User's current hand pose: current_pose
@@ -50,7 +50,7 @@ Initialization process:
     /pico_hmd, /pico_left_wrist, /pico_right_wrist
     /pico_left_arm, /pico_right_arm
 
-    # Robot control (subscribed by tianji_world_output)
+    # Robot control (subscribed by the arm output, e.g. g1_world_output)
     /left_arm_target_pose, /right_arm_target_pose
     /left_arm_elbow_direction, /right_arm_elbow_direction
 
@@ -255,7 +255,7 @@ class PicoInputNode(Node):
         )
 
         # ==================== Topic publishers ====================
-        # 1. Target pose publishing (tianji_world_output_node subscribes to these)
+        # 1. Target pose publishing (the arm output node subscribes to these)
         self.left_arm_pose_pub = None
         self.right_arm_pose_pub = None
         self.left_elbow_dir_pub = None
@@ -478,7 +478,7 @@ class PicoInputNode(Node):
             self.get_logger().warning('    3. PICO XRoboToolkit App detects all trackers')
 
         self.get_logger().info('-' * 60)
-        self.get_logger().info('Robot initial positions (from tianji_robot.yaml):')
+        self.get_logger().info('Robot initial positions (from robot_frames.yaml):')
         for role, pos in self.controller.robot_init_positions.items():
             self.get_logger().info(f'    {role}: [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]')
         self.get_logger().info('-' * 60)
@@ -634,7 +634,7 @@ class PicoInputNode(Node):
             # 1. TF broadcast: world_left/world_right -> pico_left_wrist/pico_left_arm etc.
             self._broadcast_tf(now, parent_frame, role, pos, quat)
 
-            # 2. Topic publishing (subscribed by tianji_world_output)
+            # 2. Topic publishing (subscribed by the arm output)
             if self.enable_topic_publishing:
                 if role == 'pico_left_wrist':
                     self._publish_pose(self.left_arm_pose_pub, now, parent_frame, pos, quat)
@@ -901,7 +901,7 @@ class PicoInputNode(Node):
         self.get_logger().info('  - User hand moves delta -> Robot hand moves delta')
         self.get_logger().info('  - Coordinate transform: PICO(+X right,+Y up,+Z forward) -> Robot(+X forward,+Y left,+Z up)')
         self.get_logger().info('-' * 65)
-        self.get_logger().info('Robot initial positions (from tianji_robot.yaml):')
+        self.get_logger().info('Robot initial positions (from robot_frames.yaml):')
         for role, pos in self.controller.robot_init_positions.items():
             self.get_logger().info(f'  {role}: [{pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}]')
         self.get_logger().info('-' * 65)

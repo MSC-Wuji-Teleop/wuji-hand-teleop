@@ -6,8 +6,8 @@ Public API:
   data_source: DataSource, LiveDataSource, RecordedDataSource -- data source abstraction
   xrobotoolkit_client: XRoboToolkitClient -- PICO SDK wrapper
 
-Coordinate transforms: Uses tianji_world_output.transform_utils (shared library, single authoritative implementation)
-Configuration loading: Uses tianji_world_output.config_loader (unified config tianji_robot.yaml)
+Coordinate transforms: pico_input.transform_utils (sole authoritative implementation)
+Configuration loading: pico_input.config_loader (config/robot_frames.yaml)
 
 Data flow:
   PICO Tracker --> pico_input_node --> /left_arm_target_pose, /right_arm_target_pose
