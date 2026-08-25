@@ -838,6 +838,7 @@ For a complete list of hardware components, see the **[Hardware Bill of Material
 
 | Document | When to read |
 |---|---|
+| [docs/hardware_spec.md](docs/hardware_spec.md) | This fork's actual rig: G1 23-DoF, Wuji Hand 2, gloves + PICO 4; code assumptions vs. physical hardware |
 | [docs/usage.md](docs/usage.md) | Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules |
 | [docs/architecture.md](docs/architecture.md) | System architecture: data flow, per-package roles, process/container model, config convention, invariants |
 | [docs/wuji-camera-topics.md](docs/wuji-camera-topics.md) | Camera topic map, the 2x2 preview, blank-tile and D405-serial troubleshooting |

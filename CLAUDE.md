@@ -6,6 +6,8 @@ ROS2 (Humble) teleoperation stack for the **Wuji Hand**, driven by the **Wuji Gl
 
 **Docker is the only supported runtime.** `docker/Dockerfile` is the source of truth for the environment (apt/pip versions, SDKs). One exception to the single-container picture: `g1_world_output` runs as its own image/container because its Pinocchio+CasADi build needs NumPy 1.x while the rest of the stack needs 2.x.
 
+This fork drives one specific rig (G1 + Wuji Hand 2, gloves + PICO 4 input). The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant, `g1_wuji2_description` is still 29-DoF-based (rebuild pending), and the Tianji/HTC/camera hardware does not exist here.
+
 ## Commands
 
 Full reference: [docs/usage.md](docs/usage.md). The essentials, inside the container:
@@ -35,3 +37,4 @@ Data flow: input device, standard topic/TF interface, output controller, hardwar
 - Configs are `.yaml.template` in git; `docker/entrypoint.sh` seeds the real gitignored `.yaml` so serials/IPs never land in the repo. New template: rerun `colcon build --symlink-install`.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own licenses. Do not modify it as first-party.
 - For any coordinate-frame bug on the PICO path, read `src/input_devices/pico_input/ARCHITECTURE.md` before touching code.
+- Docs here are team-facing: never document hardware location or access logistics, and never reference Alex's private research repo.

@@ -23,6 +23,7 @@ Pick one arm path. The two are alternatives; you don't need both.
 
 | Topic | Read |
 |---|---|
+| **Our MSC hardware spec**: G1 23-DoF, Wuji Hand 2, gloves + PICO, what the code assumes vs. what exists | [hardware_spec.md](hardware_spec.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, process/container model, config convention, invariants | [architecture.md](architecture.md) |
 | Camera topic map, the 2x2 preview, blank-tile and D405-serial troubleshooting | [wuji-camera-topics.md](wuji-camera-topics.md) |
