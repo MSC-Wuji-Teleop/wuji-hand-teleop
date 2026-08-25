@@ -1,5 +1,5 @@
-<mujoco model="g1_wuji2 scene">
-  <include file="g1_wuji2.xml"/>
+<mujoco model="g1_23_wuji2 scene">
+  <include file="g1_23_wuji2.xml"/>
 
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>

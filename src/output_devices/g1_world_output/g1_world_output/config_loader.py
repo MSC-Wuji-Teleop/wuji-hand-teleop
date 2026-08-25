@@ -139,10 +139,10 @@ class G1Config:
         return cls(
             raw=raw,
             arm_type=raw.get('arm_type', 'G1_23'),
-            motion_mode=bool(raw.get('motion_mode', False)),
+            motion_mode=bool(raw.get('motion_mode', True)),
             simulation_mode=bool(raw.get('simulation_mode', False)),
             urdf_package_dir=urdf_dir,
-            urdf_filename=raw.get('urdf_filename', 'g1_wuji2.urdf'),
+            urdf_filename=raw.get('urdf_filename', 'g1_23_wuji2.urdf'),
             world_to_chest_quat=to_numpy_dict(raw.get('world_to_chest_quat', {})),
             chest_origin_in_pelvis=to_numpy_dict(raw.get('chest_origin_in_pelvis', {})),
             arm_scale=float(raw.get('arm_scale', 1.0)),

@@ -90,7 +90,7 @@ docker exec -it wuji-hand-teleop python3 \
 ```
 
 `motion_mode` / `simulation_mode` can be overridden the same way
-(`motion_mode:=true`, `simulation_mode:=true`) — see [Config](#config) for
+(`motion_mode:=false`, `simulation_mode:=true`) — see [Config](#config) for
 what each one actually does; neither replaces `--dry-run` as the "no
 hardware" switch. `mujoco_visualizer.py` only subscribes (it publishes
 nothing), so it also mirrors real teleop's `/left_hand/joint_commands` /
@@ -160,8 +160,8 @@ the box:
 
 - `arm_type: G1_23`
 - `urdf_package_dir: ""` — blank resolves via `get_package_share_directory('g1_wuji2_description')` (requires that package built and `install/setup.bash` sourced); set an absolute path only to override
-- `urdf_filename: g1_wuji2.urdf`
-- `motion_mode` / `simulation_mode` — DDS channel selection (`rt/lowcmd` vs `rt/arm_sdk`, DDS domain 0 vs 1). Both assume *some* DDS peer answers `rt/lowstate` — neither is a "no hardware needed" switch; that's `--dry-run` (see [Sim mode vs. hardware mode](#sim-mode-vs-hardware-mode))
+- `urdf_filename: g1_23_wuji2.urdf`
+- `motion_mode` / `simulation_mode` — DDS channel selection (`rt/arm_sdk` vs `rt/lowcmd`, DDS domain 0 vs 1). `motion_mode` defaults to `true` (`rt/arm_sdk`): the G1's onboard controller keeps the legs. Set `false` (`rt/lowcmd`, full low-level bus) only with the robot hanging on a stand. Both assume *some* DDS peer answers `rt/lowstate` — neither is a "no hardware needed" switch; that's `--dry-run` (see [Sim mode vs. hardware mode](#sim-mode-vs-hardware-mode))
 - `reset_wrist_pose` — home EE targets used at startup
 
 ## Dependencies

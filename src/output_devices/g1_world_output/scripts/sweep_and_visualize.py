@@ -3,7 +3,7 @@
 Sweep test for the G1 + dual Wuji Hand 2 pipeline: drives hand joints and arm
 target poses through continuous sweeps, publishes them on the standard
 wuji-hand-teleop topics, and mirrors the resulting robot state live in
-MuJoCo (g1_wuji2_description/g1_wuji2_fixed.xml).
+MuJoCo (g1_wuji2_description/g1_23_wuji2_fixed.xml).
 
 Topic contract (see wuji-hand-teleop/README.md Appendix > Topic Interface and
 g1_world_output/README.md):
@@ -182,7 +182,7 @@ class SweepNode(Node):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mjcf", type=Path, default=None, help="Path to g1_wuji2_fixed.xml (auto-detected if omitted)")
+    parser.add_argument("--mjcf", type=Path, default=None, help="Path to g1_23_wuji2_fixed.xml (auto-detected if omitted)")
     parser.add_argument("--hz", type=float, default=50.0, help="Publish rate for the sweep (Hz)")
     parser.add_argument("--period", type=float, default=6.0, help="Sweep period (s)")
     parser.add_argument("--pos-amplitude", type=float, default=0.06, help="Arm target position sweep amplitude (m)")

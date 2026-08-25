@@ -3,7 +3,7 @@
 MuJoCo mirror of real teleop -- this is the "watch the sim instead of the
 physical robot" tool. Unlike sweep_and_visualize.py, it publishes nothing:
 it only subscribes to the joint-command topics real teleop already produces
-and mirrors them live in MuJoCo (g1_wuji2_description/g1_wuji2_fixed.xml).
+and mirrors them live in MuJoCo (g1_wuji2_description/g1_23_wuji2_fixed.xml).
 
 Topics (all subscribe-only; each is independent -- whatever is or isn't
 publishing just determines what moves in the viewer):
@@ -108,7 +108,7 @@ class MujocoVisualizerNode(Node):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mjcf", type=Path, default=None, help="Path to g1_wuji2_fixed.xml (auto-detected if omitted)")
+    parser.add_argument("--mjcf", type=Path, default=None, help="Path to g1_23_wuji2_fixed.xml (auto-detected if omitted)")
     parser.add_argument("--focus", choices=["full", "hands"], default="full", help="Initial camera framing (still freely orbitable once open)")
     parser.add_argument("--no-viewer", action="store_true", help="Subscribe only; skip opening the MuJoCo viewer window (headless smoke test)")
     return parser.parse_args()

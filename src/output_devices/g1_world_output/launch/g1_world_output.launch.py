@@ -18,8 +18,9 @@ def generate_launch_description() -> LaunchDescription:
         "control_rate", default_value="90.0", description="Control loop rate (Hz)"
     )
     motion_mode_arg = DeclareLaunchArgument(
-        "motion_mode", default_value="false",
-        description="true -> rt/arm_sdk, false -> rt/lowcmd (overrides config/g1_robot.yaml)",
+        "motion_mode", default_value="true",
+        description="true -> rt/arm_sdk (onboard controller keeps the legs; default), "
+                    "false -> rt/lowcmd (robot on stand / debug). Overrides config/g1_robot.yaml.",
     )
     simulation_mode_arg = DeclareLaunchArgument(
         "simulation_mode", default_value="false",
