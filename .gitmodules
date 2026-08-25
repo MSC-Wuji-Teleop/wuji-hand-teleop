@@ -1,4 +1,9 @@
-
 [submodule "src/wujihandros2"]
 	path = src/wujihandros2
 	url = https://github.com/wuji-technology/wujihandros2.git
+[submodule "src/wuji-retargeting"]
+	path = src/wuji-retargeting
+	url = https://github.com/wuji-technology/wuji-retargeting.git
+[submodule "src/unitree_sdk2_python"]
+	path = src/unitree_sdk2_python
+	url = https://github.com/unitreerobotics/unitree_sdk2_python.git

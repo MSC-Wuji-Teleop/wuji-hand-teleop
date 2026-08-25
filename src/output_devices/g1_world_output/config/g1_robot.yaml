@@ -1,0 +1,60 @@
+# =============================================================================
+# Unitree G1 Robot Unified Configuration File
+# =============================================================================
+# Single Source of Truth for g1_world_output remapping / IK / control.
+#
+# Input topics match tianji_world_output (chest-frame PoseStamped from pico_input).
+# This package remaps chest -> G1 pelvis (robot base) before Pinocchio/Casadi IK.
+# =============================================================================
+
+# G1_23: 5 DoF per arm (shoulder pitch/roll/yaw, elbow, wrist roll)
+arm_type: "G1_23"
+
+# DDS / control
+motion_mode: false       # false -> rt/lowcmd, true -> rt/arm_sdk
+simulation_mode: false   # true -> ChannelFactoryInitialize(1)
+
+# Path to g1_wuji2_description (directory that contains g1_wuji2.urdf + meshes/).
+# Leave blank to resolve via the g1_wuji2_description package's ament share
+# directory; set an absolute path only to override (e.g. a shared install or
+# an external mount).
+urdf_package_dir: ""
+urdf_filename: "g1_wuji2.urdf"
+
+# =============================================================================
+# World <-> Chest (same convention as tianji_world_output / pico_input)
+# =============================================================================
+# World / G1 pelvis (ROS REP 103): X=forward, Y=left, Z=up
+# Left Chest:  X=forward, Y=down, Z=left  (+90 deg about World X)
+# Right Chest: X=forward, Y=up,   Z=right (-90 deg about World X)
+world_to_chest_quat:
+  left:  [0.7071067811865475, 0.0, 0.0, 0.7071067811865475]
+  right: [0.7071067811865475, 0.0, 0.0, -0.7071067811865475]
+
+# Chest-frame origin expressed in G1 pelvis frame (waist locked at zero).
+# Approx. shoulder mount from G1 body URDF (waist_roll z + shoulder pitch xyz).
+chest_origin_in_pelvis:
+  left:  [0.004,  0.100, 0.292]
+  right: [0.004, -0.100, 0.292]
+
+# Optional arm-length scale applied to chest-local translation before remap
+# (human-ish pico reach -> G1 reach). 1.0 = no scale.
+arm_scale: 1.0
+
+# =============================================================================
+# Reset / home wrist poses in G1 pelvis frame (meters)
+# =============================================================================
+reset_wrist_pose:
+  left:
+    position: [0.30, 0.25, 0.05]
+    # Identity rotation (palm forward convention used by G1_23_ArmIK)
+    quat: [0.0, 0.0, 0.0, 1.0]
+  right:
+    position: [0.30, -0.25, 0.05]
+    quat: [0.0, 0.0, 0.0, 1.0]
+
+# Default elbow direction echo (G1 Casadi IK does not consume zsp; kept for
+# Monitor / recorder parity with tianji_world_output).
+default_zsp_para:
+  left:  [0, -0.5, -0.3, 0, 0, 0]
+  right: [0, 0.5, -0.3, 0, 0, 0]

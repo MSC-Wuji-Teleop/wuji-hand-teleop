@@ -4,7 +4,7 @@
 
 ROS2 teleoperation for **Wuji Hand**, driven by the **[Wuji Glove](https://pypi.org/project/wuji-sdk/)**. This README is the one-page path from a fresh Ubuntu host to **dual hands moving live**, with **one-click launch through the Monitor GUI**. Hand-pose retargeting is the open-source **[wuji-retargeting](https://github.com/wuji-technology/wuji-retargeting)** algorithm; the ROS2 driver is the open-source **[wujihandros2](https://github.com/wuji-technology/wujihandros2)**.
 
-> **Adding arm teleop?** Get the hand pipeline running first, then follow [`docs/STEAMVR.md`](docs/STEAMVR.md) for the HTC Vive Tracker path or [`docs/PICO.md`](docs/PICO.md) for the PICO 4 VR path. Both extend the same image — no rebuild — and the Tianji-arm controllers under `src/output_devices/tianji_output/` (HTC) and `src/output_devices/tianji_world_output/` (PICO) plug in via the topics documented in [Appendix → Custom Input Device](#custom-input-device).
+> **Adding arm teleop?** Get the hand pipeline running first, then follow [`docs/STEAMVR.md`](docs/STEAMVR.md) for the HTC Vive Tracker path or [`docs/PICO.md`](docs/PICO.md) for the PICO 4 VR path. Both extend the same `teleop` image — no rebuild — and the Tianji-arm controllers under `src/output_devices/tianji_output/` (HTC) and `src/output_devices/tianji_world_output/` (PICO) plug in via the topics documented in [Appendix → Custom Input Device](#custom-input-device). Driving a **Unitree G1** instead of a Tianji arm? See [`src/output_devices/g1_world_output/README.md`](src/output_devices/g1_world_output/README.md) — same PICO topic contract, but it runs as its **own container/image** (`docker compose up -d g1_world_output`), not inside `teleop`.
 
 [![Teleop Demo](docs/images/dataflow.png)](docs/teleop-demo.mp4)
 
@@ -19,7 +19,8 @@ Click the image above to download the demo video.
 - [Quick Start (Docker)](#quick-start-docker) — the only supported deployment, ~10 min from clone to running hands
 - [Hardware Configuration](#hardware-configuration) — hand-side setup
 - [Running](#running) — Monitor + brake / camera helper UIs
-- [Adding arm teleop](#adding-arm-teleop) — pointers to `docs/STEAMVR.md` / `docs/PICO.md`
+- [Adding arm teleop](#adding-arm-teleop) — pointers to `docs/STEAMVR.md` / `docs/PICO.md`, plus the [Unitree G1 path](#unitree-g1-arm-alternative-to-tianji) (own container)
+- [Running Everything in Simulation (No Physical Robot)](#running-everything-in-simulation-no-physical-robot) — full G1 pipeline walkthrough in MuJoCo, plus the configs involved
 - [Docker Daily Operations](#docker-daily-operations) — lifecycle, debugging, camera setup
 - [System Architecture](#system-architecture)
 - [Output](#output)
@@ -54,12 +55,16 @@ wuji-hand-teleop/
 │   ├── output_devices/            // Output device packages
 │   │   ├── wujihand_output/       //   Wuji Hand controller with IK
 │   │   ├── tianji_output/         //   Tianji Arm controller (HTC / SteamVR path)
-│   │   └── tianji_world_output/   //   Tianji Arm controller (PICO / world frame)
+│   │   ├── tianji_world_output/   //   Tianji Arm controller (PICO / world frame)
+│   │   └── g1_world_output/       //   Unitree G1 dual-arm controller (PICO / world frame)
+│   │       └── docker/            //     Own Dockerfile — separate image/container, see package README
 │   ├── camera/                    // Cameras: HBVCAM stereo (head) + RealSense D405 (wrists)
 │   ├── wujihandros2/              // Wuji Hand ROS2 driver (submodule, ships wuji-description)
 │   ├── wuji-retargeting/          // Hand-pose retargeting algorithm (submodule, pip-installed)
-│   └── wujihand_urdf/             // URDF models for RViz visualization
-├── docker/                        // Docker deployment files
+│   ├── unitree_sdk2_python/       // Unitree SDK2 Python (submodule; only needed for g1_world_output)
+│   ├── wujihand_urdf/             // URDF models for RViz visualization
+│   └── g1_wuji2_description/      // URDF + meshes for the G1 arm path (used by g1_world_output)
+├── docker/                        // Docker deployment files (main `teleop` image)
 │   └── prebuilt/                  //   PC-Service .deb (Git LFS)
 ├── docs/                          // Guides, images, and demo videos
 ├── CHANGELOG.md
@@ -127,7 +132,7 @@ cd wuji-hand-teleop
 git lfs pull
 ```
 
-> **Important**: `--recurse-submodules` is required. The repo contains two Wuji-owned submodules — [`wujihandros2`](https://github.com/wuji-technology/wujihandros2) (ROS2 driver; pulls in `external/wuji-description`) and [`wuji-retargeting`](https://github.com/wuji-technology/wuji-retargeting) (hand-pose retargeting algo, pip-installed into the image) — plus the vendored PICO sources under `src/input_devices/pico_input/vendor/`. If you already cloned without it: `git submodule update --init --recursive`.
+> **Important**: `--recurse-submodules` is required. The repo contains two Wuji-owned submodules — [`wujihandros2`](https://github.com/wuji-technology/wujihandros2) (ROS2 driver; pulls in `external/wuji-description`) and [`wuji-retargeting`](https://github.com/wuji-technology/wuji-retargeting) (hand-pose retargeting algo, pip-installed into the image) — plus the vendored PICO sources under `src/input_devices/pico_input/vendor/`. If you already cloned without it: `git submodule update --init --recursive`. A third submodule, [`unitree_sdk2_python`](https://github.com/unitreerobotics/unitree_sdk2_python), is only required if you're building the [G1 arm image](#unitree-g1-arm-alternative-to-tianji) — it's not touched by the hand-only or Tianji-arm paths.
 
 ### 3. Build the image
 
@@ -247,6 +252,99 @@ After Quick Start you have dual Wuji Hands moving live, driven by Wuji Gloves an
 The Tianji-arm controllers live under `src/output_devices/tianji_output/` (HTC path) and `src/output_devices/tianji_world_output/` (PICO path); both guides cover their launch flows once the input device is set up. The topic interface for plugging in a custom arm input is in [Appendix → Custom Input Device](#custom-input-device).
 
 Once the arm input device is configured, the `monitor` UI is the recommended entry point: pick `Hand + Arm (HTC Tracker)` or `Hand + Arm (PICO 4)` from the preset dropdown and click **Start Teleop**. The HTC preset runs `wuji_teleop.launch.py enable_arm:=true arm_input:=tracker`; the PICO preset runs `pico_teleop.launch.py enable_robot:=true` (PICO has its own launch file because it uses a different arm controller — see [Appendix → Custom Input Device](#custom-input-device)).
+
+### Unitree G1 arm (alternative to Tianji)
+
+`src/output_devices/g1_world_output/` drives a Unitree G1's dual arms (Pinocchio + CasADi IK, `unitree_sdk2py` DDS) instead of a Tianji arm, off the **same** PICO topic contract as `tianji_world_output` (`/left_arm_target_pose`, `/right_arm_target_pose`, chest frame) — so it's a drop-in alternative on the output side, not a new input path.
+
+Unlike the Tianji controllers, it does **not** run inside the `teleop` image. Pinocchio built with working CasADi Python bindings only ships via an apt build (`robotpkg`) that's linked against NumPy 1.x, which conflicts with the NumPy 2.x the rest of the hand stack needs — so it ships as its own container, talking to `teleop` purely over ROS2/DDS (same `ROS_DOMAIN_ID`, host networking):
+
+```bash
+cd docker
+docker compose build g1_world_output   # requires the unitree_sdk2_python submodule — see below
+docker compose up -d g1_world_output
+```
+
+> Needs the `src/unitree_sdk2_python` submodule (Unitree's SDK isn't on PyPI): if you cloned before this was added, run `git submodule update --init --recursive src/unitree_sdk2_python`. This submodule and the `src/g1_wuji2_description` URDF are only needed if you're building the G1 image — the hand-only and Tianji-arm paths don't touch either.
+
+`g1_world_output` also has a MuJoCo sim mode as an alternative to the physical G1 — `ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true` runs real IK with no DDS/hardware connection at all, paired with `src/output_devices/g1_world_output/scripts/mujoco_visualizer.py` (or `scripts/sweep_and_visualize.py` if you don't have a glove/tracker handy and just want to see it move) to watch the result live in MuJoCo — see [`src/output_devices/g1_world_output/README.md`](src/output_devices/g1_world_output/README.md#sim-mode-vs-hardware-mode) for the full toggle and both scripts.
+
+Full details (dependency rationale, config, topics): [`src/output_devices/g1_world_output/README.md`](src/output_devices/g1_world_output/README.md).
+
+## Running Everything in Simulation (No Physical Robot)
+
+A self-contained walkthrough for bringing up the G1 arm + Wuji Hand
+pipeline in MuJoCo — no physical G1 required, and no physical Wuji Hand
+required either (a real Wuji Glove still is, for real hand motion — see
+step 4). No glove/tracker at all is needed if you use the synthetic sweep
+instead.
+
+### 1. Build both images
+
+```bash
+cd docker
+docker compose build teleop
+docker compose --profile g1 build g1_world_output   # needs the unitree_sdk2_python submodule, see below
+```
+
+> If you haven't already, `git submodule update --init --recursive src/unitree_sdk2_python` first (not pulled by a bare `git clone --recurse-submodules` run before this submodule was added).
+
+### 2. Start the main teleop container
+
+```bash
+xhost +local:docker        # let the MuJoCo viewer window reach the host X server
+docker compose up -d teleop
+docker logs -f wuji-hand-teleop    # wait for "SDK Status:"
+```
+
+### 3. Start G1 arm output in sim mode
+
+`dry_run:=true` is the hardware/sim toggle: real IK runs, but the node never
+opens a DDS connection, so no physical G1 (or DDS sim bridge) is touched.
+
+```bash
+cd docker
+docker compose run --rm g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true
+```
+
+### 4. Watch it move
+
+Pick one, in a new terminal:
+
+- **No hardware at all** — sweeps both hands' joints and both arm target
+  poses synthetically, so you see the whole pipeline move without a
+  glove/tracker:
+  ```bash
+  docker exec -it wuji-hand-teleop python3 \
+      src/output_devices/g1_world_output/scripts/sweep_and_visualize.py
+  ```
+- **Real input, sim output** — drive the G1 arms from a real PICO/tracker
+  (publishing `/left_arm_target_pose`, `/right_arm_target_pose` as usual)
+  and/or hands from a real Wuji Glove with **no physical Wuji Hand
+  attached** — only `wujihand_driver` (the process that talks to the
+  physical hand) needs to be skipped; glove read + retargeting run exactly
+  as in normal teleop:
+  ```bash
+  ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py enable_hand_driver:=false
+  docker exec -it wuji-hand-teleop python3 \
+      src/output_devices/g1_world_output/scripts/mujoco_visualizer.py --focus hands
+  ```
+  This mirrors whatever's actually being commanded — run the arm side, the
+  hand side, or both; `--focus hands` just tightens the camera for a
+  hands-only session (drop it, or use `--focus full`, when arms are moving
+  too).
+
+### Configs touched by this walkthrough
+
+| Config | Path | Needed for sim? |
+|---|---|---|
+| G1 arm (IK, reset pose, chest remap) | `src/output_devices/g1_world_output/config/g1_robot.yaml` | No edits needed — `dry_run:=true` overrides the hardware/sim choice; everything else (reset pose, chest remap) is used by the IK regardless of mode |
+| Wuji Glove serials | `src/input_devices/wuji_glove/config/wuji_glove.yaml` | Only if you want real hand motion (glove input) alongside the simulated arms — not needed for the synthetic sweep |
+| Wuji Hand serials | `src/output_devices/wujihand_output/config/wujihand_ik.yaml` | **Not needed** — this walkthrough's hand path (`enable_hand_driver:=false`) never opens the physical hand at all |
+| PICO / HTC tracker serials | `src/input_devices/pico_input/config/pico_input.yaml`, `src/input_devices/openvr_input/config/openvr_input.yaml` | Only if driving real arm input instead of the synthetic sweep |
+
+See [Sim mode vs. hardware mode](src/output_devices/g1_world_output/README.md#sim-mode-vs-hardware-mode) in the package README for what `motion_mode` / `simulation_mode` do (they're DDS-channel details, not the hardware/sim switch), and the [Configuration Files Summary](#configuration-files-summary) below for the full config list.
 
 ## Hardware Configuration
 
@@ -689,6 +787,7 @@ If you find this project useful, please consider citing it:
 | `pico_input` | pico_input | PICO VR hand and wrist tracking |
 | `wujihand_controller` | controller | Wuji Hand control node (one process per hand) |
 | `tianji_arm_controller` | controller | Tianji Arm control node |
+| `g1_world_output_node` | g1_world_output | Unitree G1 dual-arm control node (Pinocchio + CasADi IK, DDS) — runs in its own container |
 
 ### Topic Interface
 
@@ -707,7 +806,7 @@ If you find this project useful, please consider citing it:
 **Arm control** — two options depending on which output package you use:
 
 - **TF mode** (for `tianji_output` / SteamVR): publish TF transforms to `left_wrist` / `right_wrist` / `chest` frames
-- **Topic mode** (for `tianji_world_output` / PICO): publish `PoseStamped` to `/left_arm_target_pose` (frame: `world_left`) and `/right_arm_target_pose` (frame: `world_right`). These are chest-frame poses — `pico_input` converts from world coordinates internally. If building a custom input, you need to transform your world-frame pose into the `world_left`/`world_right` chest frame before publishing. See `tianji_world_output/transform_utils.py` for coordinate transform utilities.
+- **Topic mode** (for `tianji_world_output` / PICO, and `g1_world_output` / PICO): publish `PoseStamped` to `/left_arm_target_pose` (frame: `world_left`) and `/right_arm_target_pose` (frame: `world_right`). These are chest-frame poses — `pico_input` converts from world coordinates internally. If building a custom input, you need to transform your world-frame pose into the `world_left`/`world_right` chest frame before publishing. See `tianji_world_output/transform_utils.py` for coordinate transform utilities. `g1_world_output` consumes the identical topic contract and does its own chest->pelvis remap internally (`g1_world_output/transform_utils.py::chest_pose_to_pelvis`), so a custom input built against `tianji_world_output` needs no changes to also drive a G1.
 
 ### Configuration Files Summary
 
@@ -719,6 +818,7 @@ If you find this project useful, please consider citing it:
 | HTC Tracker serials | `src/input_devices/openvr_input/config/openvr_input.yaml` |
 | Camera serials | `src/camera/config/camera_config.yaml` |
 | Tianji Arm IP | `src/output_devices/tianji_output/tianji_output/config/tianji_output.yaml` |
+| G1 arm (type, DDS mode, URDF path, remap) | `src/output_devices/g1_world_output/config/g1_robot.yaml` |
 
 ### Hardware BOM
 
@@ -742,6 +842,7 @@ For a complete list of hardware components, see the **[Hardware Bill of Material
 | [src/input_devices/pico_input/ARCHITECTURE.md](src/input_devices/pico_input/ARCHITECTURE.md) | PICO coordinate transforms + incremental-control derivation (read this for coordinate-frame bugs) |
 | [src/input_devices/manus_input/README.md](src/input_devices/manus_input/README.md) | MANUS Glove (community-supported, feature-frozen) — setup, calibration, troubleshooting |
 | [src/output_devices/tianji_world_output/README.md](src/output_devices/tianji_world_output/README.md) | Tianji arm controller (world-frame, incremental control) |
+| [src/output_devices/g1_world_output/README.md](src/output_devices/g1_world_output/README.md) | Unitree G1 dual-arm controller (world-frame, own Docker image — why + how to build/run it) |
 | [src/camera/README.md](src/camera/README.md) | Camera configuration and setup |
 | [Hardware BOM](https://docs.google.com/document/d/19Md8R5tw9OyTvOUD-JKt7S6xMivlHVSCSNAKuoZr1eo/edit?tab=t.0) | Complete hardware bill of materials |
 

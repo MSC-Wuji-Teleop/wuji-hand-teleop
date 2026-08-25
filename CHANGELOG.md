@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Added **Unitree G1 dual-arm support** (`src/output_devices/g1_world_output/`) as an
+  alternative to the Tianji arm, consuming the same PICO topic contract as
+  `tianji_world_output`. Pinocchio/CasADi IK + Unitree DDS LowCmd control; runs in
+  its own Docker image/service (`docker compose --profile g1 up -d g1_world_output`)
+  since its Pinocchio build needs NumPy 1.x, incompatible with the rest of the
+  stack's NumPy 2.x. Vendored via the new `src/unitree_sdk2_python` submodule.
+- Added `src/g1_wuji2_description/` — composed G1 + dual Wuji Hand 2 URDF/MJCF/meshes.
+- Added a **MuJoCo sim mode** for G1 teleop: `g1_world_output_node --dry-run` (or
+  `dry_run:=true` on the launch file) solves real IK without ever touching DDS/
+  hardware, paired with `scripts/mujoco_visualizer.py` (mirrors real teleop's
+  joint-command topics live in MuJoCo) or `scripts/sweep_and_visualize.py`
+  (synthetic sweep, for when no glove/tracker is attached) run from the main
+  `teleop` container.
+- Extended the same sim mode to the **Wuji Hand**: `wuji_teleop_hand.launch.py`
+  gained an `enable_hand_driver` arg — set `false` to skip `wujihand_driver`
+  (the only process touching the physical hand) while `wujihand_controller`
+  keeps running off real Wuji Glove input and publishing
+  `/left_hand|right_hand/joint_commands` unchanged, then mirror it with
+  `mujoco_visualizer.py --focus hands` (new `--focus`/camera-framing option).
+
+### Changed
+
+- Added `mujoco==3.12.0` to the main `teleop` image's pip dependencies, needed by
+  the new G1 sim-mode scripts.
+
 ## [2026.6.13]
 
 Open-sourcing the four Wuji-owned pillars (Wuji Glove + Wuji Hand + `wujihandcpp` SDK + `wuji-retargeting` IK) as a single-machine, Docker-only teleop stack. Wuji Glove is the new default hand input. The Tianji arm path (HTC Vive Tracker default, PICO 4 alternative) is optional and runs on top of the same image — see `docs/STEAMVR.md` / `docs/PICO.md`.

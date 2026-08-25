@@ -7,6 +7,22 @@
     </General>
     <Discovery>
       <ParticipantIndex>none</ParticipantIndex>
+      <!--
+        Explicit localhost peer: SPDP multicast discovery between the
+        `teleop` and `g1_world_output` containers (same host, both
+        network_mode: host) is unreliable on Wi-Fi APs that drop/throttle
+        multicast. This adds a supplementary unicast discovery path over
+        loopback for that same-host case; it does not touch <Interfaces>
+        or <AllowMulticast>, so multicast discovery on a real network
+        interface is untouched. It's validated for this same-host,
+        multi-container setup -- NOT validated for a genuinely
+        separate-host G1 (this repo's [2026.6.13] changelog entry notes
+        multi-machine support was deliberately dropped elsewhere), so
+        don't read this as proof that topology works.
+      -->
+      <Peers>
+        <Peer address="127.0.0.1"/>
+      </Peers>
     </Discovery>
   </Domain>
 </CycloneDDS>
