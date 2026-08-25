@@ -13,21 +13,18 @@ inline there.
 
 | If you are setting up… | Read |
 |---|---|
-| The **HTC Vive Tracker** arm path (default, `wuji_teleop.launch.py`) — SteamVR null driver, base stations, dongles, tracker pairing | [STEAMVR.md](STEAMVR.md) |
-| The **PICO 4 + Motion Trackers** arm path (`pico_teleop.launch.py`) — Developer Mode, XRoboToolkit APK, ADB reverse-forwarding, H.264 stereo streaming | [PICO.md](PICO.md) |
-| **Mounting trackers on the body** — straps, orientation, demo video | [tracker-wearing-guide.md](tracker-wearing-guide.md) |
-
-Pick one arm path. The two are alternatives; you don't need both.
+| The **PICO 4 + Motion Trackers** arm path (`pico_teleop.launch.py`) — Developer Mode, XRoboToolkit APK, ADB reverse-forwarding | [PICO.md](PICO.md) |
+| **Wuji Glove networking** — UDP on the glove LAN, and the multi-NIC routing gotcha (glove discovered but connect times out) | [wuji-glove-network.md](wuji-glove-network.md) |
 
 ## References (developing and debugging)
 
 | Topic | Read |
 |---|---|
-| **Our MSC hardware spec**: G1 23-DoF, Wuji Hand 2, gloves + PICO, what the code assumes vs. what exists | [hardware_spec.md](hardware_spec.md) |
+| **Hardware spec**: G1 23-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [hardware_spec.md](hardware_spec.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, process/container model, config convention, invariants | [architecture.md](architecture.md) |
-| Camera topic map, the 2x2 preview, blank-tile and D405-serial troubleshooting | [wuji-camera-topics.md](wuji-camera-topics.md) |
-| Wuji Glove UDP networking and the multi-NIC routing gotcha (glove discovered but connect times out) | [wuji-glove-network.md](wuji-glove-network.md) |
+| **What was removed from the upstream fork, and why** | [cleanup.md](cleanup.md) |
+| Camera topic map and troubleshooting. **Staged, not wired** — targets the G1 head cameras | [wuji-camera-topics.md](wuji-camera-topics.md) |
 
 ## What this folder is not
 
@@ -37,7 +34,3 @@ Pick one arm path. The two are alternatives; you don't need both.
   deployment is Docker — see [Quick Start (Docker)](../README.md#quick-start-docker)
   in the main README. The Dockerfile is the canonical recipe for host
   dependencies if you want to roll a bare-metal install yourself (unsupported).
-
-## Media
-
-`images/` holds figures linked from the guides above. `teleop-demo.mp4` and `tracker-wearing-demo.mp4` are operator-facing demo clips referenced from the main README and from `tracker-wearing-guide.md`.

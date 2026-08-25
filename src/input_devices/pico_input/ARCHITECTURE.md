@@ -291,7 +291,7 @@ Target Pose = Robot Initial Pose + (Current PICO Pose - Initial PICO Pose)
 │ Topic publish: /left_arm_target_pose, /right_arm_target_pose    │
 │ Direct control: controller.move_to_pose_direct(...)             │
 │                                                                 │
-│ Receiver: tianji_world_output_node                              │
+│ Receiver: the arm output node                              │
 │   → IK solve → Send joint angles to robot                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -478,7 +478,7 @@ current_pos_pico = [0.5, 0.2, 0.95]  # 5cm in -Z direction
 
 **Step 4: Apply to Robot Initial Pose**
 ```python
-# Robot initial position (left arm, from tianji_robot.yaml)
+# Robot initial position (left arm, from robot_frames.yaml)
 TIANJI_INIT_POS['left'] = [0.5733, 0.2237, 0.2762]
 
 # Target position
@@ -504,12 +504,12 @@ target_pos = [0.5733, 0.2237, 0.2762] + [0.05, 0, 0]
 **Wrist Tracker and Arm Tracker use different initial positions**:
 
 ```python
-# Wrist Tracker: Maps to robot end-effector position (from tianji_robot.yaml)
+# Wrist Tracker: Maps to robot end-effector position (from robot_frames.yaml)
 wrist_init_pos = TIANJI_INIT_POS[side]
 # Left arm:  [0.5733, 0.2237, 0.2762]
 # Right arm: [0.5733, -0.2237, 0.2762]
 
-# Arm Tracker: Maps to elbow reference position (from tianji_robot.yaml arm_init_pos)
+# Arm Tracker: Maps to elbow reference position (from robot_frames.yaml arm_init_pos)
 # These values are manually set so the arm tracker is below and outside the elbow in chest frame
 arm_init_pos = ARM_INIT_POS[side]
 # Left arm:  [0.2, 0.3, 0.2]
@@ -681,46 +681,28 @@ The axis-angle method directly transforms the rotation axis vector, which is con
 ## 11. File Structure
 
 ```text
-tianji_world_output/tianji_world_output/
-├── __init__.py                      # Package entry (public interface docs)
-├── config_loader.py                 # Unified config loader (tianji_robot.yaml)
-├── transform_utils.py               # ★ Coordinate transform shared library (sole authoritative implementation)
-├── cartesian_controller.py          # Cartesian space controller
-├── tianji_world_output_node.py      # ROS2 output node
-├── fx_kine.py                       # FK/IK kinematics (re-export from tianji_output)
-├── fx_robot.py                      # Robot low-level control (re-export from tianji_output)
-├── structure_data.py                # ctypes structures (re-export from tianji_output)
-├── robot_structures.py              # Robot structures (re-export from tianji_output)
-└── config/
-    ├── tianji_robot.yaml            # ★ Unified config (Single Source of Truth)
-    └── ccs_m6.MvKDCfg              # Kinematics config file
-
 pico_input/pico_input/
 ├── __init__.py                      # Package entry (public interface docs)
 ├── pico_input_node.py               # ROS2 input node (incremental control)
 ├── incremental_controller.py        # Incremental controller (pure computation, no ROS2 dependency)
+├── transform_utils.py               # ★ Coordinate transform shared library (sole authoritative implementation)
+├── config_loader.py                 # Config loader (robot_frames.yaml)
 ├── data_source/                     # Data source abstraction layer + implementations
 │   ├── __init__.py                  # re-export (DataSource, TrackerData, HeadsetData)
 │   ├── base.py                      # ABC base class (DataSource, TrackerData, HeadsetData)
 │   ├── live_data_source.py          # Live PICO SDK data source
 │   └── recorded_data_source.py      # Recorded file playback data source
-└── xrobotoolkit_client.py           # PICO SDK wrapper
+├── xrobotoolkit_client.py           # PICO SDK wrapper
+└── config/
+    ├── pico_input.yaml              # Tracker serials + node params (gitignored, seeded from .template)
+    └── robot_frames.yaml            # ★ Frame conventions + incremental-control anchors
 
 pico_input/test/
 ├── common/
-│   ├── robot_config.py              # Test compatibility layer (loads from tianji_robot.yaml)
-│   ├── robot_lifecycle.py           # Robot power-on/off lifecycle management
-│   └── transform_utils.py           # Re-export wrapper (delegates to tianji_world_output)
-├── tool/
-│   ├── move_to_init_pose.py         # Move robot to initial pose
-│   ├── verify_fk_values.py          # Verify FK computed values
-│   └── diagnose_zsp_para.py         # FK→IK closed-loop zsp_para diagnostics
-├── step1_direct_joint_control.py    # Direct joint control (basic test)
+│   ├── robot_config.py              # Compatibility layer (loads from robot_frames.yaml)
+│   └── transform_utils.py           # Re-export wrapper (delegates to pico_input.transform_utils)
 ├── step2_pose_topic_control.py      # ROS2 Topic pose control
-├── step3_visualize_in_rviz.py       # RViz coordinate system visualization
-├── step4_visualize_recorded_data.py # PICO recorded data visualization
-├── step5_incremental_control_with_robot.py  # PICO incremental control with real robot
-└── step6_arm_angle_stability_test.py # Arm angle stability test (simulated data)
+└── step4_visualize_recorded_data.py # PICO recorded data visualization
 
 pico_input/record/
 ├── trackingData_sample_static.txt   # High-quality static test data (150 frames)
@@ -733,7 +715,7 @@ pico_input/record/
 
 ### Shared Library Architecture
 
-**Sole Authoritative Implementation**: `tianji_world_output/transform_utils.py`
+**Sole Authoritative Implementation**: `pico_input/pico_input/transform_utils.py`
 
 All coordinate/rotation transform functions are implemented only in this file; all consumers import from here.
 `test/common/transform_utils.py` is merely a re-export wrapper with zero implementation code.
@@ -741,7 +723,7 @@ All coordinate/rotation transform functions are implemented only in this file; a
 ### Shared Library (transform_utils.py) Function Index
 
 When writing new programs, import the following functions from `common.transform_utils` (test scripts) or
-`tianji_world_output.transform_utils` (ROS2 nodes):
+`pico_input.transform_utils` (ROS2 nodes):
 
 ```python
 from common.transform_utils import (
@@ -807,13 +789,13 @@ zsp_para = [direction[0], direction[1], direction[2], 0, 0, 0]
 ```text
 PICO OpenXR Delta
     ↓ (pico_to_robot matrix)
-Tianji World Delta
+Robot World Delta
     ↓ (world_to_chest rotation)
-Tianji Chest Delta
+Robot Chest Delta
     ↓ (add to TIANJI_INIT_POS)
 Target Pose
     ↓ (Topic publish / direct control)
-tianji_world_output_node (IK)
+the arm output node (IK)
     ↓
 Joint Angle Control
 ```

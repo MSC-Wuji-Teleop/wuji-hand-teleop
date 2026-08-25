@@ -10,7 +10,7 @@ its own network port**, there is a routing gotcha worth knowing.
 - `Scan SNs` / the SDK **discovers** the glove, but the controller logs
   `wuji_sdk connect attempt #… failed: Connection timeout` and never streams.
 - `ping 192.168.1.100` **fails**, yet the glove is powered and cabled.
-- The Tianji arm (also on `192.168.1.x`) connects fine — so it is *not* a
+- Other devices on `192.168.1.x` connect fine — so it is *not* a
   firewall or whole-network outage.
 
 ## Cause: multiple NICs on the same subnet (multi-homing)

@@ -3,6 +3,38 @@
 
 Wuji teleoperation system camera integration package.
 
+> ## STATUS: staged, not wired
+>
+> **Nothing in the launch graph starts this package.** It was unwired from
+> `pico_teleop.launch.py` on 2026-08-25, because the hardware it targets is not
+> on this rig: an HBVCAM USB UVC stereo head plus two RealSense **D405** wrist
+> cameras. It is kept, and kept building, because the G1's own head cameras
+> (RealSense **D435i** built-in, **D455** attachment) are planned, and most of
+> this package applies to them directly.
+>
+> It still runs standalone if you have the hardware:
+> `ros2 launch camera camera_launch.py`.
+>
+> ### What changes for D435i / D455
+>
+> | Component | Change | Size |
+> |---|---|---|
+> | `create_realsense_camera()` | add `'d455'` to the two type checks (`camera_launch.py:330`, `:364`). **`d435i` already works** and is in fact the default type; `device_type` is forwarded straight to the stock `rs_launch.py` | 2 lines |
+> | `config/camera_config.yaml` | rename slots, set `type:`, new serials, new TF frames | config only |
+> | slot iteration | the hardcoded `['head','left_wrist','right_wrist']` list (`:337`) | 1 list |
+> | `head` special-case | `head` is currently skipped in the loop (`:352-359`) so `unified_stereo` can own the UVC device. With a RealSense head this inverts to an ordinary `create_realsense_camera()` call | ~10 lines |
+> | `unified_stereo_node.py` capture | `_open_camera` + `_capture_loop` swap from `cv2.VideoCapture` on V4L2 to a ROS2 subscriber yielding numpy frames. Everything downstream already consumes a plain frame | ~50 lines |
+> | `ffmpeg_utils.build_camera_input_args` | V4L2 input args become piped raw frames | ~20 lines |
+> | H.264 encode, TCP serve, XRobo protocol | **none.** `ffmpeg_utils.py` and `xrobo_protocol.py` are source-agnostic | 0 |
+> | stereo pair for the headset | **open design question.** The HBVCAM was a true 60 mm-baseline stereo pair, which is what made PICO stereo viewing work. D435i's *color* stream is mono. Either use D435i + D455 as a wide-baseline pair (needs hardware sync, which `enable_sync` already anticipates) or send mono | new work |
+>
+> The Docker layer is already provisioned: `ros-humble-realsense2-camera`,
+> `ffmpeg`, the `c 81:*` V4L2 cgroup rule (librealsense uses the V4L2 backend),
+> and the commented-out NVENC block all remain in place.
+>
+> The Camera Preview GUI (`ros2 run wuji_teleop_monitor camera`) was removed
+> with the rest of the Tianji-era Monitor entry points.
+
 ## Hardware Configuration
 
 | Position | Default Camera | Sensor | Shutter | Interface | Device Symlink |

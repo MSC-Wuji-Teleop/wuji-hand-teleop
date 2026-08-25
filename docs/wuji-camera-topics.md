@@ -1,5 +1,16 @@
 # Camera topics & the preview
 
+> **STATUS: staged, not wired.** Nothing in the current launch graph starts the
+> camera pipeline, and the hardware this document describes is not on the rig.
+> `src/camera/` targets a stereo head camera (HBVCAM, USB UVC) plus two
+> RealSense **D405** wrist cameras. The G1's own head cameras (RealSense
+> **D435i** built-in, **D455** attachment) are planned but not yet integrated.
+> The topic map below is still accurate *for the code as written*; treat it as
+> the starting point for that migration, not as a description of a running
+> system. `src/camera/README.md` carries the migration notes, and the Camera
+> Preview GUI it refers to was removed along with the rest of the Tianji-era
+> Monitor entry points.
+
 The rig has three physical cameras: a **stereo head camera** (two eyes) and two
 **wrist D405s**. They publish on the topics below. Names are intentionally left
 as each driver publishes them (no system-wide rename); the Camera Preview just

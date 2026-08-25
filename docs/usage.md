@@ -5,7 +5,7 @@ Daily commands for working on this repo. Assumes the one-time setup in
 serials configured, container able to start.
 
 Audience: a developer editing code. For first-time setup, use the
-[main README](../README.md). For per-device operator setup (SteamVR, PICO,
+[main README](../README.md). For per-device operator setup (PICO,
 trackers), see the [guides index](README.md).
 
 - [Where commands run](#where-commands-run): host vs. container.
@@ -69,24 +69,30 @@ fallback. Preset-to-launch-file mapping is documented in
 [Running](../README.md#running).
 
 ```bash
-# One-click GUI
-ros2 run wuji_teleop_monitor monitor    # dashboard + preset launch + joint preview
-ros2 run wuji_teleop_monitor brake      # direct-SDK Tianji brake/recovery (teleop must be OFF)
-ros2 run wuji_teleop_monitor camera     # 2x2 camera preview (read-only diagnostic)
+# One-click GUI (two presets: hand-only, and hand + PICO input)
+ros2 run wuji_teleop_monitor monitor
 
 # Hand-only, CLI
 ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py
 
-# Hand + arm, HTC Tracker path
-ros2 launch wuji_teleop_bringup wuji_teleop.launch.py enable_arm:=true arm_input:=tracker
-
-# Hand + arm, PICO path (separate launch file, different arm controller)
-ros2 launch wuji_teleop_bringup pico_teleop.launch.py enable_robot:=true
+# PICO arm input + hands, CLI
+ros2 launch wuji_teleop_bringup pico_teleop.launch.py
 ```
 
-> **`brake` and `monitor` teleop must never run concurrently.** The Tianji
-> controller cabinet allows a single TCP session. Stop teleop before
-> connecting `brake`; disconnect `brake` before relaunching teleop.
+> **Neither the GUI nor these launch files start the G1 arms.**
+> `g1_world_output` runs in its own container (Pinocchio + CasADi need NumPy
+> 1.x, the rest of the stack needs 2.x), so it cannot be a node in a
+> `teleop`-container launch file. Start it from the host, in a second
+> terminal:
+>
+> ```bash
+> cd docker && docker compose run --rm g1_world_output \
+>     ros2 launch g1_world_output g1_world_output.launch.py
+> ```
+>
+> The two containers share host networking, `ROS_DOMAIN_ID`, and
+> `docker/cyclonedds.xml`, so the arm target-pose topics cross between them.
+> This end-to-end PICO -> G1 path has **not been verified on hardware yet**.
 
 Sim modes (no physical robot):
 

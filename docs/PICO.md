@@ -1,7 +1,7 @@
 
 # PICO Teleoperation Solution
 
-PICO 4 / 4 Ultra VR Headset + 4 PICO Motion Trackers for arm pose tracking + Wuji Glove (default; MANUS supported via `wujihand_ik.yaml::input_source`), head stereo H.264 real-time streaming to VR display.
+PICO 4 / 4 Ultra VR Headset + 4 PICO Motion Trackers for arm pose tracking, plus Wuji Gloves for the hands.
 
 This is the single entry-point user guide. Architecture, tracker math, and package internals live in the package READMEs linked at the bottom.
 
@@ -139,26 +139,39 @@ ros2 topic hz /stereo/left/compressed         # Head stereo (~30fps)
 
 | Launch Method | Description |
 |---------------|-------------|
-| `ros2 launch wuji_teleop_bringup pico_teleop.launch.py` | Full PICO pipeline (cameras + Wuji Hand + Tianji Arm). |
-| `ros2 launch wuji_teleop_bringup pico_teleop.launch.py enable_hand:=false` | Arm only (skip hand controllers). |
-| `ros2 launch wuji_teleop_bringup pico_teleop.launch.py enable_camera:=false` | Skip cameras + H.264 stream (CI / no headset). |
+| `ros2 launch wuji_teleop_bringup pico_teleop.launch.py` | PICO input + both Wuji Hands. |
+| `ros2 launch wuji_teleop_bringup pico_teleop.launch.py enable_hand:=false` | PICO input only (skip hand controllers and drivers). |
+
+This launch file does **not** start an arm output. `g1_world_output` runs in
+its own container, so start it separately from the host:
+
+```bash
+cd docker && docker compose run --rm g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py
+#   ... append dry_run:=true for sim: real IK, no DDS, no robot
+```
+
+The PICO -> G1 path has not yet been verified on hardware.
 
 ### pico_teleop.launch.py Parameters
 
 ```bash
-# Preview mode (RViz visualization only, no robot control)
+# Preview mode (RViz visualization only, nothing driven)
 ros2 launch wuji_teleop_bringup pico_teleop.launch.py \
-    enable_robot:=false enable_camera:=false enable_hand:=false enable_rviz:=true
+    enable_hand:=false enable_rviz:=true
 ```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `enable_robot` | `true` | Tianji Arm output |
-| `enable_camera` | `true` | Cameras (head stereo + wrist D405) |
-| `enable_hand` | `true` | Hand input + dexterous hand output (hand source via `wujihand_ik.yaml::input_source`) |
+| `enable_hand` | `true` | Hand controllers + hand drivers |
 | `enable_rviz` | `false` | RViz visualization |
+| `hand_config` | auto | Path to `wujihand_ik.yaml` |
 
-> **Coordinate system:** The PICO solution uses **world coordinate system IK** (`tianji_world_output`); PICO tracking data is solved directly in the world coordinate system.
+> **Coordinate system:** the PICO path solves in the **world frame**. The node
+> converts PICO's OpenXR frame into world and chest frames using
+> `pico_input/transform_utils.py`, with the conventions and incremental-control
+> anchors in `pico_input/config/robot_frames.yaml`. Any arm output then consumes
+> the chest-frame target poses.
 
 ## 4. Head Stereo H.264 Streaming (Stereo Vision)
 
@@ -304,7 +317,6 @@ PICO also supports WiFi wireless connection (no ADB needed):
 | Video stream interrupted | System auto-falls back to ROS2-only; reconnect PICO to resume |
 | `TCP connect failed` | ADB forward port not established, check USB connection |
 | NVENC encoding failure | Auto-falls back to libx264 when container has no GPU, no impact on functionality |
-| MANUS Gloves no data | Run `git lfs pull` on host to ensure SDK files are complete |
 | `pico_input` initialization timeout | Is PICO XRoboToolkit connected and Send pressed? Check PC-Service logs |
 
 ## Further reading

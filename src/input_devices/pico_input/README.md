@@ -1,8 +1,10 @@
 # PICO Input — VR teleoperation input
 
-ROS2 package that reads PICO VR tracking data (1 headset + 4 trackers) from the XRoboToolkit PC-Service over a localhost shared-memory channel, applies **incremental control**, and publishes TF + target-pose / elbow-direction topics for the Tianji arm controllers.
+ROS2 package that reads PICO VR tracking data (1 headset + 4 trackers) from the XRoboToolkit PC-Service over a localhost shared-memory channel, applies **incremental control**, and publishes TF + target-pose / elbow-direction topics for whichever arm output is running.
 
-> PICO 4 / 4 Ultra + 4 Motion Trackers is the **VR alternative** for arm input. The default arm input on the open-source pipeline is the HTC Vive Tracker — see `src/input_devices/openvr_input/`. This README assumes you have chosen the PICO path (bring-up via `ros2 launch wuji_teleop_bringup pico_teleop.launch.py`).
+> PICO 4 / 4 Ultra + 4 Motion Trackers is the **only** arm input on this fork; the upstream HTC Vive Tracker path was removed. Bring-up: `ros2 launch wuji_teleop_bringup pico_teleop.launch.py`.
+>
+> This package also owns the PICO frame math: `transform_utils.py` (world/chest conversions) and `config_loader.py` + `config/robot_frames.yaml` (frame conventions and incremental-control anchors). Both moved here from the removed `tianji_world_output` package.
 
 ---
 
@@ -34,8 +36,7 @@ Recommended bring-up order on a fresh machine: **(A) → (B) → (C)**.
 
 | Parameter | Default | Effect |
 |---|---|---|
-| `enable_robot` | `true` | Send IK targets to the Tianji arm controllers |
-| `enable_hand` | `true` | Enable the Wuji-hand path (MANUS / Wuji glove input + retargeting) |
+| `enable_hand` | `true` | Enable the Wuji-hand path (Wuji Glove input + retargeting) |
 | `enable_camera` | `true` | Bring up stereo head camera + RealSense wrist cameras |
 | `enable_rviz` | `false` | Open RViz with the PICO TF tree pre-loaded |
 | `data_source_type` | `live` | `live` reads from PC-Service; `recorded` plays back a file |
@@ -68,7 +69,7 @@ The wrist tracker determines *where* and *how* the hand points. The upper-arm tr
 
 ### Initialisation
 
-1. Robot reaches `init_joints` (configured in `tianji_robot.yaml`).
+1. Robot reaches the `init_pos` / `init_rot` anchor (configured in `config/robot_frames.yaml`).
 2. User stands facing the robot, puts on PICO, and assumes a roughly similar pose.
 3. After `auto_init_delay` seconds (default 5; set `0` to require manual trigger), the node snapshots: HMD pose, wrist tracker poses, upper-arm tracker positions.
 4. From that frame on, every PICO update produces a delta-driven target.
@@ -188,17 +189,17 @@ world
 |---|---|---|
 | `/pico_hmd` | `PoseStamped` | HMD pose in `world` |
 | `/pico_left_wrist`, `/pico_right_wrist` | `PoseStamped` | Wrist tracker poses in the respective shoulder/chest frame |
-| `/left_arm_target_pose`, `/right_arm_target_pose` | `PoseStamped` | Incremental-control targets consumed by `tianji_world_output` |
+| `/left_arm_target_pose`, `/right_arm_target_pose` | `PoseStamped` | Incremental-control targets, chest frame. Consumed by `g1_world_output` (which runs in its own container) |
 | `/left_arm_elbow_direction`, `/right_arm_elbow_direction` | `Vector3Stamped` | Arm-angle constraint vectors |
 
 ---
 
 ## Coordinate systems
 
-The node converts PICO's OpenXR frame to the Tianji robot frame using a fixed orthogonal transform (`det = +1`, no mirroring):
+The node converts PICO's OpenXR frame to the robot frame using a fixed orthogonal transform (`det = +1`, no mirroring):
 
 ```
-Tianji robot (right-handed)        PICO / OpenXR (right-handed)
+Robot frame (right-handed)        PICO / OpenXR (right-handed)
     Z (up)                              Y (up)
     │                                   │
     └── Y (left)                        └── X (right)
@@ -220,7 +221,7 @@ Rotation uses the axis-angle method: rotate the axis vector by the matrix above,
 
 ## Robot initial pose (FK of `init_joints`)
 
-Tianji joint angles (degrees) configured in `tianji_robot.yaml`:
+Reference arm joint angles (degrees). These are Tianji-derived values carried over verbatim; see the PROVENANCE block in `config/robot_frames.yaml`:
 
 ```python
 INIT_JOINTS_LEFT  = [ 55.0, -65.0, -70.0, -60.0,  60.0, 0.0, 0.0]
@@ -243,13 +244,13 @@ INIT_JOINTS_RIGHT = [-55.0, -65.0,  70.0, -60.0, -60.0, 0.0, 0.0]
 
 Roughly: elbow 30 cm below + 20 cm outward from shoulder (sunken-elbow / abducted posture).
 
-### Recomputing after changing `init_joints`
+### Recomputing the anchors
 
-```bash
-cd src/output_devices/tianji_world_output/tianji_world_output
-python3 get_init_pose.py
-# Paste the printed init_pos / init_rot / init_quat into tianji_robot.yaml.
-```
+The `init_pos` / `init_rot` / `init_quat` anchors in `config/robot_frames.yaml`
+were computed as FK of the old Tianji arm's calibrated pose. They have **not**
+been re-derived for the G1_23, which has 5 arm DoF per side rather than 7. The
+upstream `get_init_pose.py` helper lived in `tianji_world_output` and was
+removed with it; recovering it, or writing a G1 equivalent, is open work.
 
 ---
 
@@ -292,7 +293,6 @@ ros2 run tf2_tools view_frames && evince frames.pdf
 | `cannot find -lPXREARobotSDK` | C++ shared lib missing | Re-run `./install_sdk.sh` (it copies `libPXREARobotSDK.so` into `~/.local/lib`) |
 | `Found zero norm quaternions` | PICO not yet sending data | Confirm the PICO App shows "Connected"; check `num_motion_data_available()` > 0 |
 | `/opt/apps/roboticsservice/runService.sh: No such file` | PC-Service `.deb` not installed | `sudo dpkg -i docker/prebuilt/XRoboToolkit_PC_Service_*.deb` |
-| `libManusSDK_Integrated.so: file format not recognized` | Git LFS files weren't fetched | `git lfs install && git lfs pull` then rebuild |
 | No TF data | PICO not connected, or tracker serials in YAML don't match the physical devices | Check XRoboToolkit App; re-check `tracker_serial_*` in `config/pico_input.yaml` |
 | `pip3` installs into a conda env | conda is activated | Use `/usr/bin/python3 -m pip install --user ...` |
 
@@ -305,7 +305,7 @@ cd ~/ros2_ws/src/wuji-hand-teleop
 sudo apt install git-lfs
 git lfs install
 git lfs pull
-file src/input_devices/manus_input/manus_ros2/ManusSDK/lib/libManusSDK_Integrated.so
+file src/input_devices/pico_input/prebuilt/x86_64/libPXREARobotSDK.so
 # Should print "ELF 64-bit LSB shared object" — not "ASCII text".
 colcon build --symlink-install
 ```
@@ -343,11 +343,13 @@ pico_input/
 | Package | Role |
 |---|---|
 | `pico_input` (this package) | PICO data acquisition + incremental control |
-| `tianji_world_output` | Consumes `/*_target_pose` + `/*_elbow_direction`, drives the Tianji arm in world frame |
-| `wuji_glove` *(default)* or `manus_input` *(optional)* | Hand input → joint angles |
+| `wuji_glove` | Hand input → joint angles (in-process, no topic hop) |
 | `wujihand_output` (controller side) | Hand retargeting + Wuji-hand driver |
-| `camera` | Stereo head camera + RealSense wrists (see `src/camera/README.md`) |
 | `wuji_teleop_bringup` | Top-level launch composition |
+
+The arm output is **not** composed by this launch file. `g1_world_output`
+consumes `/*_target_pose` + `/*_elbow_direction` from its own container; start
+it separately. See `docs/architecture.md`.
 
 Build everything in one go:
 

@@ -1,7 +1,7 @@
 # g1_world_output
 
 Unitree G1_23 arm output package for PICO teleoperation. Same ROS topic contract
-as `tianji_world_output`; remaps chest-frame wrist poses into the G1 pelvis
+as `pico_input` publishes; remaps chest-frame wrist poses into the G1 pelvis
 frame, then runs Pinocchio/Casadi IK and Unitree DDS LowCmd control.
 
 ## Data flow
@@ -16,7 +16,7 @@ pico_input
        G1_23_ArmController    (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 ```
 
-## Topics (identical to tianji_world_output)
+## Topics (the standard arm-output contract)
 
 | Direction | Topic | Type |
 |-----------|-------|------|
@@ -36,7 +36,7 @@ Arm joints per side: shoulder pitch/roll/yaw, elbow, wrist roll.
 ### Both arms are always commanded together
 
 The topics are per-side, but the control is not — this is the one place where
-behaviour diverges from `tianji_world_output`, which treats each arm as an
+behaviour diverges from the removed `tianji_world_output`, which treated each arm as an
 independent controller. Here, the control loop runs as soon as *either*
 `/left_arm_target_pose` or `/right_arm_target_pose` has been received, and
 `G1CartesianController.move_to_pose_direct` then solves **both** arms in a single

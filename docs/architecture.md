@@ -29,31 +29,27 @@ standard interface, which is what makes them swappable.
 graph LR
     subgraph Inputs
         WG["Wuji Glove"]
-        HTC["HTC Vive Tracker<br/>(SteamVR)"]
-        PICO["PICO 4"]
+        PICO["PICO 4<br/>+ 4 trackers"]
     end
 
     WG -. "wuji_sdk UDP<br/>in-process" .-> HC["wujihand_controller<br/>(left + right processes)"]
-    HTC --> OI["openvr_input"]
     PICO --> PI["pico_input"]
 
-    OI --> TF["TF frames<br/>world-chest, world-wrist"]
     PI --> TP["/left_arm_target_pose<br/>/right_arm_target_pose"]
 
     HC -- "/left_hand/joint_commands<br/>/right_hand/joint_commands" --> DRV["wujihand_driver<br/>(C++, USB)"]
-    DRV --> HAND["Wuji Hand"]
+    DRV --> HAND["2x Wuji Hand 2"]
 
-    TF --> TO["tianji_output<br/>(TF mode)"]
-    TP --> TWO["tianji_world_output<br/>(topic mode)"]
-    TP --> G1O["g1_world_output<br/>(topic mode, own container)"]
-
-    TO --> ARM["Tianji Arm"]
-    TWO --> ARM
-    G1O --> G1["Unitree G1"]
+    TP -.->|"cross-container DDS"| G1O["g1_world_output<br/>(own container)"]
+    G1O --> G1["Unitree G1 (23-DoF)"]
 ```
 
-The dashed edge is not a ROS2 topic: the glove SDK is imported in-process by
-each hand controller, so glove data never crosses a topic hop.
+The two dashed edges are the ones that are not a plain ROS2 topic hop inside
+one process tree. The glove SDK is imported in-process by each hand
+controller, so glove data never crosses a topic. The arm target poses do cross
+a topic, but between *containers*: `g1_world_output` runs in its own image, so
+nothing in the `teleop` container can start it. See
+[Process and container model](#process-and-container-model).
 
 ## Input devices
 
@@ -63,9 +59,7 @@ interfaces:
 | Package | Device | Interface it produces |
 |---|---|---|
 | `wuji_glove/` | Wuji Glove (default hand input) | None. Connects in-process via `wuji_sdk` UDP directly inside each hand controller |
-| `openvr_input/` | HTC Vive Tracker (SteamVR) | TF: `world -> chest`, `world -> wrist` |
-| `pico_input/` | PICO 4 arm/hand tracking | `PoseStamped` on `/left_arm_target_pose`, `/right_arm_target_pose`. These are chest-frame poses; the node converts from PICO's world frame internally |
-| `manus_input/` | MANUS Glove | Community-supported and feature-frozen; not surfaced in the Monitor GUI |
+| `pico_input/` | PICO 4 headset + 4 Motion Trackers | `PoseStamped` on `/left_arm_target_pose`, `/right_arm_target_pose`. These are chest-frame poses; the node converts from PICO's world frame internally, using `pico_input/transform_utils.py` and the anchors in `config/robot_frames.yaml` |
 
 The topic contract for plugging in a custom input is specified in
 [Custom Input Device](../README.md#custom-input-device).
@@ -99,9 +93,7 @@ All under `src/output_devices/`:
 | Package | Hardware | Consumes |
 |---|---|---|
 | `wujihand_output/` | Wuji Hand | Hand IK controller config + retargeting parameters (see [Hand controller](#hand-controller)) |
-| `tianji_output/` | Tianji Arm | TF mode: `openvr_input`'s TF frames. Used by the HTC path |
-| `tianji_world_output/` | Tianji Arm | Topic mode: `/left_arm_target_pose`, `/right_arm_target_pose`. Used by the PICO path. Its `transform_utils.py` has the chest-frame transform utilities a custom input would need |
-| `g1_world_output/` | Unitree G1 (dual arm) | The **same** topic contract as `tianji_world_output`, so it is a drop-in output alternative, not a new input path. Does its own chest-to-pelvis remap (`transform_utils.py::chest_pose_to_pelvis`) |
+| `g1_world_output/` | Unitree G1 (dual arm) | `/left_arm_target_pose`, `/right_arm_target_pose`, plus the elbow-direction hints. Does its own chest-to-pelvis remap (`transform_utils.py::chest_pose_to_pelvis`). Runs in its own container |
 
 `g1_world_output` solves IK with Pinocchio + CasADi and talks to the robot
 over `unitree_sdk2py` DDS. Its `--dry-run` flag (or `dry_run:=true` on the
@@ -123,8 +115,8 @@ streaming. Topic map and camera troubleshooting:
 
 - `src/wuji_teleop_bringup/` holds the launch files that wire packages
   together per preset: `wuji_teleop_hand.launch.py` (hand-only),
-  `wuji_teleop.launch.py` (HTC arm path), `pico_teleop.launch.py` (PICO arm
-  path, its own file because it uses a different arm controller).
+  `pico_teleop.launch.py` (PICO input + hands). Neither starts an arm
+  output, because the G1 controller is in a different container.
 - `src/wuji_teleop_monitor/` is the Qt5 GUI with three entry points:
   `monitor`, `brake`, `camera`. `monitor` is the primary one-click flow and is
   the reference for how presets map to launch files and flags.
@@ -156,8 +148,6 @@ symlink picks it up. The full config list is in
 
 ## Invariants
 
-- **Single Tianji TCP session**: the controller cabinet accepts one client.
-  `brake` and `monitor` teleop must never run concurrently.
 - **Controller/driver split**: only `wujihand_driver` opens the hand USB
   connection. The hand controller stays hardware-agnostic and always publishes
   joint-command topics.

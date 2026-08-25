@@ -2,7 +2,7 @@
 
 Fork is NOT general purpose. Currently drives rig: Unitree G1_23 + dual Wuji hand 2 teleoped from Wuji Gloves and PICO 4 headset. 
 
-Upstream docs describe hardware we do not have (Tianji arm, HTC trackers, cameras). 
+Upstream supported hardware we do not have (Tianji arm, HTC trackers, MANUS glove, D405/HBVCAM cameras). That code has now been removed; see [cleanup.md](cleanup.md).
 
 This file is the source of truth for what our hardware is and what the code assumed. 
 
@@ -95,10 +95,16 @@ this rig.
 
 ## Not in this rig
 
-Tianji Arm (and the Monitor `brake` tool), HTC Vive Tracker / SteamVR, the
-head stereo + D405 wrist cameras, and the MANUS glove are upstream-only; our
-arm output is `g1_world_output`, consuming the PICO-path topic contract
-(`/left_arm_target_pose`, `/right_arm_target_pose`).
+Tianji Arm (and the Monitor `brake` tool), HTC Vive Tracker / SteamVR, and
+the MANUS glove were upstream-only and **their code has been removed** — see
+[cleanup.md](cleanup.md). Our arm output is `g1_world_output`, consuming the
+PICO-path topic contract (`/left_arm_target_pose`,
+`/right_arm_target_pose`).
+
+The camera package `src/camera/` is **kept but unwired**. It targets D405 wrist
++ HBVCAM head hardware we do not have, and the G1's own head cameras (RealSense
+D435i built-in, D455 attachment) are planned but not yet integrated. Nothing
+launches it; see [wuji-camera-topics.md](wuji-camera-topics.md).
 
 ## Where G1_23 is baked into the code
 
