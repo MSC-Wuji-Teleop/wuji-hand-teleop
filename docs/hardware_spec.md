@@ -23,6 +23,44 @@ Confirmed 2026-08-24: the robots are the **23-DoF** G1, not the 29-DoF.
 | Not present vs. 29-DoF | wrist pitch, wrist yaw, waist roll, waist pitch; link inertias also differ |
 | Control interface | `unitree_sdk2py` DDS (`rt/lowcmd` or `rt/arm_sdk`) |
 
+#### Joint indices and limits (G1_23)
+
+| Index | Joint Name | Limit (rad) |
+|---|---|---|
+| 0 | L_LEG_HIP_PITCH | -2.5307~2.8798 |
+| 1 | L_LEG_HIP_ROLL | -0.5236~2.9671 |
+| 2 | L_LEG_HIP_YAW | -2.7576~2.7576 |
+| 3 | L_LEG_KNEE | -0.087267~2.8798 |
+| 4 | L_LEG_ANKLE_PITCH | -0.87267~0.5236 |
+| 5 | L_LEG_ANKLE_ROLL | -0.2618~0.2618 |
+| 6 | R_LEG_HIP_PITCH | -2.5307~2.8798 |
+| 7 | R_LEG_HIP_ROLL | -2.9671~0.5236 |
+| 8 | R_LEG_HIP_YAW | -2.7576~2.7576 |
+| 9 | R_LEG_KNEE | -0.087267~2.8798 |
+| 10 | R_LEG_ANKLE_PITCH | -0.87267~0.5236 |
+| 11 | R_LEG_ANKLE_ROLL | -0.2618~0.2618 |
+| 12 | WAIST_YAW | -2.618~2.618 |
+| 13 | WAIST_ROLL | -0.52~0.52 |
+| 14 | WAIST_PITCH | -0.52~0.52 |
+| 15 | L_SHOULDER_PITCH | -3.0892~2.6704 |
+| 16 | L_SHOULDER_ROLL | -1.5882~2.2515 |
+| 17 | L_SHOULDER_YAW | -2.618~2.618 |
+| 18 | L_ELBOW | -1.0472~2.0944 |
+| 19 | L_WRIST_ROLL | -1.972222054~1.972222054 |
+| 20 | L_WRIST_PITCH | -1.614429558~1.614429558 |
+| 21 | L_WRIST_YAW | -1.614429558~1.614429558 |
+| 22 | R_SHOULDER_PITCH | -3.0892~2.6704 |
+| 23 | R_SHOULDER_ROLL | -2.2515~1.5882 |
+| 24 | R_SHOULDER_YAW | -2.618~2.618 |
+| 25 | R_ELBOW | -1.0472~2.0944 |
+| 26 | R_WRIST_ROLL | -1.972222054~1.972222054 |
+| 27 | R_WRIST_PITCH | -1.614429558~1.614429558 |
+| 28 | R_WRIST_YAW | -1.614429558~1.614429558 |
+
+Note: indices 13, 14, 20, 21, 27, 28 (waist roll/pitch, wrist pitch/yaw)
+are the 29-DoF joints not present on this rig's 23-DoF robot; see
+[Where G1_23 is baked into the code](#where-g1_23-is-baked-into-the-code).
+
 ### End effectors: 2x Wuji Hand 2
 
 | Property | Value |
