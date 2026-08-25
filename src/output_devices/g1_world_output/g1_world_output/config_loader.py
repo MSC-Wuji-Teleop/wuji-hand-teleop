@@ -139,7 +139,7 @@ class G1Config:
         return cls(
             raw=raw,
             arm_type=raw.get('arm_type', 'G1_23'),
-            motion_mode=bool(raw.get('motion_mode', False)),
+            motion_mode=bool(raw.get('motion_mode', True)),
             simulation_mode=bool(raw.get('simulation_mode', False)),
             urdf_package_dir=urdf_dir,
             urdf_filename=raw.get('urdf_filename', 'g1_23_wuji2.urdf'),

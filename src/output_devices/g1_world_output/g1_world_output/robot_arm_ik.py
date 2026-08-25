@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 G1_23_ARM_DOF = 10
 
+# G1_23 EE frame on the wrist_roll joints: 0.20 m forward offset (matches
+# xr_teleoperate; revisit when the Hand 2 adapter CAD lands).
+EE_OFFSET = np.array([0.20, 0.0, 0.0])
+
 # Lock everything except the 10 G1_23 arm joints when using g1_23_wuji2.urdf.
 _G1_23_LOCK_JOINTS = [
     "left_hip_pitch_joint",
@@ -121,13 +125,11 @@ class G1_23_ArmIK:
             reference_configuration=np.array([0.0] * self.robot.model.nq),
         )
 
-        # G1_23 EE frame on wrist_roll with 0.20 m forward offset (matches xr_teleoperate).
-        ee_offset = np.array([0.20, 0.0, 0.0]).T
         self.reduced_robot.model.addFrame(
             pin.Frame(
                 'L_ee',
                 self.reduced_robot.model.getJointId('left_wrist_roll_joint'),
-                pin.SE3(np.eye(3), ee_offset),
+                pin.SE3(np.eye(3), EE_OFFSET),
                 pin.FrameType.OP_FRAME,
             )
         )
@@ -135,7 +137,7 @@ class G1_23_ArmIK:
             pin.Frame(
                 'R_ee',
                 self.reduced_robot.model.getJointId('right_wrist_roll_joint'),
-                pin.SE3(np.eye(3), ee_offset),
+                pin.SE3(np.eye(3), EE_OFFSET),
                 pin.FrameType.OP_FRAME,
             )
         )

@@ -11,7 +11,10 @@
 arm_type: "G1_23"
 
 # DDS / control
-motion_mode: false       # false -> rt/lowcmd, true -> rt/arm_sdk
+# motion_mode true -> rt/arm_sdk: the G1's onboard controller keeps the legs.
+# Default for sessions on the real robot. Set false (rt/lowcmd, full low-level
+# bus) only with the robot hanging on a stand / in debug mode.
+motion_mode: true
 simulation_mode: false   # true -> ChannelFactoryInitialize(1)
 
 # Path to g1_wuji2_description (directory that contains g1_23_wuji2.urdf + meshes/).

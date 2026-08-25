@@ -36,10 +36,10 @@ Confirmed 2026-08-24: the robots are the **23-DoF** G1, not the 29-DoF.
 Measured 2026-08-22: the vendor's `unitree-g1-docking-adapter.stl` is a **Wuji
 Hand v1 part and does not fit Hand 2**. A Hand 2 adapter redesign is pending;
 printing is on hold. Until the CAD lands, `g1_wuji2_description` uses a
-provisional mount: hand at the Unitree palm flange plane (x = 0.0415 m on
-`wrist_yaw_link`), zero plate thickness. Note the flange parent itself changes
-with the 23-DoF rebuild (the 23's terminal arm link is wrist roll, there is no
-wrist yaw link).
+provisional mount: hand at the ICP-located palm flange on the wrist-roll link
+(the 23's terminal arm link), wrist_roll + [0.1220, +-0.003, 0], zero plate
+thickness. The earlier 29-DoF mount (x = 0.0415 m on `wrist_yaw_link`) is
+obsolete: the 23-DoF robot has no wrist yaw link.
 
 ### Input devices
 

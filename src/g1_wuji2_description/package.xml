@@ -3,7 +3,7 @@
 <package format="3">
   <name>g1_wuji2_description</name>
   <version>0.1.0</version>
-  <description>Composed Unitree G1 (29 DoF) + dual Wuji Hand 2 (2x 20 DoF) URDF/MJCF and meshes.</description>
+  <description>Composed Unitree G1 (23 DoF) + dual Wuji Hand 2 (2x 20 DoF) URDF/MJCF and meshes.</description>
   <maintainer email="nathan.jew@berkeley.edu">Nathan Jew</maintainer>
   <license>MIT</license>
 

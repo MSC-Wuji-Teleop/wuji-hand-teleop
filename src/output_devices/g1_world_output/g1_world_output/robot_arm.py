@@ -137,7 +137,7 @@ G1_23_ARM_JOINT_NAMES = [
 class G1_23_ArmController:
     def __init__(
         self,
-        motion_mode: bool = False,
+        motion_mode: bool = True,
         simulation_mode: bool = False,
         dds_already_initialized: bool = False,
     ):
