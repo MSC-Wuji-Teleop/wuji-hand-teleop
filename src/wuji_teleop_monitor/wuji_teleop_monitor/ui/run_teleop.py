@@ -3,16 +3,16 @@
 """
 Teleop Monitor — one-click start/stop of the Wuji teleop stack.
 
-Drives the single-machine open-source launch (`wuji_teleop_bringup
-wuji_teleop.launch.py` for the hand-only / HTC presets, `pico_teleop.launch.py`
-for the PICO 4 preset) via subprocess. Subprocess liveness is the sole
-"running" signal — no robot_enabler lifecycle topics, since they only exist
-in the multi-machine deployment.
+Drives a `wuji_teleop_bringup` launch file via subprocess. Subprocess
+liveness is the sole "running" signal.
 
-Three hand-first presets are exposed:
+Two presets are exposed:
   - Hand only (Wuji Glove)
-  - Hand + Arm (HTC Tracker)
-  - Hand + Arm (PICO 4)
+  - Hand + PICO input
+
+Neither starts an arm output. `g1_world_output` runs in its own container and
+this GUI runs inside the teleop container, so it cannot reach it; start the G1
+in a second terminal. See docs/issues/ for the one-click-preset request.
 
 Usage:
     ros2 run wuji_teleop_monitor monitor
@@ -49,80 +49,31 @@ from .theme import DARK_THEME_CSS, LOG_TEXTEDIT_CSS
 try:
     import rclpy
     from rclpy.node import Node
-    from rclpy.qos import (
-        QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSHistoryPolicy,
-    )
     from sensor_msgs.msg import JointState
-    from std_msgs.msg import Int8
     _HAS_ROS2 = True
 except ImportError:
     _HAS_ROS2 = False
-
-# Lifecycle states published by tianji_arm_controller on
-# /tianji_arm/lifecycle_state. Keep in sync with controller/tianji_arm_node.py.
-_LC_INITIALIZING = 0
-_LC_ENABLING = 1
-_LC_READY = 2
-_LC_DISABLED = 3
-_LC_ENABLE_FAILED = 4
-_LC_SDK_ERROR = 5
-_LC_NAMES = {
-    _LC_INITIALIZING: "initializing",
-    _LC_ENABLING: "enabling",
-    _LC_READY: "ready",
-    _LC_DISABLED: "disabled",
-    _LC_ENABLE_FAILED: "enable_failed",
-    _LC_SDK_ERROR: "sdk_error",
-}
-# States that mean "controller is done with its enable attempt, one way or
-# another". Used to release the Stop button from the disabled-while-starting
-# gate. ENABLE_FAILED + SDK_ERROR specifically need to release Stop too —
-# otherwise the operator can't recover.
-_LC_RELEASES_STOP_GATE = frozenset((
-    _LC_READY, _LC_DISABLED, _LC_ENABLE_FAILED, _LC_SDK_ERROR,
-))
 
 # Single-instance lock.
 _LOCK_FILE = "/tmp/wuji_teleop_monitor.lock"
 
 # Process matcher for orphan-teleop detection. Matches any wuji_teleop_bringup
-# launch — the HTC / Wuji-Glove path goes via wuji_teleop.launch.py, the PICO
-# path via pico_teleop.launch.py.
+# launch, which is how both presets below start.
 _BACKEND_MATCH = "ros2 launch wuji_teleop_bringup"
 
-# Hand-first launch presets — first entry is the default. Each value is a list
-# of (launch_file, *ros2_launch_args). PICO uses pico_teleop.launch.py rather
-# than wuji_teleop.launch.py with `arm_input:=pico`, because the PICO arm
-# controller is `tianji_world_output_node` (subscribes to /left_arm_target_pose)
-# and `pico_teleop.launch.py` is the only launch that spawns both
-# `pico_input_node` and `tianji_world_output_node` wired together.
+# Launch presets — first entry is the default. Each value is a list of
+# (launch_file, *ros2_launch_args). Neither preset starts an arm output: the
+# G1 lives in its own container, out of this process's reach.
 LAUNCH_CONFIGS = {
     "Hand only (Wuji Glove)": [
-        "wuji_teleop.launch.py",
-        "enable_hand:=true",
-        "enable_arm:=false",
+        "wuji_teleop_hand.launch.py",
+        "enable_hand_driver:=true",
     ],
-    "Hand + Arm (HTC Tracker)": [
-        "wuji_teleop.launch.py",
-        "enable_hand:=true",
-        "enable_arm:=true",
-        "arm_input:=tracker",
-    ],
-    "Hand + Arm (PICO 4)": [
+    "Hand + PICO input": [
         "pico_teleop.launch.py",
         "enable_hand:=true",
-        "enable_robot:=true",
     ],
 }
-
-def _preset_waits_for_arm_lifecycle(preset: str) -> bool:
-    """True if the preset spawns tianji_arm_controller (HTC path), which
-    publishes /tianji_arm/lifecycle_state. The PICO arm controller
-    (tianji_world_output_node) doesn't publish lifecycle yet, so its preset
-    falls back to the 2 s subprocess-uptime heuristic. Hand-only doesn't
-    bring up an arm controller at all."""
-    args = LAUNCH_CONFIGS.get(preset, [])
-    return "enable_arm:=true" in args
 
 
 # Package logo (wuji.svg lives one level up from the ui/ subpackage).
@@ -136,7 +87,6 @@ class TeleopLauncherUI(QMainWindow):
 
     _state_signal = pyqtSignal(str)
     _stop_finished_signal = pyqtSignal(bool, bool)
-    _arm_lifecycle_signal = pyqtSignal(int)
 
     def __init__(self, ros_node=None):
         super().__init__()
@@ -150,15 +100,8 @@ class TeleopLauncherUI(QMainWindow):
         self._pending_output = deque()
         self._stop_in_progress = False
 
-        # Last lifecycle state we heard from tianji_arm_controller. None
-        # means "no message yet" (the controller's TRANSIENT_LOCAL latch
-        # hasn't reached us, or this preset doesn't have an arm controller).
-        self._arm_lifecycle = None
-        self._waiting_for_arm_lifecycle = False
-
         self._state_signal.connect(self._set_state)
         self._stop_finished_signal.connect(self._on_stop_finished)
-        self._arm_lifecycle_signal.connect(self._on_arm_lifecycle_main)
 
         self._init_ui()
         self._joint_panel.set_phase("stopped")
@@ -185,11 +128,10 @@ class TeleopLauncherUI(QMainWindow):
                     match_publisher_qos(self._ros_node, hand_topic))
 
                 # Cmd Hz monitor: count joint_commands arrivals per side so the
-                # panel shows the live arm/hand command publish rate. Both arm
-                # paths now publish /{side}_arm/joint_commands — HTC via
-                # tianji_arm_node, PICO via tianji_world_output (which runs the
-                # IK and so is the first place on that path with joint angles).
-                # Whichever controller is live feeds the same arm Cmd Hz cell.
+                # panel shows the live arm/hand command publish rate. The arm
+                # cell is fed by whatever arm output is running -- g1_world_output
+                # publishes /{side}_arm/joint_commands from its own container,
+                # so the rate shows up here even though this GUI never starts it.
                 arm_cmd_topic = f'/{side}_arm/joint_commands'
                 self._ros_node.create_subscription(
                     JointState, arm_cmd_topic,
@@ -200,20 +142,6 @@ class TeleopLauncherUI(QMainWindow):
                     JointState, hand_cmd_topic,
                     lambda msg, s=side: self._joint_panel.record_hz(f'{s}_hand'),
                     match_publisher_qos(self._ros_node, hand_cmd_topic))
-
-            # Latched lifecycle state from tianji_arm_controller. RELIABLE
-            # + TRANSIENT_LOCAL matches the publisher so we receive the
-            # last value even when subscribing before the controller comes
-            # up. See _LC_* constants for the state machine.
-            _lc_qos = QoSProfile(
-                reliability=QoSReliabilityPolicy.RELIABLE,
-                durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1,
-            )
-            self._ros_node.create_subscription(
-                Int8, '/tianji_arm/lifecycle_state',
-                self._on_arm_lifecycle, _lc_qos)
 
         # Uptime / liveness timers.
         self._uptime_timer = QTimer(self)
@@ -401,28 +329,6 @@ class TeleopLauncherUI(QMainWindow):
         positions = list(msg.position[:7]) if len(msg.position) >= 7 else list(msg.position)
         self._joint_panel.update_joints(side, positions)
 
-    def _on_arm_lifecycle(self, msg):
-        # ROS2 spin thread — bounce to GUI thread.
-        self._arm_lifecycle_signal.emit(int(msg.data))
-
-    def _on_arm_lifecycle_main(self, lc: int):
-        """Promote starting -> running once the controller stops being
-        in-flight. Any 'done' state releases the Stop gate, including the
-        failure ones — otherwise the operator can't recover when
-        _do_enable raises (e.g. move_to_init residual too large)."""
-        prev = self._arm_lifecycle
-        self._arm_lifecycle = lc
-        if prev != lc:
-            self._emit_output(
-                f">>> tianji_arm/lifecycle_state: "
-                f"{_LC_NAMES.get(lc, str(lc))}"
-            )
-        if (self._state == "starting"
-                and self._waiting_for_arm_lifecycle
-                and lc in _LC_RELEASES_STOP_GATE):
-            self._waiting_for_arm_lifecycle = False
-            self._state_signal.emit("running")
-
     # -------------------- State management --------------------
 
     def _set_state(self, state: str):
@@ -438,14 +344,7 @@ class TeleopLauncherUI(QMainWindow):
         self._status_label.setText(text)
         self._status_label.setStyleSheet(f"color: {color};")
         self._start_btn.setEnabled(start_en)
-        # Arm presets disable Stop only while we haven't heard a terminal
-        # lifecycle state yet — once the controller reports ready / failed /
-        # disabled / sdk_error, Stop must be clickable so the operator can
-        # always recover.
-        if state == "starting" and self._waiting_for_arm_lifecycle:
-            self._stop_btn.setEnabled(False)
-        else:
-            self._stop_btn.setEnabled(state in ("starting", "running"))
+        self._stop_btn.setEnabled(state in ("starting", "running"))
         self._preset_combo.setEnabled(config_en)
         self._scan_sns_btn.setEnabled(config_en)
         self._joint_panel.set_phase(state)
@@ -454,16 +353,11 @@ class TeleopLauncherUI(QMainWindow):
             self._uptime_label.setText("")
             self._start_time = None
             self._liveness_timer.stop()
-            self._waiting_for_arm_lifecycle = False
-            self._arm_lifecycle = None
         elif state == "running":
             if self._start_time is None:
                 self._start_time = self._launch_started_at or time.monotonic()
         elif state == "starting":
             self._liveness_timer.start()
-
-        if state == "starting" and self._waiting_for_arm_lifecycle:
-            self._status_label.setText("Teleop: starting (arm init...)")
 
     # -------------------- Backend process discovery --------------------
 
@@ -506,12 +400,6 @@ class TeleopLauncherUI(QMainWindow):
             return
         if self._launch_started_at is None:
             return
-        if self._waiting_for_arm_lifecycle:
-            # Arm presets: the latched /tianji_arm/lifecycle_state edge owns
-            # the starting -> running promotion. No time-based fallback —
-            # any terminal lifecycle (ready / disabled / enable_failed /
-            # sdk_error) releases Stop, so the operator can always recover.
-            return
         if time.monotonic() - self._launch_started_at >= 2.0:
             self._state_signal.emit("running")
 
@@ -542,18 +430,18 @@ class TeleopLauncherUI(QMainWindow):
 
         reply = QMessageBox.warning(
             self, "Safety check",
-            "The arms will enter impedance mode and move to their initial pose.\n\n"
+            "The Wuji Hands will start tracking the gloves immediately.\n\n"
             "Please confirm:\n"
-            "  1. The workspace is clear of obstacles\n"
-            "  2. The e-stop is within reach\n",
+            "  1. Both hands are clear of obstacles\n"
+            "  2. The e-stop is within reach\n\n"
+            "Note: this does not start the G1 arms. Launch g1_world_output in\n"
+            "its own container when you want arm motion.\n",
             QMessageBox.Ok | QMessageBox.Cancel,
             QMessageBox.Cancel)
         if reply != QMessageBox.Ok:
             return
 
         preset = self._preset_combo.currentText()
-        self._waiting_for_arm_lifecycle = _preset_waits_for_arm_lifecycle(preset)
-        self._arm_lifecycle = None
         cmd = self._build_launch_cmd(preset)
 
         self._set_state("starting")

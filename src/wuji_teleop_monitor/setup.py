@@ -15,14 +15,12 @@ setup(
     zip_safe=True,
     maintainer='Wuji',
     maintainer_email='dev@wuji.tech',
-    description='Qt-based teleop launcher and status monitor for the Wuji Hand + Tianji Arm teleoperation stack.',
+    description='Qt-based teleop launcher and status monitor for the Wuji Hand teleoperation stack.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'monitor = wuji_teleop_monitor.ui.run_teleop:main',
-            'brake = wuji_teleop_monitor.ui.run_brake:main',
-            'camera = wuji_teleop_monitor.ui.run_camera:main',
         ],
     },
 )

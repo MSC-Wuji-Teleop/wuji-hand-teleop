@@ -3,7 +3,7 @@
 <package format="3">
   <name>wuji_teleop_monitor</name>
   <version>0.2.0</version>
-  <description>Qt-based teleop launcher and status monitor for the Wuji Hand + Tianji Arm teleoperation stack.</description>
+  <description>Qt-based teleop launcher and status monitor for the Wuji Hand teleoperation stack.</description>
   <maintainer email="dev@wuji.tech">Wuji</maintainer>
   <license>MIT</license>
 
@@ -12,7 +12,6 @@
   <depend>sensor_msgs</depend>
   <depend>wuji_teleop_bringup</depend>
   <depend>wujihand_output</depend>
-  <exec_depend>tianji_output</exec_depend>
   <exec_depend>python3-ruamel.yaml</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

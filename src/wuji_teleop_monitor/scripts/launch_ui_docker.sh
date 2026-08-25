@@ -1,7 +1,7 @@
 #!/bin/bash
-# launch_ui_docker.sh — host-side desktop launcher for any wuji_teleop_monitor UI.
+# launch_ui_docker.sh — host-side desktop launcher for the wuji_teleop_monitor UI.
 #
-# Usage:  launch_ui_docker.sh {monitor|brake|camera}
+# Usage:  launch_ui_docker.sh [monitor]
 #
 # Docker is the only supported deployment, so the desktop icons run the GUI
 # inside the wuji-hand-teleop container via `docker exec`. This wrapper:
@@ -17,9 +17,9 @@ set -u
 
 UI="${1:-monitor}"
 case "$UI" in
-    monitor|brake|camera) ;;
+    monitor) ;;
     *)
-        echo "[ERROR] Unknown UI: '$UI' (expected: monitor | brake | camera)" >&2
+        echo "[ERROR] Unknown UI: '$UI' (expected: monitor)" >&2
         exit 2
         ;;
 esac

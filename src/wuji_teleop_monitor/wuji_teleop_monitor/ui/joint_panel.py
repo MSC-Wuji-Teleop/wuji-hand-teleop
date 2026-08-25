@@ -2,7 +2,7 @@
 """Reusable arm joint-angle display panel.
 
 Design goals:
-- Serve the existing Teleop / Brake UIs only.
+- Serve the Teleop UI only.
 - ROS2 high-rate callbacks update caches; they never drive Qt events directly.
 - The Qt main thread refreshes at a fixed cadence to keep the UI smooth.
 - Connection state to the launch process is derived from joint-feedback
@@ -22,7 +22,6 @@ from PyQt5.QtGui import QFont
 HAND_FINGERS = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']
 HAND_JOINTS = ['MCP', 'PIP', 'DIP', 'Tip']
 
-from .arm_constants import INIT_LEFT, INIT_RIGHT
 
 
 class JointDisplayPanel(QGroupBox):
@@ -120,26 +119,6 @@ class JointDisplayPanel(QGroupBox):
         sep.setStyleSheet("color: #444;")
         layout.addWidget(sep)
 
-        # Reference-value rows
-        ref_style = "color: #666; font-size: 9px;"
-        val_style = "color: #777;"
-        for label_text, init_vals in [("Left ref", INIT_LEFT), ("Right ref", INIT_RIGHT)]:
-            row = QHBoxLayout()
-            row.setSpacing(4)
-            lbl = QLabel(label_text)
-            lbl.setFixedWidth(lbl_width)
-            lbl.setStyleSheet(ref_style)
-            row.addWidget(lbl)
-            for v in init_vals:
-                vlbl = QLabel(f"{v:.0f}")
-                vlbl.setFixedWidth(val_width)
-                vlbl.setAlignment(Qt.AlignCenter)
-                vlbl.setFont(QFont("Courier", 9))
-                vlbl.setStyleSheet(val_style)
-                row.addWidget(vlbl)
-            row.addStretch()
-            layout.addLayout(row)
-
     def _add_arm_row(self, parent_layout, name, color, lbl_width, val_width, hz_width, hz_key):
         row = QHBoxLayout()
         row.setSpacing(4)
@@ -148,6 +127,9 @@ class JointDisplayPanel(QGroupBox):
         lbl.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold;")
         row.addWidget(lbl)
         labels = []
+        # NOTE: 7 columns is the old Tianji arm's DoF count. The G1_23 has 5
+        # arm DoF per side (shoulder pitch/roll/yaw, elbow, wrist roll), so the
+        # last two cells stay "--". Retargeting the layout to 5 is open work.
         for _ in range(7):
             jlbl = QLabel("--")
             jlbl.setFixedWidth(val_width)
