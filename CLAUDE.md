@@ -6,7 +6,7 @@ ROS2 (Humble) teleoperation stack for the **Wuji Hand**, driven by the **Wuji Gl
 
 **Docker is the only supported runtime.** `docker/Dockerfile` is the source of truth for the environment (apt/pip versions, SDKs). One exception to the single-container picture: `g1_world_output` runs as its own image/container because its Pinocchio+CasADi build needs NumPy 1.x while the rest of the stack needs 2.x.
 
-This fork drives one specific rig (G1 + Wuji Hand 2, gloves + PICO 4 input). The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant, `g1_wuji2_description` is still 29-DoF-based (rebuild pending), and the Tianji/HTC/camera hardware does not exist here.
+This fork drives one specific rig (G1 + Wuji Hand 2, gloves + PICO 4 input). The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant, `g1_wuji2_description` matches it (g1_23_wuji2* files, rebuilt 2026-08-24), and the Tianji/HTC/camera hardware does not exist here.
 
 ## Commands
 

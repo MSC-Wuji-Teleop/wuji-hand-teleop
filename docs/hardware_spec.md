@@ -64,17 +64,18 @@ arm output is `g1_world_output`, consuming the PICO-path topic contract
 
 ## Where G1_23 is baked into the code
 
-The controller side already targets G1_23; the robot description does not
-yet. IK solutions and DDS commands match the real robot's kinematics today
-(wrist pitch/yaw never move), but the sim model's inertias, terminal wrist
-link, and actuator count are 29-DoF artifacts until the rebuild.
+Both sides target G1_23 as of 2026-08-24: the controller solves the 10
+arm DoF the robot has, and `g1_wuji2_description` is composed from
+Unitree's `g1_23dof_rev_1_0` sources (bare wrist module derived, since
+Unitree only ships the wrist fused with the rubber hand). Remaining
+29-DoF residue is limited to two config-level values noted below.
 
 <details>
 <summary>Per-file assumptions</summary>
 
 | File | Assumption |
 |---|---|
-| `g1_world_output/config/g1_robot.yaml` | `arm_type: "G1_23"`. Also `chest_origin_in_pelvis` was derived from the 29-DoF body URDF ("waist_roll z + shoulder pitch xyz"); re-derive after the description rebuild |
+| `g1_world_output/config/g1_robot.yaml` | `arm_type: "G1_23"`. Also `chest_origin_in_pelvis` was derived from the 29-DoF body URDF ("waist_roll z + shoulder pitch xyz"); re-derivation against the 23-DoF description is still pending |
 | `g1_world_output/g1_world_output/robot_arm.py` | Unitree's unified 35-slot motor array with the 23-DoF gaps: arms at indices 15-19 / 22-26; waist roll/pitch (13, 14) and wrist pitch/yaw (20, 21, 27, 28) declared NotUsed; `rt/arm_sdk` weight flag at motor 29. DDS write loop at 250 Hz; per-joint kp/kd tiers (300/5 high, 140/3 low, 50/2 wrist); velocity clip ramps 20 to 30 deg/s over 5 s |
 | `g1_world_output/g1_world_output/robot_arm_ik.py` | Loads `g1_23_wuji2.urdf` (23-DoF composed model), then locks legs, waist, and fingers to the 10 arm DoF; the lock list filters by joint presence, so the absent wrist pitch/yaw entries are simply skipped. EE frames `L_ee`/`R_ee` sit on the wrist-roll links with a +0.20 m forward offset (xr_teleoperate convention); this shifts the achieved palm pose by a constant wrist-frame vector, fix planned alongside the adapter regeneration. Cost weights are xr_teleoperate's G1_23 set (rotation down-weighted) |
 | `src/g1_wuji2_description/` | Composed from `g1_23dof_rev_1_0` + 2x Wuji Hand 2 (2026-08-24, matches hardware): floating nq 70 / nv 69 / nu 63, fixed-base 63. Fused wrist+rubber-hand link replaced with a derived bare wrist module; flange at wrist_roll + [0.1220, +-0.003, 0]. The 29-DoF files were removed (kept in msc_research as `g1_29_wuji2*`). Generated files; do not hand-edit (see the package README) |
