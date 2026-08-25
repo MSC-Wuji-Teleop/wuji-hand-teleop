@@ -11,8 +11,6 @@
 # /hand_input bridge topic anymore.
 #
 #   wuji_glove: in-process UDP via wuji_sdk (no ROS topic).
-#   manus:      ROS2 topic /manus_glove_{0,1} (manus_ros2_msgs/ManusGlove),
-#               filtered by msg.side. Published by manus_ros2 C++ driver.
 #
 # Each controller converts its side's raw data to MediaPipe 21-point format
 # (21 x 3 floats) and feeds it into the retargeter.
@@ -24,11 +22,12 @@
 #      config/retarget_{source}_{left,right}.yaml (per-side).
 #   3. Add the new value to input_source below.
 #
-# Supported today: wuji_glove (default), manus
+# Supported today: wuji_glove only.
 
-# Input source — selects the matching retarget config.
-#   wuji_glove (default, UDP)  — glove SNs in wuji_glove package config/wuji_glove.yaml
-#   manus      (USB dongle)
+# Input source — selects the matching retarget config
+# (config/retarget_{input_source}_{side}.yaml).
+#   wuji_glove (only supported value, UDP) — glove SNs in the wuji_glove
+#                                            package's config/wuji_glove.yaml
 input_source: "wuji_glove"
 
 # ===== Wuji Hand hardware =====

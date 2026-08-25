@@ -82,12 +82,12 @@ from scipy.spatial.transform import Rotation as R
 from pico_input.data_source import DataSource, LiveDataSource, RecordedDataSource, TrackerData, HeadsetData
 from pico_input.incremental_controller import IncrementalController
 
-# Unified config loader (via ROS2 package dependency: package.xml exec_depend)
-from tianji_world_output.config_loader import get_config as get_tianji_config
-from tianji_world_output.transform_utils import (
+# Frame conventions + incremental-control anchors (config/robot_frames.yaml)
+from pico_input.config_loader import get_config as get_frames_config
+from pico_input.transform_utils import (
     get_tf_quaternion,
 )
-_tianji_config = get_tianji_config()
+_frames_config = get_frames_config()
 
 # The four physical tracker slots wired through the downstream pipeline.
 # Each entry: yaml key -> role string the rest of the code uses.
@@ -192,7 +192,7 @@ class PicoInputNode(Node):
         elbow_min_cutoff = self.get_parameter('elbow_min_cutoff').value
 
         self.controller = IncrementalController(
-            config=_tianji_config,
+            config=_frames_config,
             rate=self.publish_rate,
             min_cutoff=min_cutoff,
             beta=beta,
@@ -235,8 +235,8 @@ class PicoInputNode(Node):
         # ==================== World -> Chest transform parameters ====================
         # Load world_to_chest transform from unified config (for static TF publishing)
         self.world_to_chest_trans = {
-            'left': _tianji_config.world_to_chest_trans.get('left', np.array([0.0, 0.2, 0.0])),
-            'right': _tianji_config.world_to_chest_trans.get('right', np.array([0.0, -0.2, 0.0])),
+            'left': _frames_config.world_to_chest_trans.get('left', np.array([0.0, 0.2, 0.0])),
+            'right': _frames_config.world_to_chest_trans.get('right', np.array([0.0, -0.2, 0.0])),
         }
 
         # ==================== TF broadcasters ====================

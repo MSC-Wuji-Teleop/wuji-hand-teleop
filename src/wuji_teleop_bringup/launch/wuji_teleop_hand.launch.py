@@ -1,6 +1,7 @@
-"""Hand-only launch: wuji_glove (default) or manus, both ends as per-side processes.
+"""Hand-only launch: Wuji Gloves in, two Wuji Hands out, as per-side processes.
 
-Source selected via wujihand_ik.yaml::input_source.
+Glove input runs in-process inside each wujihand_controller via wuji_sdk, so
+there is no separate input node and no ROS topic hop on the way in.
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from wuji_teleop_bringup.hand_defaults import (
     LEFT_HAND_NAME, RIGHT_HAND_NAME,
     DRIVER_PUBLISH_RATE, DRIVER_FILTER_CUTOFF_FREQ, DRIVER_DIAGNOSTICS_RATE,
 )
-from wuji_teleop_bringup.launch_utils import read_input_source as _read_input_source
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -54,10 +54,6 @@ def generate_launch_description() -> LaunchDescription:
         LaunchConfiguration("left_serial"), value_type=str)
     right_serial_str = ParameterValue(
         LaunchConfiguration("right_serial"), value_type=str)
-
-    # Read once at launch evaluation; decides whether to spawn the manus driver.
-    input_source = _read_input_source()
-    spawn_manus = IfCondition("true") if input_source == "manus" else IfCondition("false")
 
     return LaunchDescription([
         left_serial_arg,
@@ -96,18 +92,6 @@ def generate_launch_description() -> LaunchDescription:
             output="screen",
             emulate_tty=True,
             condition=spawn_hand_driver,
-        ),
-
-        # ==================== MANUS C++ DRIVER (only if input_source = manus) ====================
-        # The wuji_glove path runs in-process inside wujihand_controller via wuji_sdk;
-        # no separate input node is needed for it.
-        Node(
-            package="manus_ros2",
-            executable="manus_data_publisher",
-            name="manus_data_publisher",
-            output="screen",
-            emulate_tty=True,
-            condition=spawn_manus,
         ),
 
         # ==================== HAND CONTROLLERS (per-side, parallel processes) ====================

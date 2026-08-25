@@ -1,0 +1,164 @@
+# =============================================================================
+# PICO input: frame conventions and incremental-control anchors
+# =============================================================================
+# Loaded by pico_input.config_loader (RobotFramesConfig). Read by
+# pico_input_node.py and incremental_controller.py.
+#
+# Usage:
+#   from pico_input.config_loader import get_config
+#   config = get_config()
+#   init_pos = config.init_pos['left']
+#
+# -----------------------------------------------------------------------------
+# PROVENANCE, READ THIS BEFORE CHANGING ANY NUMBER
+# -----------------------------------------------------------------------------
+# This file was split out of tianji_world_output/config/tianji_robot.yaml when
+# the Tianji arm packages were removed. Two kinds of values live here:
+#
+#   1. Arm-agnostic frame conventions: world_to_chest_quat,
+#      world_to_chest_trans, pico_to_robot. These describe how PICO's OpenXR
+#      frame maps into the world/chest frames and are independent of which
+#      arm consumes the result. Carried over unchanged and still correct.
+#
+#   2. Incremental-control anchors: init_pos, init_rot, init_quat,
+#      arm_init_pos, arm_init_quat, and the zsp/IK block. These were computed
+#      as FK of the *Tianji* 7-DoF arm's calibrated init_joints pose. They are
+#      the origin that PICO wrist/forearm deltas are added to, so they set
+#      where the robot's arms sit at session start.
+#
+#      They have NOT been re-derived for the Unitree G1_23 (5 arm DoF per side,
+#      different reach and shoulder offsets). They are carried over verbatim so
+#      this cleanup changes no behavior. Re-deriving them for the G1 is open
+#      work, tracked in docs/issues/.
+#
+# Dropped in the split, all Tianji-hardware-specific:
+#   robot_ip          — Tianji controller cabinet address
+#   kine_config_file  — ccs_m6.MvKDCfg, Tianji kinematics description
+#   init_joints       — Tianji 7-DoF joint vector the poses below were FK'd from
+#                       (kept in git history at b065f3f if the derivation is
+#                        ever needed)
+# =============================================================================
+
+# =============================================================================
+# Initial end-effector pose (chest frame) — INCREMENTAL-CONTROL ANCHOR
+# =============================================================================
+# Tianji-derived, see PROVENANCE above.
+
+# End-effector position [x, y, z] metres
+init_pos:
+  left:  [0.5733, 0.2237, 0.2762]
+  right: [0.5733, -0.2237, 0.2762]
+
+# End-effector orientation — rotation matrix (3x3, row-major)
+init_rot:
+  left:
+    - [-0.0573, -0.0055, 0.9983]
+    - [0.0250, 0.9997, 0.0070]
+    - [-0.9980, 0.0254, -0.0571]
+  right:
+    - [-0.0573, 0.0055, 0.9983]
+    - [-0.0250, 0.9997, -0.0070]
+    - [-0.9980, -0.0254, -0.0571]
+
+# End-effector orientation — quaternion [qx, qy, qz, qw]
+init_quat:
+  left:  [0.0067, 0.7270, 0.0111, 0.6865]
+  right: [-0.0067, 0.7270, -0.0111, 0.6865]
+
+# =============================================================================
+# World -> Chest transform  (arm-agnostic)
+# =============================================================================
+# World frame (ROS REP 103): X=forward, Y=left, Z=up
+# Chest frame:
+#   Left:  X=forward, Y=down, Z=left   (world rotated +90 deg about X)
+#   Right: X=forward, Y=up,   Z=right  (world rotated -90 deg about X)
+#
+# These quaternions express the world->chest *vector* transform, matching
+# pico_input/ARCHITECTURE.md:
+#   Left:  world->chest: [x, -z, y]
+#   Right: world->chest: [x, z, -y]
+#
+# Note: TF visualization needs the chest->world direction, i.e. the inverse.
+
+# Quaternion [qx, qy, qz, qw]
+world_to_chest_quat:
+  left:  [0.7071067811865475, 0.0, 0.0, 0.7071067811865475]   # +90 deg about X
+  right: [0.7071067811865475, 0.0, 0.0, -0.7071067811865475]  # -90 deg about X
+
+# Translation (for RViz visualization)
+world_to_chest_trans:
+  left:  [0.0, 0.2, 0.0]
+  right: [0.0, -0.2, 0.0]
+
+# =============================================================================
+# Forearm tracker initial position (chest frame) — INCREMENTAL-CONTROL ANCHOR
+# =============================================================================
+# Reference position for the PICO forearm trackers, and the basis for the
+# arm-angle (elbow direction) geometry. Tianji-derived, see PROVENANCE.
+#
+# Physical meaning: elbow 30 cm below the shoulder and 20 cm outward
+# (relaxed elbow with slight abduction).
+#   Left chest:  Y+=down, Z+=left (outboard)  -> [0.2, +0.3, +0.2]
+#   Right chest: Y-=down, Z+=right (outboard) -> [0.2, -0.3, +0.2]
+#
+# World-frame check:
+#   Left:  [0.2, +0.3, +0.2] -> world [0.2, +0.2, -0.3] -> Z=-0.3, 30 cm down
+#   Right: [0.2, -0.3, +0.2] -> world [0.2, -0.2, -0.3] -> Z=-0.3, 30 cm down
+#
+# Note: the geometrically computed elbow offset points along gravity (down);
+# it is negated before publishing to IK, because zsp_para wants the
+# anti-gravity direction (see default_zsp_para).
+arm_init_pos:
+  left:  [0.2, 0.3, 0.2]
+  right: [0.2, -0.3, 0.2]
+
+arm_init_quat:
+  left:  [0.4177, -0.0283, 0.5206, 0.7441]
+  right: [0.7448, -0.5141, 0.0058, 0.4254]
+
+# =============================================================================
+# Elbow-direction / nullspace parameters
+# =============================================================================
+# pico_input reads only default_zsp_para, via get_default_zsp_direction(), to
+# seed the published elbow-direction hint. The remaining keys were consumed by
+# the Tianji IK solver and are retained for reference; g1_world_output does its
+# own nullspace handling.
+
+# Nullspace constraint type (1 = use elbow direction hint)
+zsp_type: 1
+
+# Arm-angle reference-plane parameters [x, y, z, a, b, c]. The first three
+# define the reference-plane *normal* in the chest frame, not the elbow
+# direction itself; its Y component opposes gravity.
+#   Left arm  GRV=[0,+9.81,0] (gravity=+Y) -> zsp_para Y negative
+#   Right arm GRV=[0,-9.81,0] (gravity=-Y) -> zsp_para Y positive
+default_zsp_para:
+  left:  [0, -0.5, -0.3, 0, 0, 0]
+  right: [0, 0.5, -0.3, 0, 0, 0]
+
+# Extra arm-angle rotation (degrees), 0 = none
+zsp_angle: 0.0
+
+# Singularity tolerance range (degrees)
+dgr: [5.0, 5.0, 5.0]
+
+# =============================================================================
+# PICO -> Robot transform  (arm-agnostic)
+# =============================================================================
+# PICO frame:  +X=right,   +Y=up,   +Z=toward the user (back)
+# Robot frame: +X=forward, +Y=left, +Z=up
+#   Robot_X = -PICO_Z
+#   Robot_Y = -PICO_X
+#   Robot_Z = +PICO_Y
+pico_to_robot:
+  - [0, 0, -1]
+  - [-1, 0, 0]
+  - [0, 1, 0]
+
+# =============================================================================
+# Topic contract produced by pico_input (consumed by any arm output)
+# =============================================================================
+#   /left_arm_target_pose      /right_arm_target_pose      (PoseStamped, chest frame)
+#   /left_arm_elbow_direction  /right_arm_elbow_direction  (Vector3Stamped)
+#
+# Tracker serial mapping lives in pico_input/config/pico_input.yaml, not here.

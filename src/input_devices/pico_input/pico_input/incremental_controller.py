@@ -25,8 +25,8 @@ Dependencies:
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from tianji_world_output.config_loader import TianjiConfig
-from tianji_world_output.transform_utils import (
+from pico_input.config_loader import RobotFramesConfig
+from pico_input.transform_utils import (
     transform_pico_rotation_to_world,
     apply_world_rotation_to_chest_pose,
     transform_world_to_chest,
@@ -67,14 +67,14 @@ class IncrementalController:
       - Position, orientation, and elbow direction all use One-Euro Filter
     """
 
-    def __init__(self, config: TianjiConfig,
+    def __init__(self, config: RobotFramesConfig,
                  rate: float = 90.0,
                  min_cutoff: float = 1.0,
                  beta: float = 0.7,
                  elbow_min_cutoff: float = 0.3):
         """
         Args:
-            config: TianjiConfig unified configuration
+            config: RobotFramesConfig unified configuration
             rate: Sampling rate (Hz)
             min_cutoff: One-Euro minimum cutoff frequency (Hz), controls smoothing strength at rest
             beta: One-Euro speed response coefficient (internally scaled by signal type)

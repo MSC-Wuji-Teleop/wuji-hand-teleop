@@ -2,8 +2,8 @@
 """
 Coordinate transform utility functions (backward-compatible wrapper)
 
-Actual implementation is in: tianji_world_output/tianji_world_output/transform_utils.py
-This file only re-exports, ensuring import paths in test/ scripts remain unchanged.
+Actual implementation is in: pico_input/pico_input/transform_utils.py
+This file only re-exports, so import paths in test/ scripts stay unchanged.
 
 Usage (in test scripts):
     from common.transform_utils import (
@@ -20,14 +20,14 @@ Usage (in test scripts):
 import sys
 from pathlib import Path
 
-# Add tianji_world_output to path (using relative path)
-_src_dir = Path(__file__).resolve().parents[4]  # common -> test -> pico_input -> input_devices -> src
-_tianji_path = _src_dir / 'output_devices' / 'tianji_world_output'
-if str(_tianji_path) not in sys.path:
-    sys.path.insert(0, str(_tianji_path))
+# Add the pico_input package root to the path so `import pico_input` resolves
+# when these scripts run from a source tree with no colcon install sourced.
+_pkg_root = Path(__file__).resolve().parents[2]  # common -> test -> pico_input
+if str(_pkg_root) not in sys.path:
+    sys.path.insert(0, str(_pkg_root))
 
 # Re-export all public functions
-from tianji_world_output.transform_utils import (  # noqa: F401, E402
+from pico_input.transform_utils import (  # noqa: F401, E402
     # Position transforms
     transform_world_to_chest,
     transform_chest_to_world,
