@@ -1,7 +1,7 @@
 # Developer Usage Reference
 
 Daily commands for working on this repo. Assumes the one-time setup in
-[Quick Start (Docker)](../README.md#quick-start-docker) is done: image built,
+[Install](../README.md#install) is done: image built,
 serials configured, container able to start.
 
 Audience: a developer editing code. For first-time setup, use the
@@ -45,6 +45,18 @@ docker compose build g1_world_output    # needs the unitree_sdk2_python submodul
 docker compose up -d g1_world_output
 ```
 
+> **`docker compose up -d g1_world_output` assumes a real G1 is reachable over
+> DDS.** Its default command runs `g1_world_output.launch.py` with no
+> `dry_run`, and the service has `restart: unless-stopped` — with no robot (or
+> DDS sim bridge) answering on the domain, the node throws `TimeoutError: ...
+> No rt/lowstate after 30s` and compose just restarts it, forever, every ~30s.
+> For sim/no-hardware testing, don't use bare `up -d`; run with `dry_run:=true`
+> instead (see [Simulation](../README.md#simulation)):
+> ```bash
+> docker compose run -d --rm --name g1-world-output g1_world_output \
+>     ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true
+> ```
+
 ## Build and test
 
 Inside the container:
@@ -66,7 +78,7 @@ python3 -m pytest src/output_devices/g1_world_output/tests/
 
 The Monitor GUI is the preferred entry point; raw launch files are the CLI
 fallback. Preset-to-launch-file mapping is documented in
-[Running](../README.md#running).
+[Monitor GUI](../README.md#monitor-gui).
 
 ```bash
 # One-click GUI (two presets: hand-only, and hand + PICO input)
@@ -107,7 +119,7 @@ docker compose run --rm g1_world_output \
 ```
 
 Full sim walkthrough, including the synthetic sweep that needs no hardware at
-all: [Running Everything in Simulation](../README.md#running-everything-in-simulation-no-physical-robot).
+all: [Simulation](../README.md#simulation).
 
 ## Verify
 
@@ -131,4 +143,4 @@ pipeline.
 
 Config files are tracked as `.yaml.template` only; `docker/entrypoint.sh`
 seeds the real gitignored `.yaml` on first container start. Details:
-[Configure serial numbers](../README.md#5-configure-serial-numbers).
+[Configure serial numbers](../README.md#configure-serial-numbers).

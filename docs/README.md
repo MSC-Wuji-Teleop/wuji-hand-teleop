@@ -31,6 +31,6 @@ inline there.
 - **Not** a per-package code reference. For ROS2 topics, node parameters, and
   package layout, see the package READMEs under `src/`.
 - **Not** install instructions for the codebase itself. The supported
-  deployment is Docker — see [Quick Start (Docker)](../README.md#quick-start-docker)
+  deployment is Docker — see [Install](../README.md#install)
   in the main README. The Dockerfile is the canonical recipe for host
   dependencies if you want to roll a bare-metal install yourself (unsupported).

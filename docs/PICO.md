@@ -7,7 +7,7 @@ This is the single entry-point user guide. Architecture, tracker math, and packa
 
 ## Prerequisites
 
-- Complete [README.md](README.md) steps 1-5 (Docker installation, build, startup).
+- Complete the [Install](../README.md#install) and [Configure serial numbers](../README.md#configure-serial-numbers) sections of [../README.md](../README.md) (Docker installation, build, startup).
 - **PICO OS >= 5.14.** Streaming all 4 Motion Trackers requires PICO OS 5.14 or later; earlier versions (e.g. 5.11.x) silently cap at 2 trackers and `pico_input_node` will report fewer trackers than expected. Verify via headset Settings -> About this device -> Software version. Upgrade through Settings -> About this device -> System update before going further.
 - PICO 4 Motion Trackers paired with the headset (use the PICO Motion Tracker app on the headset itself; one-time pairing).
 - USB-C data cable (PICO headset to PC). WiFi mode is supported but wired is recommended for latency.

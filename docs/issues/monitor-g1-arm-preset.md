@@ -35,7 +35,7 @@ therefore not sufficient; the reach problem has to be solved first.
 
 3. **Leave it manual and document the two-terminal flow** — zero code, zero
    risk, and the flow is already written up in `docs/usage.md` and
-   `MSC_README.md`; but every session carries a step that is easy to forget, and
+   `README.md`; but every session carries a step that is easy to forget, and
    forgetting it looks like "the arms are broken" rather than "the arm node was
    never started."
 

@@ -85,9 +85,12 @@ the ported modules.
 | `docs/teleop-demo.mp4` (15 MB) | Upstream demo clip | Shows hardware we do not have. Also the single largest file removed |
 | `docs/tracker-wearing-demo.mp4` (2.5 MB) | Companion clip for the wearing guide | Its guide went |
 
-> `README.md` was left untouched on purpose, for a separate rewrite. It still
-> references `docs/images/dataflow.png` and `docs/teleop-demo.mp4`, so those two
-> links are now broken. `MSC_README.md` holds the replacement draft.
+> `README.md` was left untouched on purpose, for a separate rewrite (it still
+> referenced `docs/images/dataflow.png` and `docs/teleop-demo.mp4`, so those
+> two links were broken). That rewrite, drafted as `MSC_README.md`, has since
+> been promoted: `README.md` is now that draft, and the old upstream README
+> lives on as [`DEPRECATED_README.md`](../DEPRECATED_README.md) for historical
+> reference only.
 
 ## Changed, not removed
 

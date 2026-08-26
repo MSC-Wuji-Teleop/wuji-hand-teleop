@@ -61,8 +61,8 @@ interfaces:
 | `wuji_glove/` | Wuji Glove (default hand input) | None. Connects in-process via `wuji_sdk` UDP directly inside each hand controller |
 | `pico_input/` | PICO 4 headset + 4 Motion Trackers | `PoseStamped` on `/left_arm_target_pose`, `/right_arm_target_pose`. These are chest-frame poses; the node converts from PICO's world frame internally, using `pico_input/transform_utils.py` and the anchors in `config/robot_frames.yaml` |
 
-The topic contract for plugging in a custom input is specified in
-[Custom Input Device](../README.md#custom-input-device).
+The topic contract for plugging in a custom input is specified in the
+[Architecture](../README.md#architecture) section of the main README.
 
 ## Hand controller
 
@@ -144,7 +144,7 @@ template sibling. The real files are gitignored, so serials and IPs never land
 in the repo and `git pull` never conflicts with local values. After adding a
 new template, rerun `colcon build --symlink-install` so the `install/share/`
 symlink picks it up. The full config list is in
-[Configuration Files Summary](../README.md#configuration-files-summary).
+[Configure serial numbers](../README.md#configure-serial-numbers).
 
 ## Invariants
 
