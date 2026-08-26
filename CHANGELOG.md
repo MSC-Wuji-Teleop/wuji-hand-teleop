@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `camera` entry points and its `/tianji_arm/lifecycle_state` gating, the
   SteamVR/OpenVR plumbing in the Docker layer, the upstream release workflows,
   and the HTC docs and demo videos. Full inventory with rationale, per folder
-  and per file: [docs/cleanup.md](docs/cleanup.md).
+  and per file: [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md).
 - The entrypoint's Tianji `libKine.so` / `libMarvinSDK.so` health checks are
   gone. They called `exit 1`, so they would have failed the container outright
   once `tianji_output` was removed.

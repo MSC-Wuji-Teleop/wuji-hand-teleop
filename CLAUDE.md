@@ -6,7 +6,7 @@ ROS2 (Humble) teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **
 
 **Docker is the only supported runtime.** `docker/Dockerfile` is the source of truth for the environment (apt/pip versions, SDKs). One exception to the single-container picture: `g1_world_output` runs as its own image/container because its Pinocchio+CasADi build needs NumPy 1.x while the rest of the stack needs 2.x.
 
-The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant and `g1_wuji2_description` matches it (g1_23_wuji2* files, rebuilt 2026-08-24). The upstream Tianji arm, HTC/SteamVR, and MANUS code was removed on 2026-08-25; what went and why is in [docs/cleanup.md](docs/cleanup.md). `src/camera/` is kept but unwired, pending the G1 head cameras.
+The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant and `g1_wuji2_description` matches it (g1_23_wuji2* files, rebuilt 2026-08-24). The upstream Tianji arm, HTC/SteamVR, and MANUS code was removed on 2026-08-25; what went and why is in [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md). `src/camera/` is kept but unwired, pending the G1 head cameras.
 
 ## Commands
 

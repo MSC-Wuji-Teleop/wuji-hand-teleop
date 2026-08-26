@@ -89,7 +89,7 @@ the ported modules.
 > referenced `docs/images/dataflow.png` and `docs/teleop-demo.mp4`, so those
 > two links were broken). That rewrite, drafted as `MSC_README.md`, has since
 > been promoted: `README.md` is now that draft, and the old upstream README
-> lives on as [`DEPRECATED_README.md`](../DEPRECATED_README.md) for historical
+> lives on as [`/deprecated/DEPRECATED_README.md`](..//deprecated/DEPRECATED_README.md) for historical
 > reference only.
 
 ## Changed, not removed

@@ -7,7 +7,7 @@ x86_64 is the only supported runtime, and the hardware is fixed: this is a
 single-rig fork, not a general-purpose framework.
 
 Hardware source of truth: [docs/hardware_spec.md](docs/hardware_spec.md). What
-was removed from upstream and why: [docs/cleanup.md](docs/cleanup.md).
+was removed from upstream and why: [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md).
 
 ---
 
@@ -221,7 +221,9 @@ Full reference: [docs/usage.md](docs/usage.md).
 
 Data flows: input device, standard topic interface, output controller,
 hardware. Inputs and outputs meet only at the standard interface, which is what
-makes them swappable. Full map: [docs/architecture.md](docs/architecture.md).
+makes them swappable. Full map: [docs/architecture.md](docs/architecture.md);
+every hop from device to MuJoCo with its file and line is in
+[Hardware to sim data flow](docs/architecture.md#hardware-to-sim-data-flow).
 
 | Package | Role |
 |---|---|
@@ -297,6 +299,6 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
 - **Monitor cannot start the G1**, and the **joint panel still shows 7 arm
   columns** (Tianji's DoF count; the G1_23 has 5 per side).
 
-Full list with detail: [docs/cleanup.md](docs/cleanup.md#known-follow-ups).
+Full list with detail: [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md#known-follow-ups).
 
 </details>

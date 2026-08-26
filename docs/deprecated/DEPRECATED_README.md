@@ -2,7 +2,7 @@
 
 > **This document is deprecated and out of date.** It predates the 2026-08-25
 > cleanup that removed the Tianji arm, HTC/SteamVR, and MANUS code (see
-> [docs/cleanup.md](docs/cleanup.md)) — most of what follows (Tianji
+> [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md)) — most of what follows (Tianji
 > controllers, `docs/STEAMVR.md`, the `brake`/`camera` Monitor presets,
 > `wuji_teleop.launch.py`) no longer exists in this repo. **Use
 > [README.md](README.md) instead.** This file is kept only for historical
