@@ -76,6 +76,10 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  # GUI passthrough (rviz, rqt)
       - /dev:/dev:rw                       # device hot-plug
       - ../src:/home/wuji/ros2_ws/src:rw   # bind-mount the host source tree
+      # SOT handoff bundle (recorded samples for replay). Read-only:
+      # reference data, nothing in the stack may write into it. Lives at the
+      # repo root rather than src/ so colcon never scans its ~GBs of media.
+      - ../RobotSTAR_demos:/home/wuji/ros2_ws/RobotSTAR_demos:ro
       # --- Wuji Studio calibration ---
       # Studio writes <SN>.toml to host ~/.wuji/sdk/params/; SDK reads it in
       # the container. entrypoint.sh chowns this if docker auto-created it as root.

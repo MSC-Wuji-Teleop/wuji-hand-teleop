@@ -55,3 +55,4 @@ src/camera/config/camera_config.yaml
 *.log
 INTEGRATION_PLAN.md
 src/camera/config/udev/99-teleop-cameras.rules
+RobotSTAR_demos/
