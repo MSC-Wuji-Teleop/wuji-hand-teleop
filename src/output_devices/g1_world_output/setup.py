@@ -37,6 +37,8 @@ setup(
     entry_points={
         'console_scripts': [
             'g1_world_output_node = g1_world_output.g1_world_output_node:main',
+            # g1_joint_replay_node was folded into g1_world_output_node's
+            # 'joint_replay' mode; see deprecated/g1_joint_replay_node.py.
         ],
     },
 )

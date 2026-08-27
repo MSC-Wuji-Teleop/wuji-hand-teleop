@@ -11,6 +11,7 @@ names and control-loop structure follow that reference closely.
 
 from __future__ import annotations
 
+import fcntl
 import logging
 import threading
 import time
@@ -33,6 +34,12 @@ logger = logging.getLogger(__name__)
 kTopicLowCommand_Debug = "rt/lowcmd"
 kTopicLowCommand_Motion = "rt/arm_sdk"
 kTopicLowState = "rt/lowstate"
+
+# Only one process may ever write rt/lowcmd/rt/arm_sdk. This turns a second
+# writer (e.g. someone accidentally starting g1_world_output twice, or a
+# leftover process from an old design with its own DDS writer) into a loud
+# startup failure instead of two processes silently interleaving commands.
+LOWCMD_WRITER_LOCK_PATH = "/tmp/g1_lowcmd_writer.lock"
 
 G1_23_Num_Motors = 35
 G1_23_ARM_DOF = 10  # 5 per arm
@@ -133,6 +140,33 @@ G1_23_ARM_JOINT_NAMES = [
     'right_wrist_roll',
 ]
 
+# G1_29: 7 DoF per arm (adds wrist pitch/yaw; unified-motor-array indices
+# 20/21 and 27/28, which the 23-DoF enum above marks NotUsed). The 29 DDS
+# controller is NOT reinstated yet -- these names currently serve the
+# joint_replay/sim path (name-matched topics, g1_29_wuji2 description);
+# G1CartesianController refuses to open DDS with arm_type=G1_29.
+G1_29_ARM_JOINT_NAMES = [
+    'left_shoulder_pitch',
+    'left_shoulder_roll',
+    'left_shoulder_yaw',
+    'left_elbow',
+    'left_wrist_roll',
+    'left_wrist_pitch',
+    'left_wrist_yaw',
+    'right_shoulder_pitch',
+    'right_shoulder_roll',
+    'right_shoulder_yaw',
+    'right_elbow',
+    'right_wrist_roll',
+    'right_wrist_pitch',
+    'right_wrist_yaw',
+]
+
+ARM_JOINT_NAMES_BY_TYPE = {
+    'G1_23': G1_23_ARM_JOINT_NAMES,
+    'G1_29': G1_29_ARM_JOINT_NAMES,
+}
+
 
 class G1_23_ArmController:
     def __init__(
@@ -142,6 +176,18 @@ class G1_23_ArmController:
         dds_already_initialized: bool = False,
     ):
         logger.info("Initialize G1_23_ArmController...")
+
+        self._lock_file = open(LOWCMD_WRITER_LOCK_PATH, "w")
+        try:
+            fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self._lock_file.close()
+            raise RuntimeError(
+                "Another process already holds the G1 DDS lowcmd writer lock "
+                f"({LOWCMD_WRITER_LOCK_PATH}). Only one process may write "
+                "rt/lowcmd/rt/arm_sdk at a time -- stop it before starting this one."
+            )
+
         self.q_target = np.zeros(G1_23_ARM_DOF)
         self.tauff_target = np.zeros(G1_23_ARM_DOF)
         self.motion_mode = motion_mode
@@ -347,6 +393,11 @@ class G1_23_ArmController:
                 self.msg.crc = self.crc.Crc(self.msg)
                 self.lowcmd_publisher.Write(self.msg)
                 time.sleep(0.02)
+        try:
+            fcntl.flock(self._lock_file, fcntl.LOCK_UN)
+            self._lock_file.close()
+        except Exception:
+            logger.warning("Failed to release G1 DDS lowcmd writer lock (ignored)")
 
     def _Is_weak_motor(self, motor_index):
         weak_motors = [

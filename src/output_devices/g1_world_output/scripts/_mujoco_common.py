@@ -139,15 +139,39 @@ def run_viewer(node, model: mujoco.MjModel, data: mujoco.MjData, camera: str = "
     """Generic render loop shared by sweep_and_visualize.py and mujoco_visualizer.py.
 
     Each frame calls `node.snapshot()`, expected to return
-    `(left_hand, right_hand, left_arm_q, right_arm_q)` where each element is either
-    None (nothing received yet -- ctrl left at its current value) or an array-like
-    of the right length (20 for hands, 5 for arms). `camera` selects an initial
-    viewpoint from CAMERAS (still freely orbitable/zoomable once open).
+    `(left_hand, right_hand, left_arm_q, right_arm_q)` where each element is
+    either None (nothing received yet -- ctrl left at its current value), an
+    array-like of the right length (20 for hands, 5 for arms in
+    ARM_JOINTS_IK order), or -- arms only -- a `(names, positions)` tuple as
+    carried by the JointState messages themselves. The tuple form maps each
+    joint BY NAME to the `{name}_joint` actuator and silently skips names the
+    loaded MJCF doesn't actuate, so the same caller works on both the 23-DoF
+    model (5 actuated arm joints/side) and the 29-DoF one (7/side, for SOT
+    bundle replay).
     """
     left_hand_ids = hand_actuator_ids(model, "left")
     right_hand_ids = hand_actuator_ids(model, "right")
     left_arm_ik_ids = np.array([actuator_id(model, f"left_{j}_joint") for j in ARM_JOINTS_IK])
     right_arm_ik_ids = np.array([actuator_id(model, f"right_{j}_joint") for j in ARM_JOINTS_IK])
+    fixed_arm_ids = {"left": left_arm_ik_ids, "right": right_arm_ik_ids}
+    name_id_cache: dict[str, int] = {}
+
+    def apply_arm(side: str, val) -> None:
+        if val is None:
+            return
+        if isinstance(val, tuple):  # (names, positions): map by name
+            names, positions = val
+            for n, p in zip(names, positions):
+                aid = name_id_cache.get(n)
+                if aid is None:
+                    aid = mujoco.mj_name2id(
+                        model, mujoco.mjtObj.mjOBJ_ACTUATOR, f"{n}_joint"
+                    )
+                    name_id_cache[n] = aid
+                if aid >= 0:
+                    data.ctrl[aid] = p
+        else:  # legacy positional 5-list in ARM_JOINTS_IK order
+            data.ctrl[fixed_arm_ids[side]] = val
 
     cam = CAMERAS[camera]
     with mujoco.viewer.launch_passive(model, data) as viewer:
@@ -162,10 +186,8 @@ def run_viewer(node, model: mujoco.MjModel, data: mujoco.MjData, camera: str = "
                 data.ctrl[left_hand_ids] = left_hand
             if right_hand is not None:
                 data.ctrl[right_hand_ids] = right_hand
-            if left_arm_q is not None:
-                data.ctrl[left_arm_ik_ids] = left_arm_q
-            if right_arm_q is not None:
-                data.ctrl[right_arm_ik_ids] = right_arm_q
+            apply_arm("left", left_arm_q)
+            apply_arm("right", right_arm_q)
 
             mujoco.mj_step(model, data)
             viewer.sync()

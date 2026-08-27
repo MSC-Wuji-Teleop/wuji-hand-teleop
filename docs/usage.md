@@ -12,6 +12,7 @@ trackers), see the [guides index](README.md).
 - [Container lifecycle](#container-lifecycle): start, enter, stop, destroy, logs.
 - [Build and test](#build-and-test): colcon and pytest inside the container.
 - [Launch](#launch): Monitor GUI, raw launch files, sim modes.
+- [SOT bundle replay (sim)](#sot-bundle-replay-sim): replaying a recorded sample in MuJoCo.
 - [Verify](#verify): the topic rates that prove the pipeline is up.
 - [Which change needs which rebuild](#which-change-needs-which-rebuild): edit-to-action map.
 
@@ -121,16 +122,64 @@ docker compose run --rm g1_world_output \
 Full sim walkthrough, including the synthetic sweep that needs no hardware at
 all: [Simulation](../README.md#simulation).
 
+## SOT bundle replay (sim)
+
+Replays one `RobotSTAR_demos/` sample through the production
+output controllers, mirrored in MuJoCo on the 29-DoF model. No input hardware,
+no robot. Four processes; read the bundle's
+[TUITION.md](../RobotSTAR_demos/TUITION.md) before ever pointing
+any of this at hardware.
+
+```bash
+# terminal 1 — G1 node in joint-replay mode (host, from docker/).
+# arm_type G1_29 = the bundle's native 7-DoF-arm joint names; sim-only,
+# refuses DDS. control_rate 250 Hz interpolates the 50 FPS reference.
+docker compose run --rm --name g1-world-output g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py \
+    dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
+
+# terminal 2 + 3 — hand controllers on the keypoints topic (teleop container).
+# /tmp/replay.yaml needs one line:  input_source: "keypoints_topic"
+ros2 run controller wujihand_controller --side left  -c /tmp/replay.yaml
+ros2 run controller wujihand_controller --side right -c /tmp/replay.yaml
+
+# terminal 4 — viewer on the 29-DoF model (teleop container)
+python3 src/output_devices/g1_world_output/scripts/mujoco_visualizer.py \
+    --mjcf src/g1_wuji2_description/g1_29_wuji2_fixed.xml
+
+# terminal 5 — the replay source (teleop container). --loop to repeat.
+ros2 run replay replay_publisher -- \
+    --method-dir RobotSTAR_demos/samples/<sample>/GT --loop
+```
+
+The bundle is bind-mounted read-only into the teleop container at
+`/home/wuji/ros2_ws/RobotSTAR_demos` (docker-compose.yml), so the
+relative path above works from the container's default workdir. A container
+created before that mount was added needs `docker compose up -d teleop` to
+recreate it (then rebuild the workspace inside — the build lives in the
+container). Pick the first sample from the batch audits, not by eye: the
+bundle flags at least one sample as failing its deployment audit. Never feed
+`legacy_wuji_sim_only/hand_targets.csv` anywhere — hand joints are regenerated
+live from the 21-point keypoints (that is the entire point of the
+`keypoints_topic` path).
+
 ## Verify
 
 ```bash
-ros2 topic hz /left_hand/joint_commands    # target ~120 Hz
+ros2 topic hz /left_hand/joint_commands    # teleop: ~120 Hz; replay: ~45-50 Hz
 ros2 topic hz /right_hand/joint_commands
 ```
 
 The Wuji Glove connects in-process via `wuji_sdk` UDP, so there is no glove
 topic to check; these two command topics are the observable output of the hand
 pipeline.
+
+Replay adds the arm side:
+
+```bash
+ros2 topic hz /left_arm/joint_commands     # ~250 Hz (interpolated), named joints
+ros2 topic echo /left_arm/joint_commands --once   # 7 names under arm_type G1_29
+```
 
 ## Which change needs which rebuild
 

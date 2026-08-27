@@ -95,11 +95,13 @@ class MujocoVisualizerNode(Node):
 
     def _on_left_arm(self, msg: JointState) -> None:
         with self._lock:
-            self.left_arm_q = list(msg.position)
+            # (names, positions) tuple: run_viewer maps by name, so 5-joint
+            # (G1_23) and 7-joint (G1_29 replay) commands both work.
+            self.left_arm_q = (tuple(msg.name), list(msg.position))
 
     def _on_right_arm(self, msg: JointState) -> None:
         with self._lock:
-            self.right_arm_q = list(msg.position)
+            self.right_arm_q = (tuple(msg.name), list(msg.position))
 
     def snapshot(self):
         with self._lock:

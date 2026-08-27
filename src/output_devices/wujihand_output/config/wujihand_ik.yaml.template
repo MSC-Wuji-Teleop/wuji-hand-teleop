@@ -4,30 +4,33 @@
 #   1. wujihand_controller node (via -c flag)
 #   2. launch files (via wuji_teleop_bringup.hand_defaults module)
 #
-# ===== Glove integration contract =====
+# ===== Input integration contract =====
 #
-# Per-side controller processes (wujihand_controller_{left,right}) subscribe
-# directly to the input source selected below — there is no intermediate
-# /hand_input bridge topic anymore.
+# Per-side controller processes (wujihand_controller_{left,right}) consume
+# the input source selected below — there is no intermediate /hand_input
+# bridge topic anymore.
 #
-#   wuji_glove: in-process UDP via wuji_sdk (no ROS topic).
+#   wuji_glove:      in-process UDP via wuji_sdk (no ROS topic). The teleop
+#                    default.
+#   keypoints_topic: subscribes /{hand_name}/keypoints21
+#                    (std_msgs/Float64MultiArray, 63 floats = MediaPipe
+#                    (21, 3) keypoints in meters). Used by SOT bundle replay
+#                    (ros2 run replay replay_publisher); any process
+#                    publishing that topic works.
 #
 # Each controller converts its side's raw data to MediaPipe 21-point format
 # (21 x 3 floats) and feeds it into the retargeter.
 #
-# To add a new glove:
+# To add a new input:
 #   1. Add a branch in controller/wujihand_node.py that produces MediaPipe
 #      (21, 3) keypoints for one side.
-#   2. Add retarget config(s): config/retarget_{source}.yaml (shared) or
-#      config/retarget_{source}_{left,right}.yaml (per-side).
+#   2. Add retarget config(s): config/retarget_{source}_{left,right}.yaml
+#      (per-side, checked first) or config/retarget_{source}.yaml (shared).
 #   3. Add the new value to input_source below.
-#
-# Supported today: wuji_glove only.
 
-# Input source — selects the matching retarget config
-# (config/retarget_{input_source}_{side}.yaml).
-#   wuji_glove (only supported value, UDP) — glove SNs in the wuji_glove
-#                                            package's config/wuji_glove.yaml
+# Input source — selects the matching retarget config (see lookup order above).
+#   wuji_glove      — glove SNs in the wuji_glove package's config/wuji_glove.yaml
+#   keypoints_topic — no device config; uses config/retarget_keypoints_topic.yaml
 input_source: "wuji_glove"
 
 # ===== Wuji Hand hardware =====
