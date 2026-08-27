@@ -1,9 +1,7 @@
 #!/bin/bash
-# install_desktop.sh — install all three Wuji Teleop UI desktop shortcuts.
+# install_desktop.sh — install the Wuji Teleop Monitor desktop shortcut.
 #
-#   teleop-monitor.desktop  → Monitor (one-click teleop launch)
-#   brake-control.desktop   → direct-SDK arm brake / recovery
-#   camera-preview.desktop  → three-feed camera preview
+#   teleop-monitor.desktop  → Monitor (one-click hand teleop launch)
 #
 # Usage (run on the host, not inside the container):
 #   cd <repo>/src/wuji_teleop_monitor
@@ -14,9 +12,9 @@
 #   - Substitutes {{HOME}}, {{PACKAGE_PATH}}, {{LAUNCHER}} into each .desktop
 #     template, copies the result onto the desktop, chmod +x, and marks it
 #     trusted under GNOME via `gio set ... metadata::trusted true`.
-#   - All three shortcuts dispatch into the wuji-hand-teleop container via
-#     scripts/launch_ui_docker.sh <monitor|brake|camera> — Docker is the
-#     only supported deployment.
+#   - The shortcut dispatches into the wuji-hand-teleop container via
+#     scripts/launch_ui_docker.sh monitor — Docker is the only supported
+#     deployment.
 
 set -e
 
@@ -64,11 +62,9 @@ install_shortcut() {
 }
 
 install_shortcut monitor teleop-monitor.desktop.template teleop-monitor.desktop
-install_shortcut brake   brake-control.desktop.template  brake-control.desktop
-install_shortcut camera  camera-preview.desktop.template camera-preview.desktop
 
 echo
-echo "Three shortcuts installed under $DESKTOP_DIR."
+echo "Shortcut installed under $DESKTOP_DIR."
 echo "Launcher:  $LAUNCHER"
 echo "Icon:      $PACKAGE_PATH/wuji.svg"
 echo

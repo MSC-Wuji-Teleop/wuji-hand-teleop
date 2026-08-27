@@ -11,7 +11,8 @@
 #   63901 → PC-Service control channel (PICO Connect button)
 #   13579 → XRoboCompatServer camera command channel
 #
-# No USB device in HTC/WiFi mode, idle with no side effects.
+# No USB device when the PICO is on WiFi or on a hand-only session: idle,
+# no side effects.
 # =============================================================================
 
 # Ignore SIGINT/SIGTERM — do not exit with ros2 launch Ctrl+C

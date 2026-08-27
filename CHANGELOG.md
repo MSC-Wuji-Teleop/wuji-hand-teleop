@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Removed
+
+- **Fork cleanse to the actual rig (2026-08-25).** Removed the upstream packages
+  for hardware this lab does not have: `tianji_output`, `tianji_world_output`
+  (Tianji arm), `openvr_input` (HTC Vive Tracker / SteamVR), and `manus_input`
+  (MANUS glove). Also removed the HTC launch preset, the Monitor's `brake` and
+  `camera` entry points and its `/tianji_arm/lifecycle_state` gating, the
+  SteamVR/OpenVR plumbing in the Docker layer, the upstream release workflows,
+  and the HTC docs and demo videos. Full inventory with rationale, per folder
+  and per file: [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md).
+- The entrypoint's Tianji `libKine.so` / `libMarvinSDK.so` health checks are
+  gone. They called `exit 1`, so they would have failed the container outright
+  once `tianji_output` was removed.
+
+### Changed
+
+- **`pico_input` now owns the PICO frame math.** It imported
+  `tianji_world_output.config_loader` and `.transform_utils` in production code,
+  so those two modules moved into the package unchanged as
+  `pico_input/transform_utils.py` and `pico_input/config_loader.py`, with the
+  new `config/robot_frames.yaml` replacing `tianji_robot.yaml`. The Tianji
+  hardware fields (`robot_ip`, `kine_config_file`, `init_joints`) were dropped.
+  The frame math was verified bit-identical to the original before the switch.
+  The `init_pos` / `init_rot` / `arm_init_*` anchors are still Tianji-derived FK
+  values, carried over verbatim and **not yet re-derived for the G1_23**.
+- `pico_teleop.launch.py` now starts PICO input and the hands only. It no longer
+  starts an arm output or the camera stack. The G1 arm controller runs in its own
+  container, so it cannot be a node in this launch file; it is a second terminal.
+- Hand `input_source` collapsed to `wuji_glove`, its only remaining value.
+- Monitor presets reduced to "Hand only (Wuji Glove)" and "Hand + PICO input".
+- `src/camera/` is **kept but unwired**, pending the G1 head cameras (RealSense
+  D435i built-in, D455 attachment). Nothing launches it. `d435i` is already a
+  supported type in `camera_launch.py`; the migration notes are in
+  `src/camera/README.md`.
+- Deleted the `pico_input` test scripts that drove the Tianji arm directly
+  (`step1`, `step3`, `step5`, `step6`, and all of `test/tool/`). `step2` and
+  `step4` remain, repointed at the ported modules.
+
 ### Added
 
 - Added **Unitree G1 dual-arm support** (`src/output_devices/g1_world_output/`) as an

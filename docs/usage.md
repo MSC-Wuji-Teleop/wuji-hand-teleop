@@ -1,11 +1,11 @@
 # Developer Usage Reference
 
 Daily commands for working on this repo. Assumes the one-time setup in
-[Quick Start (Docker)](../README.md#quick-start-docker) is done: image built,
+[Install](../README.md#install) is done: image built,
 serials configured, container able to start.
 
 Audience: a developer editing code. For first-time setup, use the
-[main README](../README.md). For per-device operator setup (SteamVR, PICO,
+[main README](../README.md). For per-device operator setup (PICO,
 trackers), see the [guides index](README.md).
 
 - [Where commands run](#where-commands-run): host vs. container.
@@ -45,6 +45,18 @@ docker compose build g1_world_output    # needs the unitree_sdk2_python submodul
 docker compose up -d g1_world_output
 ```
 
+> **`docker compose up -d g1_world_output` assumes a real G1 is reachable over
+> DDS.** Its default command runs `g1_world_output.launch.py` with no
+> `dry_run`, and the service has `restart: unless-stopped` — with no robot (or
+> DDS sim bridge) answering on the domain, the node throws `TimeoutError: ...
+> No rt/lowstate after 30s` and compose just restarts it, forever, every ~30s.
+> For sim/no-hardware testing, don't use bare `up -d`; run with `dry_run:=true`
+> instead (see [Simulation](../README.md#simulation)):
+> ```bash
+> docker compose run -d --rm --name g1-world-output g1_world_output \
+>     ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true
+> ```
+
 ## Build and test
 
 Inside the container:
@@ -66,27 +78,33 @@ python3 -m pytest src/output_devices/g1_world_output/tests/
 
 The Monitor GUI is the preferred entry point; raw launch files are the CLI
 fallback. Preset-to-launch-file mapping is documented in
-[Running](../README.md#running).
+[Monitor GUI](../README.md#monitor-gui).
 
 ```bash
-# One-click GUI
-ros2 run wuji_teleop_monitor monitor    # dashboard + preset launch + joint preview
-ros2 run wuji_teleop_monitor brake      # direct-SDK Tianji brake/recovery (teleop must be OFF)
-ros2 run wuji_teleop_monitor camera     # 2x2 camera preview (read-only diagnostic)
+# One-click GUI (two presets: hand-only, and hand + PICO input)
+ros2 run wuji_teleop_monitor monitor
 
 # Hand-only, CLI
 ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py
 
-# Hand + arm, HTC Tracker path
-ros2 launch wuji_teleop_bringup wuji_teleop.launch.py enable_arm:=true arm_input:=tracker
-
-# Hand + arm, PICO path (separate launch file, different arm controller)
-ros2 launch wuji_teleop_bringup pico_teleop.launch.py enable_robot:=true
+# PICO arm input + hands, CLI
+ros2 launch wuji_teleop_bringup pico_teleop.launch.py
 ```
 
-> **`brake` and `monitor` teleop must never run concurrently.** The Tianji
-> controller cabinet allows a single TCP session. Stop teleop before
-> connecting `brake`; disconnect `brake` before relaunching teleop.
+> **Neither the GUI nor these launch files start the G1 arms.**
+> `g1_world_output` runs in its own container (Pinocchio + CasADi need NumPy
+> 1.x, the rest of the stack needs 2.x), so it cannot be a node in a
+> `teleop`-container launch file. Start it from the host, in a second
+> terminal:
+>
+> ```bash
+> cd docker && docker compose run --rm g1_world_output \
+>     ros2 launch g1_world_output g1_world_output.launch.py
+> ```
+>
+> The two containers share host networking, `ROS_DOMAIN_ID`, and
+> `docker/cyclonedds.xml`, so the arm target-pose topics cross between them.
+> This end-to-end PICO -> G1 path has **not been verified on hardware yet**.
 
 Sim modes (no physical robot):
 
@@ -101,7 +119,7 @@ docker compose run --rm g1_world_output \
 ```
 
 Full sim walkthrough, including the synthetic sweep that needs no hardware at
-all: [Running Everything in Simulation](../README.md#running-everything-in-simulation-no-physical-robot).
+all: [Simulation](../README.md#simulation).
 
 ## Verify
 
@@ -125,4 +143,4 @@ pipeline.
 
 Config files are tracked as `.yaml.template` only; `docker/entrypoint.sh`
 seeds the real gitignored `.yaml` on first container start. Details:
-[Configure serial numbers](../README.md#5-configure-serial-numbers).
+[Configure serial numbers](../README.md#configure-serial-numbers).

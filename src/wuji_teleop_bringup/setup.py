@@ -15,15 +15,12 @@ setup(
         # Install launch files
         (os.path.join('share', package_name, 'launch'),
             glob('launch/*.py')),
-        # Install config files
-        (os.path.join('share', package_name, 'config'),
-            glob('config/*.yaml')),
     ],
     install_requires=['setuptools', 'pyyaml'],
     zip_safe=True,
     maintainer='Wentao Zhang',
     maintainer_email='maintainers@wuji-tec.com',
-    description='Launch files for Wuji Hand and Tianji Arm teleoperation',
+    description='Launch files for Wuji Hand and PICO 4 teleoperation presets',
     license='MIT',
     tests_require=['pytest'],
     entry_points={

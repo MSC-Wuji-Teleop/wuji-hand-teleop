@@ -2,11 +2,11 @@
 
 ## Overview
 
-ROS2 (Humble) teleoperation stack for the **Wuji Hand**, driven by the **Wuji Glove**, with optional dual-arm teleop (HTC Vive Tracker or PICO 4) and a **Unitree G1** arm output. The repo lives inside a colcon workspace (`~/ros2_ws/src/wuji-hand-teleop`); its `src/` bind-mounts into the `wuji-hand-teleop` Docker container as the workspace package source.
+ROS2 (Humble) teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **2x Wuji Hand 2**, driven by **Wuji Gloves** for the hands and a **PICO 4** headset with 4 Motion Trackers for the arms. The repo lives inside a colcon workspace (`~/ros2_ws/src/wuji-hand-teleop`); its `src/` bind-mounts into the `wuji-hand-teleop` Docker container as the workspace package source.
 
 **Docker is the only supported runtime.** `docker/Dockerfile` is the source of truth for the environment (apt/pip versions, SDKs). One exception to the single-container picture: `g1_world_output` runs as its own image/container because its Pinocchio+CasADi build needs NumPy 1.x while the rest of the stack needs 2.x.
 
-This fork drives one specific rig (G1 + Wuji Hand 2, gloves + PICO 4 input). The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant, `g1_wuji2_description` matches it (g1_23_wuji2* files, rebuilt 2026-08-24), and the Tianji/HTC/camera hardware does not exist here.
+The hardware source of truth is [docs/hardware_spec.md](docs/hardware_spec.md): the G1 is the **23-DoF** variant and `g1_wuji2_description` matches it (g1_23_wuji2* files, rebuilt 2026-08-24). The upstream Tianji arm, HTC/SteamVR, and MANUS code was removed on 2026-08-25; what went and why is in [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md). `src/camera/` is kept but unwired, pending the G1 head cameras.
 
 ## Commands
 
@@ -25,14 +25,14 @@ Host code edits are live via the bind-mount + symlink install; rerun `colcon bui
 
 Data flow: input device, standard topic/TF interface, output controller, hardware. Full map with per-package detail: [docs/architecture.md](docs/architecture.md).
 
-- `src/input_devices/`: `wuji_glove` (in-process `wuji_sdk` UDP, no topic hop), `openvr_input` (TF), `pico_input` (chest-frame `PoseStamped` topics), `manus_input` (community-supported, feature-frozen).
+- `src/input_devices/`: `wuji_glove` (in-process `wuji_sdk` UDP, no topic hop), `pico_input` (chest-frame `PoseStamped` topics; also owns the PICO frame math in `transform_utils.py` + `config_loader.py`).
 - `src/controller/`: `wujihand_controller` runs as two independent processes (left/right), each with its own GIL, retargeting, and IK. Input selected by `wujihand_ik.yaml::input_source`; dispatch + custom-input reference pattern in `src/output_devices/wujihand_output/wujihand_controller.py`.
-- `src/output_devices/`: `wujihand_output` (hand IK), `tianji_output` (TF mode, HTC path), `tianji_world_output` (topic mode, PICO path), `g1_world_output` (same topic contract as `tianji_world_output`, drop-in output alternative).
-- `src/wuji_teleop_bringup/`: launch files per preset. `src/wuji_teleop_monitor/`: Qt5 GUI (`monitor` / `brake` / `camera`); `monitor` is the reference for preset-to-launch mapping.
+- `src/output_devices/`: `wujihand_output` (hand IK), `g1_world_output` (G1 arms; consumes `/left_arm_target_pose` + `/right_arm_target_pose`, runs in its own container).
+- `src/wuji_teleop_bringup/`: launch files per preset (`wuji_teleop_hand.launch.py`, `pico_teleop.launch.py`). `src/wuji_teleop_monitor/`: Qt5 GUI, single `monitor` entry point, the reference for preset-to-launch mapping.
 
 ## Rules and invariants
 
-- `brake` and `monitor` teleop must never run concurrently: the Tianji cabinet allows a single TCP session.
+- No launch file in the `teleop` container can start the G1 arms: `g1_world_output` is a separate image (Pinocchio + CasADi need NumPy 1.x). It is always a second terminal, and the Monitor GUI cannot reach it.
 - The hand controller never opens hand USB; only the separate `wujihand_driver` process does. Hand sim mode: `enable_hand_driver:=false`. G1 sim mode: `dry_run:=true` (real IK, no DDS).
 - Configs are `.yaml.template` in git; `docker/entrypoint.sh` seeds the real gitignored `.yaml` so serials/IPs never land in the repo. New template: rerun `colcon build --symlink-install`.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own licenses. Do not modify it as first-party.

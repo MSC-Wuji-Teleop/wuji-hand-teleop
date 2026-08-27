@@ -64,7 +64,7 @@ PICO coordinate system -> Robot coordinate system:
   PICO: +XRight, +YUp, +ZForward(toward user)
   Robot: +XForward, +YLeft, +ZUp
 
-  Transform matrix pico_to_robot (loaded from tianji_robot.yaml, see transform_utils.py):
+  Transform matrix pico_to_robot (loaded from robot_frames.yaml, see transform_utils.py):
     Robot X = -PICO Z  (User moves forward -> robot moves backward, toward user)
     Robot Y = -PICO X  (User moves right -> robot moves right)
     Robot Z = +PICO Y  (User moves up -> robot moves up)
@@ -216,7 +216,7 @@ from pico_input.data_source import RecordedDataSource
 
 
 # PICO -> Robot coordinate transform (loaded from shared config)
-# See tianji_world_output/transform_utils.py and pico_input/ARCHITECTURE.md §3.1
+# See pico_input/transform_utils.py and pico_input/ARCHITECTURE.md §3.1
 
 # World -> Chest conversion: using shared functions from transform_utils
 # (transform_world_to_chest, apply_world_rotation_to_chest_pose etc.)
@@ -262,7 +262,7 @@ class RecordedDataVisualizer(Node):
         self.pico_left_arm_pub = self.create_publisher(PoseStamped, '/pico_left_arm', 10)
         self.pico_right_arm_pub = self.create_publisher(PoseStamped, '/pico_right_arm', 10)
 
-        # Arm angle control topics (for tianji_world_output nullspace IK constraints)
+        # Arm angle control topics (for the arm output nullspace IK constraints)
         # Publish elbow offset direction vector: normal vector of elbow relative to shoulder-wrist plane
         self.left_elbow_dir_pub = self.create_publisher(Vector3Stamped, '/left_arm_elbow_direction', 10)
         self.right_elbow_dir_pub = self.create_publisher(Vector3Stamped, '/right_arm_elbow_direction', 10)
@@ -687,7 +687,7 @@ class RecordedDataVisualizer(Node):
         Left/Right Arm Handling
         ============================================================================
 
-        The initial reference positions of arm trackers (arm_init_pos, from tianji_robot.yaml) are physically correct values:
+        The initial reference positions of arm trackers (arm_init_pos, from robot_frames.yaml) are physically correct values:
           - left arm: [0.2, +0.3, +0.1]  (Left Chest: Y+=Down, Z+=Left/outer side)
           - right arm: [0.2, -0.3, +0.1]  (Right Chest: Y-=Down, Z+=Right/outer side)
 

@@ -14,7 +14,7 @@
 #   docker exec -it wuji-hand-teleop bash   # Open a shell inside
 #
 # Start teleop inside the container:
-#   ros2 launch wuji_teleop_bringup wuji_teleop.launch.py
+#   ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py
 #
 # Accelerate the build behind a slow PyPI mirror:
 #   docker compose build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
@@ -35,7 +35,6 @@ services:
     # --- Network & IPC ---
     network_mode: host                  # ROS2 DDS multi-host discovery
     ipc: host                           # ROS2 shared-memory transport
-    pid: host                           # SteamVR IPC needs a shared PID namespace
 
     # Lets entrypoint.sh pin per-glove /32 routes when the harness wires each
     # glove receiver to a separate NIC on the same subnet (see
@@ -49,9 +48,10 @@ services:
     init: true
 
     # --- GPU (optional, NVENC hardware H.264 encoding) ---
-    # Uncomment the block below when an NVIDIA GPU is available; host needs
-    # nvidia-container-toolkit. Without GPU the build falls back to libx264
-    # software encoding automatically (no functional change).
+    # For the camera -> PICO video path in src/camera/, which is currently
+    # unwired pending the G1 head cameras. Uncomment when an NVIDIA GPU is
+    # available; host needs nvidia-container-toolkit. Without a GPU the
+    # encoder falls back to libx264 automatically (no functional change).
     # deploy:
     #   resources:
     #     reservations:
@@ -62,15 +62,15 @@ services:
 
     # --- Device access ---
     device_cgroup_rules:
-      - 'c 81:* rmw'                   # video4linux (cameras)
-      - 'c 189:* rmw'                  # USB (MANUS, RealSense)
+      # librealsense uses the V4L2 backend on Linux, so RealSense needs 81 too.
+      - 'c 81:* rmw'                   # video4linux (UVC + RealSense video nodes)
+      - 'c 189:* rmw'                  # USB (Wuji Hand, RealSense, PICO via ADB)
 
     environment:
       - DISPLAY=${DISPLAY}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - TZ=Asia/Shanghai
-      - HOST_HOME=${HOME}                  # used by SteamVR path resolution
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  # GUI passthrough (rviz, rqt)
@@ -80,9 +80,6 @@ services:
       # Studio writes <SN>.toml to host ~/.wuji/sdk/params/; SDK reads it in
       # the container. entrypoint.sh chowns this if docker auto-created it as root.
       - ${HOME}/.wuji:/home/wuji/.wuji:rw
-      # --- SteamVR / OpenVR (HTC Vive Tracker path only) ---
-      # PICO-only users may comment this out or leave it (the empty dir is harmless).
-      - ${HOME}/.steam:/home/wuji/.steam:ro
 
     # --- Log rotation (avoid filling disk during long runs) ---
     logging:
@@ -105,11 +102,11 @@ services:
   # over ROS2/DDS via host networking + the same ROS_DOMAIN_ID/cyclonedds
   # config, not through a shared filesystem or Python environment.
   #
-  # profiles: gated behind "g1" so bare `docker compose up/build/down`
-  # (the hand-only + Tianji-arm workflow) never touches this service --
-  # without a real G1 it would just build/start and sit waiting on DDS
-  # forever. Opt in with `docker compose --profile g1 up -d` or by naming
-  # the service directly: `docker compose up -d g1_world_output`.
+  # profiles: gated behind "g1" so a bare `docker compose up/build/down`
+  # (the hand-only workflow) never touches this service -- without a real G1
+  # it would just build/start and sit waiting on DDS forever. Opt in with
+  # `docker compose --profile g1 up -d`, or name the service directly:
+  # `docker compose up -d g1_world_output`.
   # ---------------------------------------------------------------------
   g1_world_output:
     profiles: ["g1"]

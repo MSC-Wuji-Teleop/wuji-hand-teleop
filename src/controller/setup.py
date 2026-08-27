@@ -18,12 +18,11 @@ setup(
     zip_safe=True,
     maintainer='Wuji Robotics',
     maintainer_email='dev@wuji.com',
-    description='Unified controller nodes — state machines supporting mode switching',
+    description='Wuji Hand controller node (per-side retargeting + IK)',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'tianji_arm_controller = controller.tianji_arm_node:main',
             'wujihand_controller = controller.wujihand_node:main',
         ],
     },

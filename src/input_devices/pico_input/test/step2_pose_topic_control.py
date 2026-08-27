@@ -9,7 +9,7 @@ Test Purpose:
 
 Input/Output:
   Input: Target pose (PoseStamped topic)
-  Processing: tianji_world_output_node subscribes -> IK calculation -> joint angles
+  Processing: the arm output node subscribes -> IK calculation -> joint angles
   Output: Send joint angle commands to the real robot
 
 Architecture:
@@ -17,7 +17,7 @@ Architecture:
       |
   /left_arm_target_pose, /right_arm_target_pose (PoseStamped)
       |
-  tianji_world_output_node (subscribes topic -> IK -> real robot)
+  the arm output node (subscribes topic -> IK -> real robot)
 
 Usage:
   # Terminal 1: Start the arm control node
@@ -167,7 +167,7 @@ class PosePublisher(Node):
         }
 
         # Wait for subscribers to be ready
-        self.get_logger().info("Waiting for tianji_world_output_node subscribers...")
+        self.get_logger().info("Waiting for the arm output node subscribers...")
         wait_count = 0
         while self.left_pose_pub.get_subscription_count() == 0:
             time.sleep(0.5)

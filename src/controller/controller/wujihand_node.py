@@ -1,13 +1,12 @@
 """Wuji-hand controller node (one process per hand, multi-core parallelism).
 
-input_source is selected by wujihand_ik.yaml: 'wuji_glove' (UDP, in-process)
-or 'manus' (subscribes /manus_glove_*); publishes /{side}_hand/joint_commands.
+input_source is selected by wujihand_ik.yaml; 'wuji_glove' (UDP, in-process)
+is the only supported value. Publishes /{side}_hand/joint_commands.
 """
 from __future__ import annotations
 
 import argparse
 import sys
-import threading
 import time
 from typing import Optional
 
@@ -19,23 +18,12 @@ from rclpy.utilities import remove_ros_args
 from wujihand_output import WujiHandController
 from .common import (
     ROS2LoggerAdapter,
-    get_default_qos,
     load_yaml_config,
     get_package_config_path,
 )
 
-# Manus -> MediaPipe mapping (lifted from the original manus_input_node.py).
-# MediaPipe: 0=WRIST, 1-4=THUMB, 5-8=INDEX, 9-12=MIDDLE, 13-16=RING, 17-20=PINKY
-_MEDIAPIPE_TO_MANUS = (
-    1, 22, 23, 24, 25,
-    3, 4, 5, 6,
-    8, 9, 10, 11,
-    13, 14, 15, 16,
-    18, 19, 20, 21,
-)
-
 # Default control-loop rate (Hz). Override with the `control_rate` ROS2 param.
-# 120Hz matches the upper bound of Manus / wuji_glove skeleton frames; higher
+# 120Hz matches the upper bound of wuji_glove skeleton frames; higher
 # adds no new input. The wujihand C++ driver on the host runs 1000Hz down to
 # the firmware, so publishing faster from the controller is pointless.
 DEFAULT_CONTROL_RATE_HZ = 120.0
@@ -48,23 +36,6 @@ DEFAULT_CONTROL_RATE_HZ = 120.0
 # single reconnect blocks ~3s worst-case (i.e. the main loop misses ~3s of
 # joint_commands; output resumes naturally once the link is back).
 _RECV_TIMEOUT_SEC = 2.0
-
-
-def _convert_to_mediapipe(msg) -> np.ndarray:
-    """Convert Manus ManusGlove message to MediaPipe (21, 3) format."""
-    positions = {}
-    for node in msg.raw_nodes:
-        pose = node.pose
-        positions[node.node_id] = np.array(
-            [pose.position.x, -pose.position.y, pose.position.z],
-            dtype=np.float32,
-        )
-
-    result = np.zeros((21, 3), dtype=np.float32)
-    for mp_idx, manus_id in enumerate(_MEDIAPIPE_TO_MANUS):
-        if manus_id in positions:
-            result[mp_idx] = positions[manus_id]
-    return result
 
 
 def _extract_wuji_glove_keypoints(skeleton) -> Optional[np.ndarray]:
@@ -88,9 +59,8 @@ def _extract_wuji_glove_keypoints(skeleton) -> Optional[np.ndarray]:
 class WujiHandControllerNode(Node):
     """Per-hand wujihand controller node.
 
-    Dispatches at __init__ on cfg['input_source']:
-      - 'wuji_glove': connect via wuji_sdk (UDP), subscribe hand_skeleton
-      - 'manus':      subscribe /manus_glove_0,1 (existing behavior)
+    cfg['input_source'] must be 'wuji_glove': connect via wuji_sdk (UDP) and
+    subscribe hand_skeleton in-process.
     """
 
     def __init__(self, side: str, hand_name: str, cfg: dict,
@@ -101,14 +71,7 @@ class WujiHandControllerNode(Node):
         self._side = side
         self._logger_adapter = ROS2LoggerAdapter(self.get_logger())
         self._input_source = cfg.get("input_source", "wuji_glove")
-        # _latest_keypoints is written by ROS subscription callbacks and
-        # consumed by the timer-driven control loop on a different thread;
-        # the lock keeps writes/reads atomic and prevents losing a frame
-        # mid-swap.
-        self._latest_keypoints: Optional[np.ndarray] = None
-        self._keypoints_lock = threading.Lock()
-
-        # Wuji-glove-only attributes (None for manus path)
+        # wuji_glove connection state
         self._sdk_device = None
         self._sdk_sub = None
         # Stash connect params for reconnects (populated by _setup_wuji_glove).
@@ -133,16 +96,12 @@ class WujiHandControllerNode(Node):
         )
         self.get_logger().info("Controller initialized")
 
-        # Dispatch on input_source
-        if self._input_source == "wuji_glove":
-            self._setup_wuji_glove(glove_config_path)
-        elif self._input_source == "manus":
-            self._setup_manus()
-        else:
+        if self._input_source != "wuji_glove":
             raise ValueError(
-                f"unknown input_source: {self._input_source!r} "
-                f"(expected 'wuji_glove' or 'manus')"
+                f"unsupported input_source: {self._input_source!r} "
+                f"(only 'wuji_glove' is supported)"
             )
+        self._setup_wuji_glove(glove_config_path)
 
         # control_rate comes from a ROS2 param, default 120Hz (see the
         # DEFAULT_CONTROL_RATE_HZ comment at the top of this module). No
@@ -275,40 +234,10 @@ class WujiHandControllerNode(Node):
             return
         self.controller.set_keypoints(kp)
 
-    # ==================== input_source=manus ====================
-
-    def _setup_manus(self) -> None:
-        from manus_ros2_msgs.msg import ManusGlove  # lazy: only on manus path
-        qos = get_default_qos()
-        self.create_subscription(ManusGlove, "/manus_glove_0", self._manus_callback, qos)
-        self.create_subscription(ManusGlove, "/manus_glove_1", self._manus_callback, qos)
-        self.get_logger().info(
-            f"Subscribed to Manus topics: /manus_glove_0, /manus_glove_1 "
-            f"(filtering side={self._side})"
-        )
-
-    def _manus_callback(self, msg) -> None:
-        if msg.side.lower() != self._side:
-            return
-        kp = _convert_to_mediapipe(msg)
-        with self._keypoints_lock:
-            self._latest_keypoints = kp
-
-    def _teleop_loop_manus(self) -> None:
-        with self._keypoints_lock:
-            kp = self._latest_keypoints
-            self._latest_keypoints = None  # consume-once
-        if kp is None:
-            return
-        self.controller.set_keypoints(kp)
-
     # ==================== shared ====================
 
     def _teleop_loop(self) -> None:
-        if self._input_source == "wuji_glove":
-            self._teleop_loop_wuji_glove()
-        else:
-            self._teleop_loop_manus()
+        self._teleop_loop_wuji_glove()
 
     # ==================== lifecycle ====================
 

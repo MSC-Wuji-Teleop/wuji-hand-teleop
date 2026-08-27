@@ -44,7 +44,7 @@ class WujiHandController:
         self,
         side: str,
         hand_name: str,
-        input_source: str = "manus",
+        input_source: str = "wuji_glove",
         retarget_config: Optional[str] = None,
         retarget_config_dir: Optional[str] = None,
         enable_ik: bool = True,

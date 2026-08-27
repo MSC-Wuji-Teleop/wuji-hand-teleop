@@ -36,10 +36,10 @@ HAND_CODES = [
     "LFJ0", "LFJ1", "LFJ2", "LFJ3",
 ]
 
-# G1_23 IK solves 5 DoF/arm; wrist_pitch/wrist_yaw exist in the MJCF (G1 has
-# 7 DoF/arm) but aren't produced by this IK, so they're held at 0.
+# G1_23 IK solves and the MJCF actuates exactly these 5 DoF/arm. The G1_29
+# body's 7-DoF arm (wrist_pitch/wrist_yaw in addition to these) is not part
+# of this rig -- see docs/hardware_spec.md.
 ARM_JOINTS_IK = ["shoulder_pitch", "shoulder_roll", "shoulder_yaw", "elbow", "wrist_roll"]
-ARM_JOINTS_FIXED = ["wrist_pitch", "wrist_yaw"]
 
 # Matches g1_world_output_node's publishers on /left_arm/joint_commands etc.
 ARM_JOINT_QOS = QoSProfile(
@@ -148,9 +148,6 @@ def run_viewer(node, model: mujoco.MjModel, data: mujoco.MjData, camera: str = "
     right_hand_ids = hand_actuator_ids(model, "right")
     left_arm_ik_ids = np.array([actuator_id(model, f"left_{j}_joint") for j in ARM_JOINTS_IK])
     right_arm_ik_ids = np.array([actuator_id(model, f"right_{j}_joint") for j in ARM_JOINTS_IK])
-    for j in ARM_JOINTS_FIXED:
-        data.ctrl[actuator_id(model, f"left_{j}_joint")] = 0.0
-        data.ctrl[actuator_id(model, f"right_{j}_joint")] = 0.0
 
     cam = CAMERAS[camera]
     with mujoco.viewer.launch_passive(model, data) as viewer:
