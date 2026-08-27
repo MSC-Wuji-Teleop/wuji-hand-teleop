@@ -1,12 +1,15 @@
 """Wuji-hand controller node (one process per hand, multi-core parallelism).
 
-input_source is selected by wujihand_ik.yaml; 'wuji_glove' (UDP, in-process)
-is the only supported value. Publishes /{side}_hand/joint_commands.
+input_source is selected by wujihand_ik.yaml: 'wuji_glove' (UDP, in-process)
+or 'keypoints_topic' (subscribes /{hand_name}/keypoints21 -- 63-float
+MediaPipe (21,3) keypoints in meters, e.g. from the replay package's bundle
+publisher); publishes /{side}_hand/joint_commands.
 """
 from __future__ import annotations
 
 import argparse
 import sys
+import threading
 import time
 from typing import Optional
 
@@ -18,6 +21,7 @@ from rclpy.utilities import remove_ros_args
 from wujihand_output import WujiHandController
 from .common import (
     ROS2LoggerAdapter,
+    get_default_qos,
     load_yaml_config,
     get_package_config_path,
 )
@@ -59,8 +63,12 @@ def _extract_wuji_glove_keypoints(skeleton) -> Optional[np.ndarray]:
 class WujiHandControllerNode(Node):
     """Per-hand wujihand controller node.
 
-    cfg['input_source'] must be 'wuji_glove': connect via wuji_sdk (UDP) and
-    subscribe hand_skeleton in-process.
+    Dispatches at __init__ on cfg['input_source']:
+      - 'wuji_glove':      connect via wuji_sdk (UDP), subscribe hand_skeleton
+      - 'keypoints_topic': subscribe /{hand_name}/keypoints21
+                           (std_msgs/Float64MultiArray, 63 floats = MediaPipe
+                           (21,3) in meters; retargeted here exactly like
+                           glove input -- used by the replay package's bundle playback)
     """
 
     def __init__(self, side: str, hand_name: str, cfg: dict,
@@ -71,6 +79,10 @@ class WujiHandControllerNode(Node):
         self._side = side
         self._logger_adapter = ROS2LoggerAdapter(self.get_logger())
         self._input_source = cfg.get("input_source", "wuji_glove")
+        # keypoints_topic state: written by the subscription callback,
+        # consumed by the timer-driven control loop on another thread.
+        self._latest_keypoints: Optional[np.ndarray] = None
+        self._keypoints_lock = threading.Lock()
         # wuji_glove connection state
         self._sdk_device = None
         self._sdk_sub = None
@@ -96,12 +108,16 @@ class WujiHandControllerNode(Node):
         )
         self.get_logger().info("Controller initialized")
 
-        if self._input_source != "wuji_glove":
+        # Dispatch on input_source
+        if self._input_source == "wuji_glove":
+            self._setup_wuji_glove(glove_config_path)
+        elif self._input_source == "keypoints_topic":
+            self._setup_keypoints_topic(hand_name)
+        else:
             raise ValueError(
-                f"unsupported input_source: {self._input_source!r} "
-                f"(only 'wuji_glove' is supported)"
+                f"unknown input_source: {self._input_source!r} "
+                f"(expected 'wuji_glove' or 'keypoints_topic')"
             )
-        self._setup_wuji_glove(glove_config_path)
 
         # control_rate comes from a ROS2 param, default 120Hz (see the
         # DEFAULT_CONTROL_RATE_HZ comment at the top of this module). No
@@ -234,10 +250,45 @@ class WujiHandControllerNode(Node):
             return
         self.controller.set_keypoints(kp)
 
+    # ==================== input_source=keypoints_topic ====================
+
+    def _setup_keypoints_topic(self, hand_name: str) -> None:
+        from std_msgs.msg import Float64MultiArray  # lazy: only on this path
+        qos = get_default_qos()
+        topic = f"/{hand_name}/keypoints21"
+        self.create_subscription(Float64MultiArray, topic, self._keypoints_callback, qos)
+        self.get_logger().info(
+            f"Subscribed to {topic} (63-float MediaPipe (21,3) keypoints, meters)"
+        )
+
+    def _keypoints_callback(self, msg) -> None:
+        if len(msg.data) != 63:
+            self.get_logger().warn(
+                f"keypoints21 message has {len(msg.data)} floats, expected 63; dropping",
+                throttle_duration_sec=5.0,
+            )
+            return
+        kp = np.array(msg.data, dtype=np.float32).reshape(21, 3)
+        with self._keypoints_lock:
+            self._latest_keypoints = kp
+
+    def _teleop_loop_topic(self) -> None:
+        # Same consume-once pattern as manus: latest frame wins, retarget in
+        # the timer thread via the production controller path.
+        with self._keypoints_lock:
+            kp = self._latest_keypoints
+            self._latest_keypoints = None
+        if kp is None:
+            return
+        self.controller.set_keypoints(kp)
+
     # ==================== shared ====================
 
     def _teleop_loop(self) -> None:
-        self._teleop_loop_wuji_glove()
+        if self._input_source == "keypoints_topic":
+            self._teleop_loop_topic()
+        else:
+            self._teleop_loop_wuji_glove()
 
     # ==================== lifecycle ====================
 

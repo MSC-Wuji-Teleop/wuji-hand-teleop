@@ -124,6 +124,10 @@ class WujiHandController:
             if per_side.exists():
                 self.logger.info(f"IK retarget config: {per_side}")
                 return str(per_side)
+            shared = cfg_dir / f"retarget_{self.input_source}.yaml"
+            if shared.exists():
+                self.logger.info(f"IK retarget config (shared): {shared}")
+                return str(shared)
 
         return None
 
