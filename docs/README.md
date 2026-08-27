@@ -20,7 +20,7 @@ inline there.
 
 | Topic | Read |
 |---|---|
-| **Hardware spec**: G1 23-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [hardware_spec.md](hardware_spec.md) |
+| **Hardware spec**: G1 23-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [spec/hardware_spec.md](spec/hardware_spec.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, process/container model, config convention, invariants | [architecture.md](architecture.md) |
 | **What was removed from the upstream fork, and why** | [cleanup.md](cleanup.md) |

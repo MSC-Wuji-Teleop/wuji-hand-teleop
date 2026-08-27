@@ -1,29 +1,39 @@
 # Hardware Spec: This Rig
 
-Fork is NOT general purpose. Currently drives rig: Unitree G1_23 + dual Wuji hand 2 teleoped from Wuji Gloves and PICO 4 headset. 
+Fork is NOT general purpose. Currently drives rig: Unitree G1 (23-DoF or
+29-DoF, both in scope) + dual Wuji hand 2 teleoped from Wuji Gloves and PICO 4
+headset.
 
-Upstream supported hardware we do not have (Tianji arm, HTC trackers, MANUS glove, D405/HBVCAM cameras). That code has now been removed; see [cleanup.md](cleanup.md).
+Upstream supported hardware we do not have (Tianji arm, HTC trackers, MANUS glove, D405/HBVCAM cameras). That code has now been removed; see [cleanup.md](../deprecated/cleanup.md).
 
 This file is the source of truth for what our hardware is and what the code assumed. 
 
 - [Inventory](#inventory): what we have.
 - [Not in this rig](#not-in-this-rig): upstream hardware we don't use.
-- [Where G1_23 is baked into the code](#where-g1_23-is-baked-into-the-code): per-file variant assumptions.
+- [Where the DoF variant is baked into the code](#where-the-dof-variant-is-baked-into-the-code): per-file variant assumptions.
 - [Open hardware items](#open-hardware-items): unresolved gaps, with owners.
 
 ## Inventory
 
-### Robot: Unitree G1, 23-DoF variant
+### Robot: Unitree G1, 23-DoF and 29-DoF
 
-Confirmed 2026-08-24: the robots are the **23-DoF** G1, not the 29-DoF.
+**Both variants are in scope.** The units seen so far are the **23-DoF** G1
+(confirmed 2026-08-24). The 29-DoF variant came back into scope on 2026-08-26,
+and which one the work ends up on is unsettled, possibly both. Code, models,
+and configs should carry both rather than assume either.
 
-| Property | Value |
-|---|---|
-| DoF layout | 12 leg + 1 waist (yaw only) + 5 per arm (shoulder pitch/roll/yaw, elbow, wrist roll) |
-| Not present vs. 29-DoF | wrist pitch, wrist yaw, waist roll, waist pitch; link inertias also differ |
-| Control interface | `unitree_sdk2py` DDS (`rt/lowcmd` or `rt/arm_sdk`) |
+| Property | 23-DoF | 29-DoF |
+|---|---|---|
+| Legs | 12 | 12 |
+| Waist | yaw only | yaw, roll, pitch |
+| Arm, per side | 5: shoulder pitch/roll/yaw, elbow, wrist roll | 7: adds wrist pitch, wrist yaw |
+| Total | 23 | 29 |
+| Control interface | `unitree_sdk2py` DDS (`rt/lowcmd` or `rt/arm_sdk`) | same |
 
-#### Joint indices and limits (G1_23)
+Link inertias also differ. The 23-DoF robot is not the 29-DoF robot with
+joints removed.
+
+#### Joint indices and limits
 
 | Index | Joint Name | Limit (rad) |
 |---|---|---|
@@ -57,9 +67,11 @@ Confirmed 2026-08-24: the robots are the **23-DoF** G1, not the 29-DoF.
 | 27 | R_WRIST_PITCH | -1.614429558~1.614429558 |
 | 28 | R_WRIST_YAW | -1.614429558~1.614429558 |
 
-Note: indices 13, 14, 20, 21, 27, 28 (waist roll/pitch, wrist pitch/yaw)
-are the 29-DoF joints not present on this rig's 23-DoF robot; see
-[Where G1_23 is baked into the code](#where-g1_23-is-baked-into-the-code).
+Note: this is Unitree's motor array, and it is indexed the same way for both
+variants. On a 29-DoF robot, indices 13, 14, 20, 21, 27, 28 (waist roll/pitch,
+wrist pitch/yaw) are real joints. On a 23-DoF robot they are absent, and
+`robot_arm.py` declares those slots NotUsed. See
+[Where the DoF variant is baked into the code](#where-the-dof-variant-is-baked-into-the-code).
 
 ### End effectors: 2x Wuji Hand 2
 
@@ -76,8 +88,10 @@ Hand v1 part and does not fit Hand 2**. A Hand 2 adapter redesign is pending;
 printing is on hold. Until the CAD lands, `g1_wuji2_description` uses a
 provisional mount: hand at the ICP-located palm flange on the wrist-roll link
 (the 23's terminal arm link), wrist_roll + [0.1220, +-0.003, 0], zero plate
-thickness. The earlier 29-DoF mount (x = 0.0415 m on `wrist_yaw_link`) is
-obsolete: the 23-DoF robot has no wrist yaw link.
+thickness. The flange is per variant: the terminal arm link is `wrist_roll` on
+the 23-DoF arm and `wrist_yaw_link` on the 29-DoF arm (earlier mount there:
+x = 0.0415 m). A composed model for either variant needs its own mount
+transform.
 
 ### Input devices
 
@@ -97,31 +111,33 @@ this rig.
 
 Tianji Arm (and the Monitor `brake` tool), HTC Vive Tracker / SteamVR, and
 the MANUS glove were upstream-only and **their code has been removed** — see
-[cleanup.md](cleanup.md). Our arm output is `g1_world_output`, consuming the
+[cleanup.md](../deprecated/cleanup.md). Our arm output is `g1_world_output`, consuming the
 PICO-path topic contract (`/left_arm_target_pose`,
 `/right_arm_target_pose`).
 
 The camera package `src/camera/` is **kept but unwired**. It targets D405 wrist
 + HBVCAM head hardware we do not have, and the G1's own head cameras (RealSense
 D435i built-in, D455 attachment) are planned but not yet integrated. Nothing
-launches it; see [wuji-camera-topics.md](wuji-camera-topics.md).
+launches it; see [wuji-camera-topics.md](../wuji-camera-topics.md).
 
-## Where G1_23 is baked into the code
+## Where the DoF variant is baked into the code
 
-Both sides target G1_23 as of 2026-08-24: the controller solves the 10
-arm DoF the robot has, and `g1_wuji2_description` is composed from
-Unitree's `g1_23dof_rev_1_0` sources (bare wrist module derived, since
-Unitree only ships the wrist fused with the rubber hand). Remaining
-29-DoF residue is limited to two config-level values noted below.
+The code targets **G1_23** today: the controller solves the 10 arm DoF that
+variant has, and `g1_wuji2_description` is composed from Unitree's
+`g1_23dof_rev_1_0` sources (bare wrist module derived, since Unitree only ships
+the wrist fused with the rubber hand). Running on a 29-DoF robot is not a
+config flip. The third column is what each file needs, and the 29-DoF
+description is not in this repo yet: see
+[Open hardware items](#open-hardware-items).
 
 <details>
 <summary>Per-file assumptions</summary>
 
-| File | Assumption |
-|---|---|
-| `g1_world_output/config/g1_robot.yaml` | `arm_type: "G1_23"`. Also `chest_origin_in_pelvis` was derived from the 29-DoF body URDF ("waist_roll z + shoulder pitch xyz"); re-derivation against the 23-DoF description is still pending |
-| `g1_world_output/g1_world_output/robot_arm.py` | Unitree's unified 35-slot motor array with the 23-DoF gaps: arms at indices 15-19 / 22-26; waist roll/pitch (13, 14) and wrist pitch/yaw (20, 21, 27, 28) declared NotUsed; `rt/arm_sdk` weight flag at motor 29. DDS write loop at 250 Hz; per-joint kp/kd tiers (300/5 high, 140/3 low, 50/2 wrist); velocity clip ramps 20 to 30 deg/s over 5 s |
-| `g1_world_output/g1_world_output/robot_arm_ik.py` | Loads `g1_23_wuji2.urdf` (23-DoF composed model), then locks legs, waist, and fingers to the 10 arm DoF; the lock list filters by joint presence, so the absent wrist pitch/yaw entries are simply skipped. EE frames `L_ee`/`R_ee` sit on the wrist-roll links with a +0.20 m forward offset (xr_teleoperate convention); this shifts the achieved palm pose by a constant wrist-frame vector, fix planned alongside the adapter regeneration. Cost weights are xr_teleoperate's G1_23 set (rotation down-weighted) |
-| `src/g1_wuji2_description/` | Composed from `g1_23dof_rev_1_0` + 2x Wuji Hand 2 (2026-08-24, matches hardware): floating nq 70 / nv 69 / nu 63, fixed-base 63. Fused wrist+rubber-hand link replaced with a derived bare wrist module; flange at wrist_roll + [0.1220, +-0.003, 0]. The 29-DoF files were removed (kept in msc_research as `g1_29_wuji2*`). Generated files; do not hand-edit (see the package README) |
+| File | Assumption | For 29-DoF |
+|---|---|---|
+| `g1_world_output/config/g1_robot.yaml` | `arm_type: "G1_23"`. Also `chest_origin_in_pelvis` was derived from the 29-DoF body URDF ("waist_roll z + shoulder pitch xyz"); re-derivation against the 23-DoF description is still pending | Needs a `G1_29` value and the 7-DoF arm joint list. `chest_origin_in_pelvis` is already the 29-DoF derivation |
+| `g1_world_output/g1_world_output/robot_arm.py` | Unitree's unified 35-slot motor array with the 23-DoF gaps: arms at indices 15-19 / 22-26; waist roll/pitch (13, 14) and wrist pitch/yaw (20, 21, 27, 28) declared NotUsed; `rt/arm_sdk` weight flag at motor 29. DDS write loop at 250 Hz; per-joint kp/kd tiers (300/5 high, 140/3 low, 50/2 wrist); velocity clip ramps 20 to 30 deg/s over 5 s | The six NotUsed slots become real joints: the arm index enum grows from 10 to 14 entries, `G1_23_ARM_DOF` stops being 10, and the wrist kp/kd tier covers 3 wrist joints per arm instead of 1 |
+| `g1_world_output/g1_world_output/robot_arm_ik.py` | Loads `g1_23_wuji2.urdf` (23-DoF composed model), then locks legs, waist, and fingers to the 10 arm DoF; the lock list filters by joint presence, so the absent wrist pitch/yaw entries are simply skipped. EE frames `L_ee`/`R_ee` sit on the wrist-roll links with a +0.20 m forward offset (xr_teleoperate convention); this shifts the achieved palm pose by a constant wrist-frame vector, fix planned alongside the adapter regeneration. Cost weights are xr_teleoperate's G1_23 set (rotation down-weighted) | Loads the 29-DoF URDF and solves 14 DoF instead of 10. The lock list filters by joint presence, so it already tolerates either joint set; the cost weights would need revisiting |
+| `src/g1_wuji2_description/` | Composed from `g1_23dof_rev_1_0` + 2x Wuji Hand 2 (2026-08-24, matches the 23-DoF units seen): floating nq 70 / nv 69 / nu 63, fixed-base 63. Fused wrist+rubber-hand link replaced with a derived bare wrist module; flange at wrist_roll + [0.1220, +-0.003, 0]. Generated files; do not hand-edit (see the package README) | Needs `g1_29_wuji2{,_fixed}.xml`, `g1_29_wuji2.urdf`, and `scene_g1_29_wuji2.xml` added alongside, with their G1 meshes vendored into `meshes/` so the package stays self-contained. The 29-DoF sources reference the MuJoCo Menagerie asset tree, which is not in this repo |
 
 </details>
