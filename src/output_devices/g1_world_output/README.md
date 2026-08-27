@@ -4,34 +4,105 @@ Unitree G1_23 arm output package for PICO teleoperation. Same ROS topic contract
 as `pico_input` publishes; remaps chest-frame wrist poses into the G1 pelvis
 frame, then runs Pinocchio/Casadi IK and Unitree DDS LowCmd control.
 
-## Data flow
+## Modes
+
+`g1_world_output_node` is the **only** node that talks to DDS -- see
+`robot_arm.py`'s writer lockfile (`/tmp/g1_lowcmd_writer.lock`), which turns
+a second DDS writer into a startup failure instead of two processes
+silently fighting over `rt/lowcmd`/`rt/arm_sdk`. Everything else (live
+teleop, offline replay) feeds this one node through topics; which topics it
+listens to is controlled by the `mode` ROS parameter, switchable at
+runtime:
+
+| mode | input | how it's driven |
+|---|---|---|
+| `pose` (default) | `/left_arm_target_pose`, `/right_arm_target_pose` | chest->pelvis remap -> `G1_23_ArmIK.solve_ik` -> DDS |
+| `joint_replay` | `/left_arm/joint_targets`, `/right_arm/joint_targets` | no IK -- joints matched by name, linearly interpolated between the two most recently received samples, sent straight to DDS |
+| `idle` | (none) | holds the arms at their current measured position |
+
+A message arriving on a topic that doesn't match the active mode is
+dropped with a throttled warning, not queued. Switching modes always seeds
+the next command from the arm's current measured position first (bumpless
+transfer) so the switch itself can't produce a step.
+
+Orthogonal to `mode`, the `arm_type` parameter selects the joint-name
+layout: `G1_23` (default -- the real rig, 5 DoF/arm, full pose-IK + DDS) or
+`G1_29` (7 DoF/arm, matching the SOT bundle's native layout). `G1_29` is
+**sim-only**: no 29-DoF DDS controller or IK exists, so the node refuses
+`mode=pose` and refuses to connect DDS with it -- it works under `dry_run`
+in `joint_replay`/`idle` only.
 
 ```
-pico_input
+pico_input                                    (mode=pose)
   -> /left_arm_target_pose   (PoseStamped, chest frame)
   -> /right_arm_target_pose  (PoseStamped, chest frame)
   -> g1_world_output
        chest -> pelvis remap  (transform_utils.chest_pose_to_pelvis)
-       G1_23_ArmIK.solve_ik   (robot_arm_ik.py, 5 DoF/arm)
+       G1_23_ArmIK.solve_ik   (robot_arm_ik.py, 5 DoF/arm, lazy-loaded)
+       G1_23_ArmController    (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
+
+replay_publisher (or any joint source)    (mode=joint_replay)
+  -> /left_arm/joint_targets  (JointState, named)
+  -> /right_arm/joint_targets (JointState, named)
+  -> g1_world_output
+       match by name against joint_names(side), interpolate by arrival time
+       G1CartesianController.move_to_joints_direct  (no IK)
        G1_23_ArmController    (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 ```
+
+### Replaying a SOT bundle sample (`joint_replay` mode)
+
+The full replay pipeline -- arms **and** hands, mirrored in MuJoCo on the
+29-DoF model -- is driven by the `replay` package (see
+[its README](../../input_devices/replay/README.md)); the complete
+four-process runbook is
+[docs/usage.md -- SOT bundle replay](../../../docs/usage.md#sot-bundle-replay-sim).
+This node's part of it:
+
+```bash
+# host, from docker/ -- joint_replay + 29-DoF names, no DDS/hardware
+docker compose run --rm --name g1-world-output g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py \
+    dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
+```
+
+Any publisher of named `/left_arm/joint_targets` / `/right_arm/joint_targets`
+works, not just `replay`: joints are matched by name against
+`joint_names(side)`, unknown names are warned about and ignored, and a
+message missing a required joint is dropped whole rather than partially
+applied. `scripts/joint_replay_publisher.py` remains as an arms-only debug
+source (same wire format, reads the npz directly; see its docstring).
+
+**Hands are out of scope for this node.** The bundle's hand columns target
+the legacy 20-DoF hand model, not the real Wuji Hand 2, and must never be
+sent to it directly (`legacy_wuji_sim_only/`, marked `DO_NOT_COMMAND_HAND2.txt`
+in every sample). Hand replay goes through `replay`'s keypoint topics
+into `wujihand_controller` (`input_source: "keypoints_topic"`), which
+regenerates Hand 2 joints live from each sample's 21-point keypoints -- see
+`RobotSTAR_demos/TUITION.md` Sec. 3.1.
 
 ## Topics (the standard arm-output contract)
 
 | Direction | Topic | Type |
 |-----------|-------|------|
-| sub | `/left_arm_target_pose` | `geometry_msgs/PoseStamped` |
-| sub | `/right_arm_target_pose` | `geometry_msgs/PoseStamped` |
-| sub | `/left_arm_elbow_direction` | `geometry_msgs/Vector3Stamped` (echo only) |
-| sub | `/right_arm_elbow_direction` | `geometry_msgs/Vector3Stamped` (echo only) |
-| pub | `/left_arm/joint_states` | `sensor_msgs/JointState` (rad, 5 DoF) |
-| pub | `/right_arm/joint_states` | `sensor_msgs/JointState` (rad, 5 DoF) |
-| pub | `/left_arm/joint_commands` | `sensor_msgs/JointState` (rad, 5 DoF) |
-| pub | `/right_arm/joint_commands` | `sensor_msgs/JointState` (rad, 5 DoF) |
-| pub | `/left_arm/zsp_para` | `std_msgs/Float64MultiArray` |
-| pub | `/right_arm/zsp_para` | `std_msgs/Float64MultiArray` |
+| sub | `/left_arm_target_pose` | `geometry_msgs/PoseStamped` (mode=pose) |
+| sub | `/right_arm_target_pose` | `geometry_msgs/PoseStamped` (mode=pose) |
+| sub | `/left_arm_elbow_direction` | `geometry_msgs/Vector3Stamped` (mode=pose, echo only) |
+| sub | `/right_arm_elbow_direction` | `geometry_msgs/Vector3Stamped` (mode=pose, echo only) |
+| sub | `/left_arm/joint_targets` | `sensor_msgs/JointState`, named (mode=joint_replay) |
+| sub | `/right_arm/joint_targets` | `sensor_msgs/JointState`, named (mode=joint_replay) |
+| pub | `/left_arm/joint_states` | `sensor_msgs/JointState` (rad, named, per `arm_type`) |
+| pub | `/right_arm/joint_states` | `sensor_msgs/JointState` (rad, named, per `arm_type`) |
+| pub | `/left_arm/joint_commands` | `sensor_msgs/JointState` (rad, named, per `arm_type`) |
+| pub | `/right_arm/joint_commands` | `sensor_msgs/JointState` (rad, named, per `arm_type`) |
+| pub | `/left_arm/zsp_para` | `std_msgs/Float64MultiArray` (mode=pose) |
+| pub | `/right_arm/zsp_para` | `std_msgs/Float64MultiArray` (mode=pose) |
 
-Arm joints per side: shoulder pitch/roll/yaw, elbow, wrist roll.
+Arm joints per side: shoulder pitch/roll/yaw, elbow, wrist roll (`G1_23`,
+5/side), plus wrist pitch/yaw under `arm_type:=G1_29` (7/side). The
+`/left_arm/joint_targets`/`/right_arm/joint_targets` input accepts extra
+names beyond the active layout and warns-and-ignores them -- see
+[Modes](#modes).
 
 ### Both arms are always commanded together
 

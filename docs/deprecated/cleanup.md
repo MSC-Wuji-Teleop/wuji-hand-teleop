@@ -6,7 +6,7 @@ what came out and the reasoning, so nobody has to reconstruct it from `git log`.
 
 The rig is exactly: **Unitree G1 (23-DoF) + 2x Wuji Hand 2, teleoped from Wuji
 Gloves and a PICO 4 headset with 4 Motion Trackers.** The hardware source of
-truth is [hardware_spec.md](hardware_spec.md).
+truth is [hardware_spec.md](../spec/hardware_spec.md).
 
 **Nothing here is lost.** History was not rewritten. Every file below is
 recoverable from the pre-cleanse commit `b065f3f`, e.g.:
@@ -79,9 +79,9 @@ the ported modules.
 | File | What it was | Why removed |
 |---|---|---|
 | `docs/STEAMVR.md` | Operator setup for the SteamVR null driver, base stations, dongles, tracker pairing | `openvr_input` is gone |
-| `docs/tracker-wearing-guide.md` | How to strap Vive trackers to chest, wrists, and upper arms | Vive-specific. The PICO path also uses trackers, but they are PICO Motion Trackers and are covered by [PICO.md](PICO.md) |
+| `docs/tracker-wearing-guide.md` | How to strap Vive trackers to chest, wrists, and upper arms | Vive-specific. The PICO path also uses trackers, but they are PICO Motion Trackers and are covered by [PICO.md](../PICO.md) |
 | `docs/images/tracker-wearing-combined.jpg` | Figure for the guide above | Its only reference went |
-| `docs/images/dataflow.png` | Upstream's data-flow diagram | Depicts the Tianji pipeline. The mermaid graph in [architecture.md](architecture.md) is the live diagram and has been redrawn |
+| `docs/images/dataflow.png` | Upstream's data-flow diagram | Depicts the Tianji pipeline. The mermaid graph in [architecture.md](../architecture.md) is the live diagram and has been redrawn |
 | `docs/teleop-demo.mp4` (15 MB) | Upstream demo clip | Shows hardware we do not have. Also the single largest file removed |
 | `docs/tracker-wearing-demo.mp4` (2.5 MB) | Companion clip for the wearing guide | Its guide went |
 
