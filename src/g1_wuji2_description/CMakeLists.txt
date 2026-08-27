@@ -9,7 +9,9 @@ install(
 )
 
 install(
-    FILES g1_23_wuji2.urdf g1_23_wuji2.xml g1_23_wuji2_fixed.xml scene_g1_23_wuji2.xml
+    FILES
+        g1_23_wuji2.urdf g1_23_wuji2.xml g1_23_wuji2_fixed.xml scene_g1_23_wuji2.xml
+        g1_29_wuji2.urdf g1_29_wuji2.xml g1_29_wuji2_fixed.xml scene_g1_29_wuji2.xml
     DESTINATION share/${PROJECT_NAME}
 )
 
