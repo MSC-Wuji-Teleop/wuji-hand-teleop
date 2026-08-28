@@ -39,7 +39,7 @@ pico_input                                    (mode=pose)
   -> g1_world_output
        chest -> pelvis remap  (transform_utils.chest_pose_to_pelvis)
        G1_23_ArmIK.solve_ik   (robot_arm_ik.py, 5 DoF/arm, lazy-loaded)
-       G1_23_ArmController    (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
+       G1ArmController        (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 
 replay_publisher (or any joint source)    (mode=joint_replay)
   -> /left_arm/joint_targets  (JointState, named)
@@ -47,7 +47,7 @@ replay_publisher (or any joint source)    (mode=joint_replay)
   -> g1_world_output
        match by name against joint_names(side), interpolate by arrival time
        G1CartesianController.move_to_joints_direct  (no IK)
-       G1_23_ArmController    (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
+       G1ArmController        (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 ```
 
 ### Replaying a SOT bundle sample (`joint_replay` mode)

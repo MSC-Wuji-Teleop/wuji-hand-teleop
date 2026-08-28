@@ -1,10 +1,11 @@
 """
 Unitree G1 arm DDS controller, plus the shared arm joint-name tables.
 
-G1_23_ArmController drives 5 DoF per arm (10 total) over Unitree SDK2 DDS
-LowCmd / LowState. ARM_JOINT_NAMES_BY_TYPE also carries the G1_29 layout
-(7 DoF per arm), which has no DDS controller and serves the name-matched
-joint_replay/sim path only.
+G1ArmController drives either arm variant over Unitree SDK2 DDS LowCmd /
+LowState: G1_23 (5 DoF per arm, 10 total) or G1_29 (7 DoF per arm, 14
+total; adds wrist pitch/yaw at unified-motor-array indices 20/21, 27/28).
+Unitree's motor array is indexed identically for both variants, so the
+variant only selects which slots are arm joints and which get wrist gains.
 
 Adapted from Unitree's public G1 arm DDS example code (unitreerobotics/
 unitree_sdk2_python / xr_teleoperate reference scripts) -- class/method
@@ -84,6 +85,24 @@ class G1_23_JointArmIndex(IntEnum):
     kRightShoulderYaw = 24
     kRightElbow = 25
     kRightWristRoll = 26
+
+
+class G1_29_JointArmIndex(IntEnum):
+    kLeftShoulderPitch = 15
+    kLeftShoulderRoll = 16
+    kLeftShoulderYaw = 17
+    kLeftElbow = 18
+    kLeftWristRoll = 19
+    kLeftWristPitch = 20
+    kLeftWristYaw = 21
+
+    kRightShoulderPitch = 22
+    kRightShoulderRoll = 23
+    kRightShoulderYaw = 24
+    kRightElbow = 25
+    kRightWristRoll = 26
+    kRightWristPitch = 27
+    kRightWristYaw = 28
 
 
 class G1_23_JointIndex(IntEnum):
@@ -169,15 +188,48 @@ ARM_JOINT_NAMES_BY_TYPE = {
     'G1_29': G1_29_ARM_JOINT_NAMES,
 }
 
+# Motor-array slots per variant, same order as the name tables above.
+ARM_INDICES_BY_TYPE = {
+    'G1_23': [m.value for m in G1_23_JointArmIndex],
+    'G1_29': [m.value for m in G1_29_JointArmIndex],
+}
 
-class G1_23_ArmController:
+# Wrist slots get the soft kp/kd tier: 1 wrist joint per arm on the 23,
+# 3 per arm on the 29.
+WRIST_MOTORS_BY_TYPE = {
+    'G1_23': {
+        G1_23_JointIndex.kLeftWristRoll.value,
+        G1_23_JointIndex.kRightWristRoll.value,
+    },
+    'G1_29': {
+        G1_23_JointIndex.kLeftWristRoll.value,
+        G1_23_JointIndex.kLeftWristPitchNotUsed.value,
+        G1_23_JointIndex.kLeftWristyawNotUsed.value,
+        G1_23_JointIndex.kRightWristRoll.value,
+        G1_23_JointIndex.kRightWristPitchNotUsed.value,
+        G1_23_JointIndex.kRightWristYawNotUsed.value,
+    },
+}
+
+
+class G1ArmController:
     def __init__(
         self,
         motion_mode: bool = True,
         simulation_mode: bool = False,
         dds_already_initialized: bool = False,
+        arm_type: str = 'G1_23',
     ):
-        logger.info("Initialize G1_23_ArmController...")
+        if arm_type not in ARM_INDICES_BY_TYPE:
+            raise ValueError(
+                f"arm_type must be one of {sorted(ARM_INDICES_BY_TYPE)}, got {arm_type!r}"
+            )
+        self.arm_type = arm_type
+        self._arm_indices = ARM_INDICES_BY_TYPE[arm_type]
+        self._arm_dof = len(self._arm_indices)
+        self._wrist_motors = WRIST_MOTORS_BY_TYPE[arm_type]
+        logger.info("Initialize G1ArmController (%s, %d arm DoF)...",
+                    arm_type, self._arm_dof)
 
         self._lock_file = open(LOWCMD_WRITER_LOCK_PATH, "w")
         try:
@@ -190,8 +242,8 @@ class G1_23_ArmController:
                 "rt/lowcmd/rt/arm_sdk at a time -- stop it before starting this one."
             )
 
-        self.q_target = np.zeros(G1_23_ARM_DOF)
-        self.tauff_target = np.zeros(G1_23_ARM_DOF)
+        self.q_target = np.zeros(self._arm_dof)
+        self.tauff_target = np.zeros(self._arm_dof)
         self.motion_mode = motion_mode
         self.simulation_mode = simulation_mode
         self.kp_high = 300.0
@@ -217,7 +269,7 @@ class G1_23_ArmController:
                 ChannelFactoryInitialize(0)
         else:
             logger.info(
-                "[G1_23_ArmController] DDS already initialized, skipping ChannelFactoryInitialize"
+                "[G1ArmController] DDS already initialized, skipping ChannelFactoryInitialize"
             )
 
         if self.motion_mode:
@@ -240,15 +292,15 @@ class G1_23_ArmController:
         while not self.lowstate_buffer.GetData():
             if time.time() - wait_start > lowstate_timeout_s:
                 raise TimeoutError(
-                    f"[G1_23_ArmController] No rt/lowstate after {lowstate_timeout_s:.0f}s -- "
+                    f"[G1ArmController] No rt/lowstate after {lowstate_timeout_s:.0f}s -- "
                     "no G1 (or DDS sim bridge) answering on this domain. Check the robot/DDS "
                     "peer is powered on and reachable, or use --dry-run for IK-only testing."
                 )
             time.sleep(0.1)
             if time.time() - last_log > 2.0:
-                logger.warning("[G1_23_ArmController] Waiting to subscribe dds...")
+                logger.warning("[G1ArmController] Waiting to subscribe dds...")
                 last_log = time.time()
-        logger.info("[G1_23_ArmController] Subscribe dds ok.")
+        logger.info("[G1ArmController] Subscribe dds ok.")
 
         self.crc = CRC()
         self.msg = unitree_hg_msg_dds__LowCmd_()
@@ -260,7 +312,7 @@ class G1_23_ArmController:
         logger.info("Current two arms motor state q:\n%s", self.get_current_dual_arm_q())
         logger.info("Lock all joints except two arms...")
 
-        arm_indices = set(member.value for member in G1_23_JointArmIndex)
+        arm_indices = set(self._arm_indices)
         for id in G1_23_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -285,7 +337,7 @@ class G1_23_ArmController:
         )
         self.ctrl_lock = threading.Lock()
         self.publish_thread.start()
-        logger.info("Initialize G1_23_ArmController OK!")
+        logger.info("Initialize G1ArmController OK!")
 
     def _subscribe_motor_state(self):
         while self._running:
@@ -322,7 +374,7 @@ class G1_23_ArmController:
                     arm_q_target, velocity_limit=self.arm_velocity_limit
                 )
 
-            for idx, id in enumerate(G1_23_JointArmIndex):
+            for idx, id in enumerate(self._arm_indices):
                 self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
@@ -352,20 +404,20 @@ class G1_23_ArmController:
 
     def get_current_dual_arm_q(self):
         return np.array(
-            [self.lowstate_buffer.GetData().motor_state[id].q for id in G1_23_JointArmIndex]
+            [self.lowstate_buffer.GetData().motor_state[id].q for id in self._arm_indices]
         )
 
     def get_current_dual_arm_dq(self):
         return np.array(
-            [self.lowstate_buffer.GetData().motor_state[id].dq for id in G1_23_JointArmIndex]
+            [self.lowstate_buffer.GetData().motor_state[id].dq for id in self._arm_indices]
         )
 
     def ctrl_dual_arm_go_home(self):
-        logger.info("[G1_23_ArmController] ctrl_dual_arm_go_home start...")
+        logger.info("[G1ArmController] ctrl_dual_arm_go_home start...")
         max_attempts = 100
         current_attempts = 0
         with self.ctrl_lock:
-            self.q_target = np.zeros(G1_23_ARM_DOF)
+            self.q_target = np.zeros(self._arm_dof)
         tolerance = 0.05
         while current_attempts < max_attempts:
             current_q = self.get_current_dual_arm_q()
@@ -374,7 +426,7 @@ class G1_23_ArmController:
                     for weight in np.linspace(1, 0, num=101):
                         self.msg.motor_cmd[G1_23_JointIndex.kNotUsedJoint0].q = weight
                         time.sleep(0.02)
-                logger.info("[G1_23_ArmController] both arms have reached the home position.")
+                logger.info("[G1ArmController] both arms have reached the home position.")
                 break
             current_attempts += 1
             time.sleep(0.05)
@@ -417,8 +469,4 @@ class G1_23_ArmController:
         return motor_index.value in weak_motors
 
     def _Is_wrist_motor(self, motor_index):
-        wrist_motors = [
-            G1_23_JointIndex.kLeftWristRoll.value,
-            G1_23_JointIndex.kRightWristRoll.value,
-        ]
-        return motor_index.value in wrist_motors
+        return motor_index.value in self._wrist_motors

@@ -1,6 +1,6 @@
 """
 ROS2 node that controls the Unitree G1 arms. This is the ONLY node that may
-construct G1_23_ArmController -- see robot_arm.py's writer lockfile, which
+construct G1ArmController -- see robot_arm.py's writer lockfile, which
 turns a second instance into a startup failure instead of two processes
 silently fighting over rt/lowcmd/rt/arm_sdk.
 
@@ -154,7 +154,7 @@ class G1WorldOutputNode(Node):
             initial_mode = 'pose'
         if initial_mode == 'pose' and arm_type != 'G1_23':
             raise ValueError(
-                f"mode=pose requires arm_type=G1_23 (IK/DDS are G1_23-only); "
+                f"mode=pose requires arm_type=G1_23 (the pose IK is G1_23-only); "
                 f"got arm_type={arm_type}. Use mode:=joint_replay or idle."
             )
 
@@ -290,7 +290,7 @@ class G1WorldOutputNode(Node):
                     and self.controller.arm_type != 'G1_23':
                 return SetParametersResult(
                     successful=False,
-                    reason="mode=pose requires arm_type=G1_23 (IK/DDS are G1_23-only)",
+                    reason="mode=pose requires arm_type=G1_23 (the pose IK is G1_23-only)",
                 )
         for p in params:
             if p.name == 'mode' and p.value != self.mode:

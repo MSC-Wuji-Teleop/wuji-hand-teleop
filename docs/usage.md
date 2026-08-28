@@ -132,8 +132,10 @@ any of this at hardware.
 
 ```bash
 # terminal 1 — G1 node in joint-replay mode (host, from docker/).
-# arm_type G1_29 = the bundle's native 7-DoF-arm joint names; sim-only,
-# refuses DDS. control_rate 250 Hz interpolates the 50 FPS reference.
+# arm_type G1_29 = the bundle's native 7-DoF-arm joint names (also the
+# launch default). dry_run:=true is what keeps this sim-only — without it
+# the node opens real DDS. control_rate 250 Hz interpolates the 50 FPS
+# reference.
 docker compose run --rm --name g1-world-output g1_world_output \
     ros2 launch g1_world_output g1_world_output.launch.py \
     dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
