@@ -14,7 +14,6 @@ import numpy as np
 from g1_world_output.config_loader import G1Config
 from g1_world_output.robot_arm import (
     ARM_JOINT_NAMES_BY_TYPE,
-    G1_23_ARM_DOF,
     G1_23_ArmController,
 )
 from g1_world_output.robot_arm_ik import G1_23_ArmIK
@@ -182,7 +181,7 @@ class G1CartesianController:
             current_dq = self.arm_ctrl.get_current_dual_arm_dq()
         else:
             current_q = self._last_sol_q
-            current_dq = np.zeros(G1_23_ARM_DOF)
+            current_dq = np.zeros(2 * self._dof_side)
 
         sol_q, sol_tau, ok = self._ensure_arm_ik().solve_ik(
             left_pelvis, right_pelvis, current_q, current_dq
@@ -191,8 +190,9 @@ class G1CartesianController:
         if ok:
             self._send_dual_arm(sol_q, sol_tau)
 
-        left_joints = list(sol_q[:5]) if (ok and left_pose is not None) else None
-        right_joints = list(sol_q[5:]) if (ok and right_pose is not None) else None
+        d = self._dof_side
+        left_joints = list(sol_q[:d]) if (ok and left_pose is not None) else None
+        right_joints = list(sol_q[d:]) if (ok and right_pose is not None) else None
         left_ok = ok and left_pose is not None
         right_ok = ok and right_pose is not None
         return left_ok, right_ok, left_joints, right_joints
