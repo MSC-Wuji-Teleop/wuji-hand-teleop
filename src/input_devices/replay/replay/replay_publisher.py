@@ -1,45 +1,41 @@
 #!/usr/bin/env python3
-"""
-SOT bundle replay publisher -- an "input device" that replays one sample.
+"""Conditioned-clip replay publisher (spec_1 component 2).
 
-Reads a sample method directory (GT/ or Ours/) from the
-RobotSTAR_demos handoff bundle and publishes, on one shared
-timer so arms and hands stay time-aligned:
+Paces one conditioned clip artifact onto both devices' target streams from
+one timer, so arms and hands play the same clip by construction:
 
   arms  -> /left_arm/joint_targets, /right_arm/joint_targets
-           (sensor_msgs/JointState, named)
-           from g1_reference/controller_reference_v7.npz body_q, using
-           joint names from target_meta.json. Every {side}_shoulder*/elbow/
-           wrist* joint present in the bundle is published (7/arm for the
-           native 29-DoF layout); the consumer (g1_world_output_node in
-           mode:=joint_replay) matches by name and ignores joints its rig
-           lacks, so this works for both the current 23-DoF controller and
-           a future 29-DoF one.
+           (sensor_msgs/JointState, named q7/side, stamped)
+  hands -> /left_hand/joint_targets, /right_hand/joint_targets
+           (sensor_msgs/JointState, named q20, stamped)
 
-  hands -> /left_hand/keypoints21, /right_hand/keypoints21
-           (std_msgs/Float64MultiArray, 63 = 21x3 floats, meters,
-           MediaPipe order) from hand2_input/*_human_targets_v5.npz.
-           These are the HUMAN keypoints, not joint angles: retargeting to
-           Hand 2's 20 DoF happens live in wujihand_controller
-           (input_source: "keypoints_topic"), i.e. through the exact same
-           production path glove teleop uses. This is deliberate -- per
-           TUITION.md Sec 3.1 / HANDOFF_README.md, the bundle's precomputed
-           hand joint columns target the legacy hand model and must never
-           be used; hand joints must be regenerated from these keypoints.
+Hand angles come from the artifact, retargeted OFFLINE by condition_clip
+(Retargeter reset per clip, PCHIP-retimed onto the arm grid; TUITION 3.1).
+This node never publishes keypoints21: that topic is teleop-only, and the
+hardware replay pipeline carries joint targets end to end.
 
-Timeline: body_q is the retimed reference (frames @ target_fps); the hand
-keypoints are on the source timeline (source_frames @ source_fps) spanning
-the same wall-clock duration (all 15 bundle samples are a uniform resample;
-asserted at load). Each body tick i maps to hand frame
-round(i * (T_hand-1)/(T_body-1)). At clip end the last frame is held
-(bundle semantics: hold_last_target), unless --loop.
+Service-gated; publishes nothing on spin. The full state machine and every
+gate live in replay/pacer.py (ROS-free, unit-tested); this file is the
+rclpy adapter. Surface (docs/spec/spec_1_interfaces.md):
 
-Pure rclpy + numpy: runs in the main teleop container, next to the hand
-controllers it feeds. Never touches DDS or hand/arm SDKs.
+  param    load_request     JSON {"clip", "speed_scale", "arms", "hands"}
+  service  ~/load           consume load_request; refuse fail verdicts
+                            (--force-sim overrides, simulation only)
+  service  ~/publish_first  repeat frame 0, advancing stamps, no advance
+  service  ~/start          begin advancing; stamp series continues
+  service  ~/fault          freeze the tick; no resume (TUITION section 9)
+  topic    /replay/status   String JSON
+
+Stamps: tick j is stamped t0 + j * dt_play with dt_play =
+k / (target_fps * speed_scale). speed_scale is time redistribution only,
+layered on the baked k; there is no amplitude scaling anywhere.
+
+No pause, no mid-clip resume, no loop: a faulted or finished run is parked,
+inspected, and rerun from the start.
 
 Usage:
-    ros2 run replay replay_publisher -- \
-        --method-dir <sample>/GT [--rate HZ] [--loop] [--no-arms] [--no-hands]
+    ros2 run replay replay_publisher              # hardware profile
+    ros2 run replay replay_publisher -- --force-sim   # sim only
 """
 
 from __future__ import annotations
@@ -47,144 +43,162 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
-import numpy as np
 import rclpy
+from builtin_interfaces.msg import Time as TimeMsg
 from rclpy.node import Node
+from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.utilities import remove_ros_args
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import String
+from std_srvs.srv import Trigger
 
-_ARM_KEYWORDS = ("shoulder", "elbow", "wrist")
+from replay.clip_artifact import ArtifactError, load_artifact
+from replay.pacer import LoadError, LoadRequest, ReplayPacer
+
+# Pinned for both target streams and both subscribers (plan amendment A5):
+# RELIABLE so scoped runs cannot silently drop frames into the hand branch.
+TARGET_QOS = QoSProfile(
+    reliability=QoSReliabilityPolicy.RELIABLE,
+    history=QoSHistoryPolicy.KEEP_LAST,
+    depth=10,
+)
+
+STATUS_PERIOD_S = 0.1
 
 
-def _arm_joint_names(actuator_order: list, side: str) -> list:
-    """All of one side's arm joint names, in the bundle's own order."""
-    prefix = f"{side}_"
-    return [
-        n for n in actuator_order
-        if n.startswith(prefix) and any(k in n for k in _ARM_KEYWORDS)
-    ]
-
-
-class ReplayPublisher(Node):
-    def __init__(self, method_dir: Path, rate: float, loop: bool,
-                 arms: bool, hands: bool):
+class ReplayPublisherNode(Node):
+    def __init__(self, force_sim: bool = False):
         super().__init__('replay_publisher')
-        if not (arms or hands):
-            raise ValueError("Nothing to publish: both --no-arms and --no-hands given")
+        self.pacer = ReplayPacer(force_sim=force_sim)
+        self.declare_parameter('load_request', '')
 
-        meta_path = method_dir / 'g1_reference' / 'target_meta.json'
-        if not meta_path.exists():
-            raise FileNotFoundError(
-                f"{meta_path} not found. --method-dir must be a sample's GT/ or "
-                "Ours/ directory. In the teleop container the bundle is mounted "
-                "read-only at /home/wuji/ros2_ws/RobotSTAR_demos "
-                "(docker-compose.yml); a container created before that mount "
-                "was added needs `docker compose up -d teleop` to recreate it."
+        self._t0_s: float = 0.0
+        self._arm_pubs = {}
+        self._hand_pubs = {}
+        self._tick_timer = None
+        self._last_status_json = None
+
+        self._status_pub = self.create_publisher(String, '/replay/status', 10)
+        self.create_timer(STATUS_PERIOD_S, self._publish_status)
+
+        self.create_service(Trigger, '~/load', self._srv_load)
+        self.create_service(Trigger, '~/publish_first', self._srv_publish_first)
+        self.create_service(Trigger, '~/start', self._srv_start)
+        self.create_service(Trigger, '~/fault', self._srv_fault)
+
+        if force_sim:
+            self.get_logger().warning(
+                '--force-sim: verdict/scale/scope load gates are BYPASSED. '
+                'Simulation only; never run this flag against hardware.'
             )
-        with open(meta_path) as f:
-            meta = json.load(f)
-        frames = int(meta['frames'])
-        source_frames = int(meta['source_frames'])
-        ratio = meta['target_fps'] / meta['source_fps']
-        if frames != round(source_frames * ratio):
-            raise ValueError(
-                f"Non-uniform retime (frames={frames}, source_frames={source_frames}, "
-                f"fps ratio={ratio}) -- the normalized-time arm/hand alignment "
-                "below would be wrong for this sample."
-            )
+        self.get_logger().info(
+            'replay_publisher ready (gated: nothing publishes until '
+            'load + publish_first)'
+        )
 
-        self._num_frames = frames
-        self._idx = 0
-        self._loop = loop
-        self._arm_frames = {}
-        self._hand_frames = {}
+    # ---------------------------------------------------------- services
 
-        if arms:
-            npz = method_dir / 'g1_reference' / 'controller_reference_v7.npz'
-            data = np.load(npz)
-            body_q = np.asarray(data['body_q'], dtype=np.float64)
-            actuator_order = meta['joint_actuator_order']['body_actuators']
-            if body_q.shape != (frames, len(actuator_order)):
-                raise ValueError(
-                    f"body_q shape {body_q.shape} vs meta "
-                    f"({frames}, {len(actuator_order)}) -- npz/meta mismatch"
-                )
-            name_to_col = {n: i for i, n in enumerate(actuator_order)}
-            for side in ('left', 'right'):
-                names = _arm_joint_names(actuator_order, side)
-                if not names:
-                    raise ValueError(f"No {side} arm joints in {meta_path}")
-                self._arm_frames[side] = (names, body_q[:, [name_to_col[n] for n in names]])
-                self.get_logger().info(f"arms/{side}: {names}")
+    def _reply(self, ok: bool, payload: dict) -> Trigger.Response:
+        resp = Trigger.Response()
+        resp.success = ok
+        resp.message = json.dumps(payload, sort_keys=True)
+        return resp
 
-        if hands:
-            kp_candidates = sorted(method_dir.glob('hand2_input/*_human_targets_v5.npz'))
-            if len(kp_candidates) != 1:
-                raise FileNotFoundError(
-                    f"Expected one hand2_input/*_human_targets_v5.npz in "
-                    f"{method_dir}, found {kp_candidates}"
-                )
-            kp_data = np.load(kp_candidates[0])
-            for side in ('left', 'right'):
-                kp = np.asarray(kp_data[f'{side}_hand_keypoints21'], dtype=np.float64)
-                if kp.shape != (source_frames, 21, 3):
-                    raise ValueError(
-                        f"{side}_hand_keypoints21 shape {kp.shape}, expected "
-                        f"({source_frames}, 21, 3)"
-                    )
-                self._hand_frames[side] = kp
-            self.get_logger().info(
-                f"hands: {source_frames} keypoint frames from {kp_candidates[0].name} "
-                f"(retargeted live by wujihand_controller, input_source=keypoints_topic)"
-            )
+    def _srv_load(self, request, response) -> Trigger.Response:
+        raw = str(self.get_parameter('load_request').value)
+        try:
+            req = LoadRequest.from_json(raw)
+            clip = load_artifact(req.clip)
+            self.pacer.load(clip, req)
+        except (LoadError, ArtifactError, OSError) as exc:
+            self.get_logger().error(f'load refused: {exc}')
+            return self._reply(False, {'error': str(exc)})
 
+        self._recreate_publishers()
+        self._recreate_tick_timer()
+        self.get_logger().info(
+            f"loaded {req.clip} (sample={clip.meta.get('sample')}, "
+            f"method={clip.meta.get('method')}, k={clip.k}, "
+            f"speed_scale={req.speed_scale}, dt_play={self.pacer.dt_play * 1e3:.1f} ms, "
+            f"arms={list(req.arms)}, hands={list(req.hands)})"
+        )
+        return self._reply(True, self.pacer.status())
+
+    def _srv_publish_first(self, request, response) -> Trigger.Response:
+        try:
+            self.pacer.publish_first()
+        except LoadError as exc:
+            return self._reply(False, {'error': str(exc)})
+        self._t0_s = self.get_clock().now().nanoseconds * 1e-9
+        self.get_logger().info('publish_first: repeating frame 0')
+        return self._reply(True, self.pacer.status())
+
+    def _srv_start(self, request, response) -> Trigger.Response:
+        try:
+            self.pacer.start()
+        except LoadError as exc:
+            return self._reply(False, {'error': str(exc)})
+        self.get_logger().info('start: advancing')
+        return self._reply(True, self.pacer.status())
+
+    def _srv_fault(self, request, response) -> Trigger.Response:
+        self.pacer.fault()
+        self.get_logger().error('FAULT: tick frozen; a fresh load is required')
+        return self._reply(True, self.pacer.status())
+
+    # -------------------------------------------------------- publishing
+
+    def _recreate_publishers(self) -> None:
+        for pub in list(self._arm_pubs.values()) + list(self._hand_pubs.values()):
+            self.destroy_publisher(pub)
+        req = self.pacer.request
         self._arm_pubs = {
-            side: self.create_publisher(JointState, f'/{side}_arm/joint_targets', 10)
-            for side in self._arm_frames
+            side: self.create_publisher(
+                JointState, f'/{side}_arm/joint_targets', TARGET_QOS)
+            for side in req.arms
         }
         self._hand_pubs = {
-            side: self.create_publisher(Float64MultiArray, f'/{side}_hand/keypoints21', 10)
-            for side in self._hand_frames
+            side: self.create_publisher(
+                JointState, f'/{side}_hand/joint_targets', TARGET_QOS)
+            for side in req.hands
         }
 
-        step_dt = (meta['time_scale'] / meta['target_fps']) if rate <= 0 else (1.0 / rate)
-        self.get_logger().info(
-            f"Replaying {method_dir} -- {frames} frames every {step_dt * 1000:.1f} ms "
-            f"(loop={loop}, arms={sorted(self._arm_frames)}, hands={sorted(self._hand_frames)})"
-        )
-        self.timer = self.create_timer(step_dt, self._tick)
+    def _recreate_tick_timer(self) -> None:
+        if self._tick_timer is not None:
+            self._tick_timer.cancel()
+            self.destroy_timer(self._tick_timer)
+        self._tick_timer = self.create_timer(self.pacer.dt_play, self._tick)
 
-    def _hand_index(self, body_idx: int, hand_len: int) -> int:
-        if self._num_frames <= 1:
-            return 0
-        return round(body_idx * (hand_len - 1) / (self._num_frames - 1))
+    @staticmethod
+    def _stamp_from_seconds(t: float) -> TimeMsg:
+        sec = int(t)
+        return TimeMsg(sec=sec, nanosec=int(round((t - sec) * 1e9)))
 
     def _tick(self) -> None:
-        if self._idx >= self._num_frames:
-            if self._loop:
-                self._idx = 0
-            else:
-                # Hold the final frame -- bundle end behavior is hold_last_target
-                # (TUITION.md Sec 8: never abruptly zero or jump to neutral).
-                self._idx = self._num_frames - 1
+        out = self.pacer.tick()
+        if out is None:
+            return
+        stamp = self._stamp_from_seconds(self._t0_s + out.stamp_offset_s)
+        # One construction site for both device streams: keeping the two
+        # streams identical by construction is this node's whole job.
+        for targets, pubs in ((out.arm_targets, self._arm_pubs),
+                              (out.hand_targets, self._hand_pubs)):
+            for side, (names, q) in targets.items():
+                msg = JointState()
+                msg.header.stamp = stamp
+                msg.name = list(names)
+                msg.position = [float(v) for v in q]
+                pubs[side].publish(msg)
 
-        stamp = self.get_clock().now().to_msg()
-        for side, (names, q_arr) in self._arm_frames.items():
-            msg = JointState()
-            msg.header.stamp = stamp
-            msg.name = names
-            msg.position = [float(v) for v in q_arr[self._idx]]
-            self._arm_pubs[side].publish(msg)
-
-        for side, kp in self._hand_frames.items():
-            msg = Float64MultiArray()
-            msg.data = [float(v) for v in kp[self._hand_index(self._idx, kp.shape[0])].ravel()]
-            self._hand_pubs[side].publish(msg)
-
-        self._idx += 1
+    def _publish_status(self) -> None:
+        payload = json.dumps(self.pacer.status(), sort_keys=True)
+        if payload != self._last_status_json:
+            self.get_logger().info(f'status: {payload}')
+            self._last_status_json = payload
+        msg = String()
+        msg.data = payload
+        self._status_pub.publish(msg)
 
 
 def main(argv=None) -> None:
@@ -193,25 +207,14 @@ def main(argv=None) -> None:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '--method-dir', required=True, type=Path,
-        help="A sample's GT/ or Ours/ directory (contains g1_reference/ and hand2_input/)",
+        '--force-sim', action='store_true',
+        help='Bypass the load gates (fail verdicts, allowed-scale, hand '
+             'scope). SIMULATION ONLY.',
     )
-    parser.add_argument(
-        '--rate', type=float, default=0.0,
-        help='Publish rate in Hz. Default: target_fps/time_scale from the bundle '
-             '(slower playback redistributes time, never scales amplitude -- '
-             'TUITION.md Stage E).',
-    )
-    parser.add_argument('--loop', action='store_true', help='Loop back to frame 0 at clip end')
-    parser.add_argument('--no-arms', action='store_true', help='Skip arm joint targets')
-    parser.add_argument('--no-hands', action='store_true', help='Skip hand keypoints')
     args = parser.parse_args(cli_argv)
 
     rclpy.init(args=raw_argv)
-    node = ReplayPublisher(
-        args.method_dir, args.rate, args.loop,
-        arms=not args.no_arms, hands=not args.no_hands,
-    )
+    node = ReplayPublisherNode(force_sim=args.force_sim)
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
