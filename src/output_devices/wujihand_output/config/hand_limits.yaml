@@ -1,0 +1,84 @@
+# Wuji Hand 2 (Beta 2) joint limits for hardware replay (spec_1 component 1,
+# named section-6 deviation).
+#
+# Position and effort rows come from the vendor URDFs in src/wujihand_urdf/
+# (wujihand2-beta2-{left,right}, byte-identical to wuji-description
+# v2026.8.19; SHA-256 recorded in that package's README). Both sides carry
+# identical values; only the l_/r_ name prefix differs.
+#
+# THE URDF IS A SIMULATION MODEL. TUITION.md section 6 forbids substituting
+# its limits for official hardware limits. Named deviation (spec_1):
+#
+#   velocity   The deploy velocity is 4.0 rad/s, the bundle's conservative
+#              hand screening figure -- NOT the URDF velocity values
+#              (8.1 to 13.5 rad/s), which are recorded per joint below as
+#              sim_model_velocity for reference only. Provisional until
+#              Stage A records official Hand 2 limits.
+#
+#   effort     URDF efforts (N*m) are recorded per joint, but the runtime
+#              effort guard uses the per-joint limits the driver publishes in
+#              hand_diagnostics.effort_limits, which are drive-current AMPS
+#              (default 1.5 A, max 3.5 A per wujihandros2 docs), not N*m.
+#              The two are different quantities; never compare them.
+#
+# Joint order is URDF declaration order, thumb to pinky, 4 per finger
+# [flex, abd, pip/mcp, dip/ip] -- the same flat 20-element convention as
+# wujihand_driver's index order (finger{1..5}_joint{1..4}) and the MuJoCo
+# HAND_CODES table. Position 0 of each finger is FLEXION, position 1 is
+# ABDUCTION (axis-parallelism check in wujihand_urdf/README.md). The driver's
+# joint_upper/lower_limits ROS parameters are mis-indexed placeholders; never
+# read them as ground truth.
+#
+# Names below are the suffix (side prefix stripped): the left hand prepends
+# "l_", the right hand "r_".
+
+provenance:
+  source: wuji-description v2026.8.19 hand2/hand2_beta2/body/urdf/
+  carried_by: src/wujihand_urdf/wujihand_{left,right}.urdf
+  recorded: 2026-08-28
+
+# index: {name, position: [lower, upper] rad, effort_urdf: N*m,
+#         sim_model_velocity: rad/s (URDF value, reference only)}
+joints:
+  - {index: 0,  name: thumb_cmc_flex,        position: [-1.187, 1.291], effort_urdf: 0.6, sim_model_velocity: 8.587}
+  - {index: 1,  name: thumb_cmc_abd,         position: [-1.484, 0.698], effort_urdf: 0.6, sim_model_velocity: 11.1}
+  - {index: 2,  name: thumb_mcp,             position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 12.86}
+  - {index: 3,  name: thumb_ip,              position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 13.5}
+  - {index: 4,  name: index_finger_mcp_flex, position: [-1.047, 1.570], effort_urdf: 2.0, sim_model_velocity: 8.203}
+  - {index: 5,  name: index_finger_mcp_abd,  position: [-0.698, 0.698], effort_urdf: 0.2, sim_model_velocity: 8.11}
+  - {index: 6,  name: index_finger_pip,      position: [-1.047, 2.094], effort_urdf: 0.3, sim_model_velocity: 12.86}
+  - {index: 7,  name: index_finger_dip,      position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 13.5}
+  - {index: 8,  name: middle_finger_mcp_flex, position: [-1.047, 1.570], effort_urdf: 2.0, sim_model_velocity: 8.203}
+  - {index: 9,  name: middle_finger_mcp_abd,  position: [-0.698, 0.698], effort_urdf: 0.2, sim_model_velocity: 8.11}
+  - {index: 10, name: middle_finger_pip,      position: [-1.047, 2.094], effort_urdf: 0.3, sim_model_velocity: 12.86}
+  - {index: 11, name: middle_finger_dip,      position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 13.5}
+  - {index: 12, name: ring_finger_mcp_flex,   position: [-1.047, 1.570], effort_urdf: 2.0, sim_model_velocity: 8.203}
+  - {index: 13, name: ring_finger_mcp_abd,    position: [-0.698, 0.698], effort_urdf: 0.2, sim_model_velocity: 8.11}
+  - {index: 14, name: ring_finger_pip,        position: [-1.047, 2.094], effort_urdf: 0.3, sim_model_velocity: 12.86}
+  - {index: 15, name: ring_finger_dip,        position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 13.5}
+  - {index: 16, name: pinky_mcp_flex,         position: [-1.047, 1.570], effort_urdf: 2.0, sim_model_velocity: 8.203}
+  - {index: 17, name: pinky_mcp_abd,          position: [-0.698, 0.698], effort_urdf: 0.2, sim_model_velocity: 8.11}
+  - {index: 18, name: pinky_pip,              position: [-1.047, 2.094], effort_urdf: 0.3, sim_model_velocity: 12.86}
+  - {index: 19, name: pinky_dip,              position: [-1.047, 1.570], effort_urdf: 0.3, sim_model_velocity: 13.5}
+
+# PROVISIONAL until Stage A records official Hand 2 limits (section 6).
+# Bundle screening pair for the hand (TUITION.md section 6).
+deploy:
+  velocity: 4.0        # rad/s, all 20 joints
+  acceleration: 20.0   # rad/s^2
+
+# Name tables for joint_mapping.json and the preflight contract assert.
+# All three columns name the same physical joint at the same flat index;
+# no string is shared between our names and the driver's, which is why the
+# assert is structural (20 elements, 5 groups of 4, declaration order),
+# never a name-set comparison.
+name_tables:
+  side_prefix: {left: l_, right: r_}
+  driver: [finger1_joint1, finger1_joint2, finger1_joint3, finger1_joint4,
+           finger2_joint1, finger2_joint2, finger2_joint3, finger2_joint4,
+           finger3_joint1, finger3_joint2, finger3_joint3, finger3_joint4,
+           finger4_joint1, finger4_joint2, finger4_joint3, finger4_joint4,
+           finger5_joint1, finger5_joint2, finger5_joint3, finger5_joint4]
+  # driver finger1 == thumb is a firmware fact asserted by the HAND_CODES
+  # comment; it is physically confirmed in Stage A (command one joint,
+  # watch which finger moves), not provable in software.

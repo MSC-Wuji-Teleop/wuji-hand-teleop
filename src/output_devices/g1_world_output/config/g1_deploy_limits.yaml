@@ -1,0 +1,73 @@
+# G1 arm/waist joint limits for hardware replay (spec_1 component 1).
+#
+# Two distinct kinds of row. Do not conflate them:
+#
+#   hardware_ceilings  Sourced. Unitree's published <limit> values from
+#                      g1_29dof_rev_1_0.urdf (unitreerobotics/unitree_ros),
+#                      carried in-repo by g1_wuji2_description/g1_29_wuji2.urdf
+#                      and verified identical to upstream on 2026-08-28.
+#                      Asserted always, at every layer. Never edit these
+#                      without re-verifying against the Unitree URDF.
+#
+#   deploy             Our choice, not sourced. Provisional until TUITION.md
+#                      section 6 official deployment limits are recorded on
+#                      the rig in Stage A ("provisional-until-section-6").
+#                      Values are the bundle's conservative screening pair.
+#                      Stage A replaces this block; the ceilings stay.
+#
+# Joint names are the unsuffixed convention used by robot_arm.py's name
+# tables and the bundle's target_meta.json (left_shoulder_pitch, not
+# left_shoulder_pitch_joint). The URDF adds the "_joint" suffix.
+#
+# Consumers:
+#   - condition_clip (offline audit: FD velocity/acceleration vs deploy rows,
+#     position + per-joint velocity/effort vs ceiling rows)
+#   - replay_safety.py in g1_world_output (runtime position clamp + per-joint
+#     rate limit in the control loop, from the deploy rows)
+#   - the 250 Hz DDS write-thread clip (per-joint, from the ceiling velocity
+#     rows; always on, simulation_mode included)
+#
+# Positions are radians; velocities rad/s; accelerations rad/s^2; efforts
+# N*m. Position limits are asymmetric for shoulders and elbows, and
+# shoulder_roll mirrors between sides -- rows are explicit [lower, upper],
+# never +/- scalars.
+
+provenance:
+  source: g1_29dof_rev_1_0.urdf (unitreerobotics/unitree_ros)
+  carried_by: g1_wuji2_description/g1_29_wuji2.urdf
+  verified_against_upstream: 2026-08-28
+  note: >
+    Acceleration ceilings are not in this file because URDFs do not carry
+    acceleration limits (spec_1 hard blocker 5). The only acceleration bound
+    is the provisional deploy value below.
+
+hardware_ceilings:
+  # joint: {position: [lower, upper], velocity: rad/s, effort: N*m}
+  waist_yaw:            {position: [-2.618, 2.618],             velocity: 32.0, effort: 88.0}
+  waist_roll:           {position: [-0.52, 0.52],               velocity: 30.0, effort: 35.0}
+  waist_pitch:          {position: [-0.52, 0.52],               velocity: 30.0, effort: 35.0}
+  left_shoulder_pitch:  {position: [-3.0892, 2.6704],           velocity: 37.0, effort: 25.0}
+  left_shoulder_roll:   {position: [-1.5882, 2.2515],           velocity: 37.0, effort: 25.0}
+  left_shoulder_yaw:    {position: [-2.618, 2.618],             velocity: 37.0, effort: 25.0}
+  left_elbow:           {position: [-1.0472, 2.0944],           velocity: 37.0, effort: 25.0}
+  left_wrist_roll:      {position: [-1.972222054, 1.972222054], velocity: 37.0, effort: 25.0}
+  left_wrist_pitch:     {position: [-1.614429558, 1.614429558], velocity: 22.0, effort: 5.0}
+  left_wrist_yaw:       {position: [-1.614429558, 1.614429558], velocity: 22.0, effort: 5.0}
+  right_shoulder_pitch: {position: [-3.0892, 2.6704],           velocity: 37.0, effort: 25.0}
+  right_shoulder_roll:  {position: [-2.2515, 1.5882],           velocity: 37.0, effort: 25.0}
+  right_shoulder_yaw:   {position: [-2.618, 2.618],             velocity: 37.0, effort: 25.0}
+  right_elbow:          {position: [-1.0472, 2.0944],           velocity: 37.0, effort: 25.0}
+  right_wrist_roll:     {position: [-1.972222054, 1.972222054], velocity: 37.0, effort: 25.0}
+  right_wrist_pitch:    {position: [-1.614429558, 1.614429558], velocity: 22.0, effort: 5.0}
+  right_wrist_yaw:      {position: [-1.614429558, 1.614429558], velocity: 22.0, effort: 5.0}
+
+# PROVISIONAL until section-6 official deployment limits are recorded on the
+# rig (Stage A). Bundle screening pair (TUITION.md section 6): these are
+# simulation-screening parameters, not hardware specifications. Applied
+# uniformly to all arm joints unless overridden in per_joint.
+# Stage E arithmetic in spec_1 anticipates a Stage-A revision toward
+# 3-6 rad/s; until then this is the governing deploy velocity.
+deploy:
+  velocity: 0.5        # rad/s
+  acceleration: 3.0    # rad/s^2
+  per_joint: {}        # optional per-joint overrides, same row shape
