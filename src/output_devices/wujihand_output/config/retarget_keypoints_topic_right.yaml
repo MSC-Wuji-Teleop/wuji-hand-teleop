@@ -1,0 +1,51 @@
+# AdaptiveOptimizerAnalytical configuration for input_source=keypoints_topic
+# -- topic-fed MediaPipe (21,3) keypoints in meters, e.g. the SOT bundle's
+# fused SMPL-X hand targets replayed by replay. RIGHT HAND.
+#
+# Split per side (was the shared retarget_keypoints_topic.yaml) because
+# optimizer.urdf_path and link_naming.prefix are both side-specific and the
+# optimizer has no {side} token. wujihand_controller._resolve_retarget_config
+# already prefers retarget_{input_source}_{side}.yaml over the shared name.
+#
+# Deliberately minimal on bias terms: the glove config's thumb_skip_pip and the
+# video config's z_scale / segment corrections compensate sensor-specific bias
+# (glove SDK thumb reconstruction, monocular depth compression). Fused SMPL-X
+# keypoints are metrically consistent 3D and the bundle's own hand solve used
+# official session defaults (target_meta.json "hand_solver"), so no bias terms
+# here. Tune against reference videos only with evidence, per TUITION.md Sec 4.
+#
+# mediapipe_rotation below is NOT a bias term. See the note on it.
+
+optimizer:
+  type: "AdaptiveOptimizerAnalytical"
+  # Wuji Hand 2 (Beta 2), official vendor URDF. Provenance, SHA-256 and the
+  # joint-order contract: src/wujihand_urdf/README.md. The path is relative to
+  # this config's own directory, which --symlink-install resolves back to the
+  # source tree. A plain colcon build raises FileNotFoundError at load.
+  urdf_path: "../../../wujihand_urdf/wujihand_right.urdf"
+  # Wuji Hand 2 uses anatomical link names (r_wrist / r_index_finger_middle),
+  # so link_naming maps the optimizer's logical roles onto them. Values are
+  # upstream's, from example/config/adaptive_analytical_wuji_glove_wuji_hand_2_right.yaml.
+  # fingers are ordered thumb..pinky.
+  link_naming:
+    prefix:  "r_"
+    palm:    "wrist"
+    fingers: [thumb, index_finger, middle_finger, ring_finger, pinky]
+    pip:     "{finger}_middle"        # PIP
+    dip:     "{finger}_distal"        # DIP
+    tip:     "{finger}_tip"           # fingertip
+    link1:   "{finger}_proximal_abd"  # MCP abduction link (finger-plane ref)
+
+retarget:
+  lp_alpha: 0.2
+
+  # Root-frame correction, not a tuned bias. Wuji Hand 2's r_wrist frame is
+  # rotated 178.45 deg from Wuji Hand 1's right_palm_link frame (measured by
+  # expressing each hand's index MCP-flex axis and MCP direction in its own root
+  # frame; closest canonical form Rz(-90)Ry(180), residual 7.6 deg). Values are
+  # upstream's, introduced in wuji-retargeting v2026.8.17 "for the updated model
+  # orientation". Without this the Hand 2 URDF is driven roughly backwards.
+  mediapipe_rotation:
+    x: 0.0
+    y: 180.0
+    z: -90.0

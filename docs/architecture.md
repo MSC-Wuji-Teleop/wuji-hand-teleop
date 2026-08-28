@@ -47,7 +47,7 @@ graph LR
 
     TP -.->|"cross-container DDS<br/>(mode=pose)"| G1O["g1_world_output<br/>(own container)"]
     JT -.->|"cross-container DDS<br/>(mode=joint_replay)"| G1O
-    G1O --> G1["Unitree G1 (23-DoF)"]
+    G1O --> G1["Unitree G1<br/>(29-DoF rig)"]
 ```
 
 The dashed edges are the ones that are not a plain ROS2 topic hop inside
@@ -238,7 +238,7 @@ viewer does not move.
 | One arm frozen in sim but moving on hardware | An absent side publishes nothing, yet `ctrl_dual_arm` writes all arm joints over DDS | [g1_controller.py:192](../src/output_devices/g1_world_output/g1_world_output/g1_controller.py#L192) |
 | Hand output stalls, glove is connected | Skeleton frame without exactly 21 joints is dropped silently | [wujihand_node.py:52](../src/controller/controller/wujihand_node.py#L52) |
 | Replay targets ignored, throttled warning in the log | Message arrived for the inactive mode (a pose in `joint_replay`, or joint targets in `pose`), or a joint-targets message was missing a required joint name | [g1_world_output_node.py:340](../src/output_devices/g1_world_output/g1_world_output/g1_world_output_node.py#L340) |
-| Node exits at startup: "already holds the G1 DDS lowcmd writer lock" | A second `G1_23_ArmController` (second `g1_world_output_node` not in dry-run) — stop the other process | [robot_arm.py:180](../src/output_devices/g1_world_output/g1_world_output/robot_arm.py#L180) |
+| Node exits at startup: "already holds the G1 DDS lowcmd writer lock" | A second `G1ArmController` (second `g1_world_output_node` not in dry-run) — stop the other process | [robot_arm.py:180](../src/output_devices/g1_world_output/g1_world_output/robot_arm.py#L180) |
 | `pico_input` refuses to start | A tracker serial is empty, a placeholder, or duplicated. All four are required even though two are unused by the IK | [pico_input_node.py:176](../src/input_devices/pico_input/pico_input/pico_input_node.py#L176) |
 | PICO node runs but publishes nothing | Incremental controller not initialized yet, so the callback returns early | [pico_input_node.py:541](../src/input_devices/pico_input/pico_input/pico_input_node.py#L541) |
 | Arms jump on the first frame under `dry_run` | With no DDS, the IK seed starts at all zeros rather than the viewer's pose | [g1_controller.py:184](../src/output_devices/g1_world_output/g1_world_output/g1_controller.py#L184) |
@@ -299,11 +299,62 @@ arm columns by name from `target_meta.json`, the consumer matches them against
 a `{name}_joint` actuator. That is what lets the same publisher drive today's
 5-DoF-arm G1_23 controller and the 29-DoF sim without changes.
 
-`arm_type=G1_29` is **sim-only**: it provides the 7-DoF-arm joint names, and
-`G1CartesianController` refuses to open DDS or run pose-IK with it (the rig's
-robot is 23-DoF; no 29 DDS controller or IK exists). Real-hardware replay is
-therefore deliberately not wired up. Runbook with the exact commands:
-[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim).
+The rig's robot is 29-DoF. As of 2026-08-27 `G1ArmController` drives either
+variant over DDS (`arm_type` selects the arm slot set; `G1_29` is the config
+default) and pose-IK teleop stays `G1_23`-only. What keeps replay sim-only
+today is the missing safety envelope, not the controller: TUITION's
+requirements on feedback gating (§5), bounded startup and termination (§8),
+stop conditions (§9), and run logging (§10) are not implemented yet.
+Runbook with the exact commands:
+[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim). Checklist and
+staged bring-up for the eventual hardware runs:
+[Hardware replay](usage.md#hardware-replay).
+
+### Hardware replay design (planned)
+
+Design target, not implemented. The sim topology above carries over with two
+changes, both inside existing processes. No new nodes.
+
+A "mode" here is a parameter on a device node, not a separate process.
+`g1_world_output` already has `mode` (`pose` | `joint_replay` | `idle`), and
+the hand node already has `input_source` (`wuji_glove` | `keypoints_topic`).
+The planned branch adds one more `input_source` value, `q20_topic`. Each
+device node keeps sole ownership of its command topic in every mode; the
+parameter only selects which input branch its control timer runs, so a
+second writer is structurally impossible. That is the same property the DDS
+writer lockfile enforces on the arm side.
+
+```mermaid
+graph LR
+    CC["condition_clip (planned, offline)<br/>keypoints to q20 retarget<br/>+ velocity audit, per-clip verdict"]
+    ART[("conditioned clip<br/>artifact")]
+    SOT["replay_publisher<br/>one timer"]
+    HC["wujihand_controller x2<br/>input_source=q20_topic (planned)<br/>interp + clamp + watchdog inside"]
+    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29"]
+    DRV["wujihand_driver<br/>unchanged"]
+    DDS["Unitree G1<br/>DDS rt/arm_sdk"]
+
+    CC --> ART --> SOT
+    SOT -->|"/left,right_hand/joint_targets<br/>named q20 (planned topic)"| HC
+    SOT -->|"/left,right_arm/joint_targets<br/>unchanged"| G1O
+    HC -->|"/left,right_hand/joint_commands"| DRV
+    G1O --> DDS
+```
+
+What replaces what, relative to the sim diagram:
+
+| Sim path (today) | Hardware path (planned) |
+|---|---|
+| `/left,right_hand/keypoints21`, 63 floats | `/left,right_hand/joint_targets`, named q20 |
+| NLopt retarget at runtime, inside the hand node | retarget offline in `condition_clip`, audited before any run (TUITION §3.1: `reset()` per clip, retarget metadata recorded) |
+| latest-wins keypoint consumption, no interpolation | interpolation between q20 samples in the same timer loop (TUITION §5) |
+| no clamps or feedback gating on the hand side | joint-limit clamp plus `joint_states`/`hand_diagnostics` watchdog in the same branch (TUITION §5) |
+| viewer consumes the command topics | `wujihand_driver` (USB) and DDS consume them |
+
+The arm side is identical in both diagrams: `joint_replay` already
+interpolates named targets and `G1ArmController` owns DDS behind the writer
+lock. The pending arm-side work is the safety envelope listed above, not
+topology.
 
 ## Input devices
 
@@ -359,8 +410,9 @@ loaded, so replay never needs it) and talks to the robot over
 `unitree_sdk2py` DDS — through a single `_send_dual_arm` choke point guarded
 by a writer lockfile, so a second DDS-writing process fails loudly at
 startup. Its `--dry-run` flag (or `dry_run:=true` on the launch file) is the
-hardware/sim toggle. `arm_type` selects the joint layout: `G1_23` (default,
-the real rig) or `G1_29` (SOT replay in sim; refuses DDS). URDF, MJCF, and
+hardware/sim toggle. `arm_type` selects the arm slot set and wrist-gain
+tier: `G1_29` (default, the rig's robot) or `G1_23` (supported secondary).
+Pose mode is `G1_23`-only; `joint_replay` accepts either. URDF, MJCF, and
 meshes for both variants live in `src/g1_wuji2_description/`. Full details,
 including the sim/hardware toggle and the MuJoCo scripts, are in the
 [package README](../src/output_devices/g1_world_output/README.md).

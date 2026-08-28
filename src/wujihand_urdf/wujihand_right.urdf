@@ -1,34 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
-  name="wujihand-right-v1.0.0">
+  name="wujihand2-beta2-right">
   <link
-    name="palm_link">
-    <inertial>
-      <origin
-        xyz="-0.00303828029862807 0.000190792669572603 0.0362773590584524"
-        rpy="0 0 0" />
-      <mass
-        value="0.2179" />
-      <inertia
-        ixx="0.000176278316905"
-        ixy="3.23565665431e-06"
-        ixz="8.6719208984e-06"
-        iyy="0.000118992163986"
-        iyz="-8.4006144779e-06"
-        izz="0.0760800840283" />
-    </inertial>
+    name="r_wrist">
+    <inertial><origin xyz="-0.00354289960216114 -0.00346747236064104 -0.0356950477107829" rpy="0 0 0"/><mass value="0.2323"/><inertia ixx="9.85805046027055e-05" ixy="-5.21545995919675e-07" ixz="4.69877332365686e-06" iyy="0.000154959113329145" iyz="-7.307300403419e-06" izz="7.88501370904413e-05"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/palm_link.STL" />
+          filename="../meshes/right/r_wrist.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
       </material>
     </visual>
     <collision>
@@ -37,39 +27,25 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/palm_mask.STL" />
+          filename="../meshes/right/r_wrist.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <link
-    name="finger1_link1">
-    <inertial>
-      <origin
-        xyz="-0.00246679671583713 -0.0014417245290539 0.00777599954897647"
-        rpy="0 0 0" />
-      <mass
-        value="0.0075" />
-      <inertia
-        ixx="3.24117320788e-04"
-        ixy="-1.75134974563e-05"
-        ixz="-6.22647271731e-08"
-        iyy="2.95812272232e-04"
-        iyz="3.91922955342e-05"
-        izz="2.32280908489e-04" />
-    </inertial>
+    name="r_thumb_proximal">
+    <inertial><origin xyz="0.000853657429950494 -0.00195618452655939 -0.0073180857322072" rpy="0 0 0"/><mass value="0.011"/><inertia ixx="8.07001987681193e-07" ixy="-2.76970722043947e-08" ixz="2.8571196010973e-08" iyy="8.07898105945808e-07" iyz="-8.77269995533649e-09" izz="6.37878016479553e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link1.STL" />
+          filename="../meshes/right/r_thumb_proximal.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.627450980392157 0.627450980392157 0.627450980392157 1" />
       </material>
     </visual>
     <collision>
@@ -78,60 +54,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link1.STL" />
+          filename="../meshes/right/r_thumb_proximal.STL" />
       </geometry>
-      <!-- MuJoCo collision parameters - 第一指节增加margin和gap -->
-      <margin value="0.006"/>
-      <gap value="0.004"/>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger1_joint1"
+    name="r_thumb_cmc_flex"
     type="revolute">
     <origin
-      xyz="0.00852444051536966 0.0205754004992104 0.0287119465316217"
-      rpy="-1.32802443797267 -0.371613529401197 -0.730700470955738" />
+      xyz="0.01721 0.008138 -0.016458"
+      rpy="-1.6617 -1.059 1.9921" />
     <parent
-      link="palm_link" />
+      link="r_wrist" />
     <child
-      link="finger1_link1" />
+      link="r_thumb_proximal" />
     <axis
-      xyz="-0 1 -0" />
+      xyz="1 0 0" />
     <limit
-      lower="-0.0448"
-      upper="1.6508"
-      effort="0.6"
-      velocity="8.58701992" />
+      lower="-1.1870"
+      upper="1.2910"
+      effort="0.6000"
+      velocity="8.587" />
   </joint>
   <link
-    name="finger1_link2">
-    <inertial>
-      <origin
-        xyz="0.00116856027557744 -1.30515414766344E-05 0.0149181493921574"
-        rpy="0 0 0" />
-      <mass
-        value="0.0248" />
-      <inertia
-        ixx="2.56283770223e-04"
-        ixy="1.87209734389e-03"
-        ixz="8.79602890589e-04"
-        iyy="2.62449214432e-04"
-        iyz="1.79308351665e-03"
-        izz="6.79717587461e-02" />
-    </inertial>
+    name="r_thumb_proximal_abd">
+    <inertial><origin xyz="1.27934027458564e-05 6.47331010436739e-06 -0.0130543616151469" rpy="0 0 0"/><mass value="0.0336"/><inertia ixx="4.11671493729103e-06" ixy="-5.9929784662906e-08" ixz="1.30616608491388e-08" iyy="4.19675217766626e-06" iyz="8.09095132539748e-09" izz="1.23568384428672e-06"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link2.STL" />
+          filename="../meshes/right/r_thumb_proximal_abd.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.627450980392157 0.627450980392157 0.627450980392157 1" />
       </material>
     </visual>
     <collision>
@@ -140,116 +99,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link2.STL" />
+          filename="../meshes/right/r_thumb_proximal_abd.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger1_joint2"
+    name="r_thumb_cmc_abd"
     type="revolute">
     <origin
-      xyz="-0.00475489770145063 -0.00601914141399163 0.0141320977109324"
-      rpy="-0.574275025049342 -0.236773483165492 1.80339766411149" />
+      xyz="0.00024788 -0.00053658 -0.014754"
+      rpy="0.20529 0.70051 0.025238" />
     <parent
-      link="finger1_link1" />
+      link="r_thumb_proximal" />
     <child
-      link="finger1_link2" />
-    <axis
-      xyz="-0 -1 -0" />
-    <limit
-      lower="-0.1659"
-      upper="0.9339"
-      effort="0.6"
-      velocity="11.10029404" />
-  </joint>
-  <link
-    name="finger1_link3">
-    <inertial>
-      <origin
-        xyz="-0.00112498098406098 0.000183915318447688 0.0128077785583931"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="1.42180444436e-03"
-        ixy="2.26985695136e-08"
-        ixz="-2.20906056846e-05"
-        iyy="1.38858772258e-03"
-        iyz="-1.31713798765e-06"
-        izz="4.49694700789e-04" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link3.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link3.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger1_joint3"
-    type="revolute">
-    <origin
-      xyz="0.00026670985188593 -0.000991501581071832 0.0331656190850421"
-      rpy="0.0490494507279603 0.0173112436656061 -1.90854042682209" />
-    <parent
-      link="finger1_link2" />
-    <child
-      link="finger1_link3" />
+      link="r_thumb_proximal_abd" />
     <axis
       xyz="0 1 0" />
     <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="12.86307659" />
+      lower="-1.4840"
+      upper="0.6980"
+      effort="0.6000"
+      velocity="11.1" />
   </joint>
   <link
-    name="finger1_link4">
-    <inertial>
-      <origin
-        xyz="-0.00118455321540082 0.000436793366497296 0.00873369661619583"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="7.8272204459e-04"
-        ixy="2.67180143461e-07"
-        ixz="-1.12960976984e-05"
-        iyy="8.01195397748e-04"
-        iyz="-1.90582636952e-06"
-        izz="4.29889843738e-04" />
-    </inertial>
+    name="r_thumb_middle">
+    <inertial><origin xyz="-4.92924283153409e-05 4.31168707134176e-08 -0.0143055726354766" rpy="0 0 0"/><mass value="0.0358"/><inertia ixx="4.81959717162669e-06" ixy="-2.57766425883297e-10" ixz="3.27141642541921e-10" iyy="4.92858743739004e-06" iyz="5.19951983287786e-12" izz="1.32688022322439e-06"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link4.STL" />
+          filename="../meshes/right/r_thumb_middle.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.627450980392157 0.627450980392157 0.627450980392157 1" />
       </material>
     </visual>
     <collision>
@@ -258,57 +144,229 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_link4.STL" />
+          filename="../meshes/right/r_thumb_middle.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger1_joint4"
+    name="r_thumb_mcp"
     type="revolute">
     <origin
-      xyz="0 -5.00007422951686E-05 0.0289999996622586"
+      xyz="0 0 -0.0325"
+      rpy="0 0.087266 0.56723" />
+    <parent
+      link="r_thumb_proximal_abd" />
+    <child
+      link="r_thumb_middle" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="12.86" />
+  </joint>
+  <link
+    name="r_thumb_distal">
+    <inertial><origin xyz="-0.000170796485333386 -0.00316013482825475 -0.00824529757067696" rpy="0 0 0"/><mass value="0.0109"/><inertia ixx="1.17377158651223e-06" ixy="4.21121501591565e-09" ixz="1.17472430627027e-08" iyy="1.13506580203293e-06" iyz="-2.43030491176421e-07" izz="3.53328481700069e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_thumb_distal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_thumb_distal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_thumb_ip"
+    type="revolute">
+    <origin
+      xyz="-5E-05 0 -0.035"
       rpy="0 0 0" />
     <parent
-      link="finger1_link3" />
+      link="r_thumb_middle" />
     <child
-      link="finger1_link4" />
+      link="r_thumb_distal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="13.5" />
+  </joint>
+  <link
+    name="r_thumb_tip" />
+  <joint
+    name="r_thumb_tip_fixed"
+    type="fixed">
+    <origin
+      xyz="0 0 -0.02978"
+      rpy="0 0 0" />
+    <parent
+      link="r_thumb_distal" />
+    <child
+      link="r_thumb_tip" />
+  </joint>
+  <link
+    name="r_thumb_tip_sensor_frame">
+    <inertial><origin xyz="-2.55623113023804e-07 0.00176029918913101 -0.0169902000177567" rpy="0 0 0"/><mass value="0.0063"/><inertia ixx="3.1034013318208e-07" ixy="-1.06945629878966e-11" ixz="-1.38094188415299e-11" iyy="3.75210682900038e-07" iyz="-5.92693636401213e-08" izz="2.52173880256309e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_thumb_tip_sensor_frame.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.55 0.78 0.95 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_thumb_tip_sensor_frame.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_thumb_tip_sensor_frame_fixed"
+    type="fixed">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="r_thumb_distal" />
+    <child
+      link="r_thumb_tip_sensor_frame" />
+  </joint>
+  <link
+    name="r_index_finger_proximal">
+    <inertial><origin xyz="1.83161025002185e-09 -0.00178136940445361 -0.00760138673373379" rpy="0 0 0"/><mass value="0.0116"/><inertia ixx="9.19684021219304e-07" ixy="5.28247185749756e-13" ixz="2.26060089849787e-13" iyy="9.07912667640505e-07" iyz="-9.11687066972159e-09" izz="7.89107764311872e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_proximal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_proximal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_index_finger_mcp_flex"
+    type="revolute">
+    <origin
+      xyz="0.022661 -0.0033252 -0.069975"
+      rpy="-0.039792 -0.13705 0.10041" />
+    <parent
+      link="r_wrist" />
+    <child
+      link="r_index_finger_proximal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="2.0000"
+      velocity="8.203" />
+  </joint>
+  <link
+    name="r_index_finger_proximal_abd">
+    <inertial><origin xyz="8.04675146186652e-08 7.30403684727838e-07 -0.0187993794550997" rpy="0 0 0"/><mass value="0.0339"/><inertia ixx="7.0158413388037e-06" ixy="1.13787856174592e-10" ixz="-1.19062498369979e-11" iyy="7.01558877903507e-06" iyz="-1.97233402202639e-10" izz="9.14480410679966e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_proximal_abd.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_proximal_abd.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_index_finger_mcp_abd"
+    type="revolute">
+    <origin
+      xyz="0 -0.001201 -0.0145"
+      rpy="0 0 0" />
+    <parent
+      link="r_index_finger_proximal" />
+    <child
+      link="r_index_finger_proximal_abd" />
     <axis
       xyz="0 1 0" />
     <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="13.57866158" />
+      lower="-0.6980"
+      upper="0.6980"
+      effort="0.2000"
+      velocity="8.11" />
   </joint>
   <link
-    name="finger1_tip_link">
-    <inertial>
-      <origin
-        xyz="-0.00018224614869659 7.73403732112765E-06 -0.00417767715130674"
-        rpy="0 0 0" />
-      <mass
-        value="0.004" />
-      <inertia
-        ixx="1.18451584942e-04"
-        ixy="-4.99255243801e-09"
-        ixz="4.34640344713e-06"
-        iyy="1.17922644803e-04"
-        iyz="-1.86588951353e-09"
-        izz="1.0462803484e-04" />
-    </inertial>
+    name="r_index_finger_middle">
+    <inertial><origin xyz="-5.07335390506177e-08 -0.000247886788910862 -0.0190348353019456" rpy="0 0 0"/><mass value="0.0212"/><inertia ixx="2.40525408841305e-06" ixy="4.36771620897442e-11" ixz="-1.01321951275633e-11" iyy="2.47626497450938e-06" iyz="5.57378703986573e-08" izz="6.54181652504255e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_tip_link.STL" />
+          filename="../meshes/right/r_index_finger_middle.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -317,57 +375,101 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger1_tip_link.STL" />
+          filename="../meshes/right/r_index_finger_middle.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger1_tip_fixed"
+    name="r_index_finger_pip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0376"
+      rpy="0 0 0" />
+    <parent
+      link="r_index_finger_proximal_abd" />
+    <child
+      link="r_index_finger_middle" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="2.0940"
+      effort="0.3000"
+      velocity="12.86" />
+  </joint>
+  <link
+    name="r_index_finger_distal">
+    <inertial><origin xyz="0.00076740598891297 -0.00278778948855706 -0.00722744222280641" rpy="0 0 0"/><mass value="0.005"/><inertia ixx="3.85365233690713e-07" ixy="-1.01492850924046e-08" ixz="-2.4295299600468e-08" iyy="4.59196561041464e-07" iyz="-8.15452100629746e-08" izz="2.05966139257898e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_distal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_index_finger_distal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_index_finger_dip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0295"
+      rpy="0 0 0" />
+    <parent
+      link="r_index_finger_middle" />
+    <child
+      link="r_index_finger_distal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="13.5" />
+  </joint>
+  <link
+    name="r_index_finger_tip" />
+  <joint
+    name="r_index_finger_tip_fixed"
     type="fixed">
     <origin
-      xyz="-0.00104623528319934 0.000443681117589321 0.0293000000558906"
+      xyz="0 0 -0.02475"
       rpy="0 0 0" />
     <parent
-      link="finger1_link4" />
+      link="r_index_finger_distal" />
     <child
-      link="finger1_tip_link" />
-    <axis
-      xyz="0 0 0" />
-    <limit
-      lower="0"
-      upper="0"
-      effort="100"
-      velocity="10" />
+      link="r_index_finger_tip" />
   </joint>
   <link
-    name="finger2_link1">
-    <inertial>
-      <origin
-        xyz="-0.00132914835339807 -1.71487374769214E-07 0.000319872917129871"
-        rpy="0 0 0" />
-      <mass
-        value="0.0032" />
-      <inertia
-        ixx="8.24632369264e-05"
-        ixy="1.07697382029e-08"
-        ixz="-2.51459929867e-05"
-        iyy="7.17523114493e-05"
-        iyz="-2.83543094769e-09"
-        izz="7.65560451098e-05" />
-    </inertial>
+    name="r_index_finger_tip_sensor_frame">
+    <inertial><origin xyz="2.95150204250277e-07 0.00147202588519464 -0.0149386735115629" rpy="0 0 0"/><mass value="0.003"/><inertia ixx="1.00794408739871e-07" ixy="-1.11956678585288e-12" ixz="-8.85068155951574e-12" iyy="1.14648629251251e-07" iyz="-2.42394954108166e-08" izz="7.40912760668819e-08"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link1.STL" />
+          filename="../meshes/right/r_index_finger_tip_sensor_frame.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.55 0.78 0.95 1" />
       </material>
     </visual>
     <collision>
@@ -376,296 +478,36 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link1.STL" />
+          filename="../meshes/right/r_index_finger_tip_sensor_frame.STL" />
       </geometry>
-      <!-- MuJoCo collision parameters - 第一指节增加margin和gap -->
-      <margin value="0.006"/>
-      <gap value="0.004"/>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger2_joint1"
-    type="revolute">
-    <origin
-      xyz="-0.00587008921485247 0.0294338632809287 0.0919165306699325"
-      rpy="-0.111142508461784 -0.0711392477320386 -0.218224846477167" />
-    <parent
-      link="palm_link" />
-    <child
-      link="finger2_link1" />
-    <axis
-      xyz="0 0.999999906158207 0.000433224625971368" />
-    <limit
-      lower="-0.32695"
-      upper="1.63595"
-      effort="1"
-      velocity="8.203047484" />
-  </joint>
-  <link
-    name="finger2_link2">
-    <inertial>
-      <origin
-        xyz="-0.00607489059709313 7.04149221950751E-06 0.0174058121210225"
-        rpy="0 0 0" />
-      <mass
-        value="0.033" />
-      <inertia
-        ixx="4.73967852474e-03"
-        ixy="-1.02749346183e-07"
-        ixz="-1.58310324489e-04"
-        iyy="4.76601124302e-03"
-        iyz="-1.46400602445e-06"
-        izz="8.75951556121e-04" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link2.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link2.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger2_joint2"
-    type="revolute">
-    <origin
-      xyz="0.00220000017524629 0 0.00400000534382478"
-      rpy="0.000433224548403847 0 0" />
-    <parent
-      link="finger2_link1" />
-    <child
-      link="finger2_link2" />
-    <axis
-      xyz="-0.999999999978991 0 0" />
-    <limit
-      lower="-0.495"
-      upper="0.495"
-      effort="0.2"
-      velocity="8.115781022" />
-  </joint>
-  <link
-    name="finger2_link3">
-    <inertial>
-      <origin
-        xyz="-0.00112282992985933 4.42928884479554E-06 0.0155095350538171"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="1.45317444728e-03"
-        ixy="-1.67215507966e-08"
-        ixz="3.48307875673e-05"
-        iyy="1.41954371728e-03"
-        iyz="1.25880032492e-06"
-        izz="4.50044735649e-04" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link3.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link3.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger2_joint3"
-    type="revolute">
-    <origin
-      xyz="-0.00460023735005808 1.55817705260984E-05 0.0366176526568538"
-      rpy="-0.000433222790942502 0 -0.000268612691124751" />
-    <parent
-      link="finger2_link2" />
-    <child
-      link="finger2_link3" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="12.86307659" />
-  </joint>
-  <link
-    name="finger2_link4">
-    <inertial>
-      <origin
-        xyz="-0.000894376529038848 1.70416598961991E-05 0.00535176431211343"
-        rpy="0 0 0" />
-      <mass
-        value="0.014" />
-      <inertia
-        ixx="5.0710446566e-04"
-        ixy="9.11749211126e-08"
-        ixz="1.62269914941e-05"
-        iyy="3.57636819488e-04"
-        iyz="8.66358855481e-07"
-        izz="4.13132175596e-04" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link4.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_link4.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger2_joint4"
-    type="revolute">
-    <origin
-      xyz="0 0 0.0290000000150095"
-      rpy="0 0 0" />
-    <parent
-      link="finger2_link3" />
-    <child
-      link="finger2_link4" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="13.57866158" />
-  </joint>
-  <link
-    name="finger2_tip_link">
-    <inertial>
-      <origin
-        xyz="-0.000203263238125159 1.4940061998682E-06 -0.00931098362104524"
-        rpy="0 0 0" />
-      <mass
-        value="0.004" />
-      <inertia
-        ixx="1.33459490674e-07"
-        ixy="7.65310175844e-12"
-        ixz="5.04837223299e-09"
-        iyy="1.32217584294e-07"
-        iyz="-3.34260000493e-11"
-        izz="9.81858168805e-08" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_tip_link.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger2_tip_link.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger2_tip_fixed"
+    name="r_index_finger_tip_sensor_frame_fixed"
     type="fixed">
     <origin
-      xyz="-0.00104999539509563 0 0.0274000004481596"
+      xyz="0 0 0"
       rpy="0 0 0" />
     <parent
-      link="finger2_link4" />
+      link="r_index_finger_distal" />
     <child
-      link="finger2_tip_link" />
-    <axis
-      xyz="0 0 0" />
-    <limit
-      lower="0"
-      upper="0"
-      effort="100"
-      velocity="10" />
+      link="r_index_finger_tip_sensor_frame" />
   </joint>
   <link
-    name="finger3_link1">
-    <inertial>
-      <origin
-        xyz="-0.00132913698572003 -1.35105834592891E-07 0.000319936782964769"
-        rpy="0 0 0" />
-      <mass
-        value="0.0032" />
-      <inertia
-        ixx="8.24636630363e-08"
-        ixy="1.05255476198e-11"
-        ixz="-2.51464570939e-08"
-        iyy="7.17530085263e-08"
-        iyz="-3.06548070848e-12"
-        izz="7.65566479519e-08" />
-    </inertial>
+    name="r_middle_finger_proximal">
+    <inertial><origin xyz="1.83161025002185e-09 -0.00178136940445361 -0.00760138673373379" rpy="0 0 0"/><mass value="0.0116"/><inertia ixx="9.19684021219304e-07" ixy="5.28247185749756e-13" ixz="2.26060089847088e-13" iyy="9.07912667640505e-07" iyz="-9.11687066972159e-09" izz="7.89107764311872e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link1.STL" />
+          filename="../meshes/right/r_middle_finger_proximal.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -674,60 +516,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link1.STL" />
+          filename="../meshes/right/r_middle_finger_proximal.STL" />
       </geometry>
-      <!-- MuJoCo collision parameters - 第一指节增加margin和gap -->
-      <margin value="0.006"/>
-      <gap value="0.004"/>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger3_joint1"
+    name="r_middle_finger_mcp_flex"
     type="revolute">
     <origin
-      xyz="-0.0104597238611628 0.00746146014385576 0.0895435117703666"
-      rpy="-0.00048411119168703 -0.087266465303481 0.000583871740106801" />
+      xyz="0.00095202 -0.008303 -0.073915"
+      rpy="-0.03391 0.011037 -0.00071534" />
     <parent
-      link="palm_link" />
+      link="r_wrist" />
     <child
-      link="finger3_link1" />
+      link="r_middle_finger_proximal" />
     <axis
-      xyz="0 0.999999906158095 0.000433224884501103" />
+      xyz="1 0 0" />
     <limit
-      lower="-0.32695"
-      upper="1.63595"
-      effort="1"
-      velocity="8.203047484" />
+      lower="-1.0470"
+      upper="1.5700"
+      effort="2.0000"
+      velocity="8.203" />
   </joint>
   <link
-    name="finger3_link2">
-    <inertial>
-      <origin
-        xyz="-0.00607477271551802 7.04802703002747E-06 0.0174058548256302"
-        rpy="0 0 0" />
-      <mass
-        value="0.033" />
-      <inertia
-        ixx="4.73968063722e-06"
-        ixy="-9.93071359495e-11"
-        ixz="-1.58340309001e-07"
-        iyy="4.76601364014e-06"
-        iyz="-1.45914109771e-09"
-        izz="8.75952299836e-07" />
-    </inertial>
+    name="r_middle_finger_proximal_abd">
+    <inertial><origin xyz="8.04675146186652e-08 7.30403684727974e-07 -0.0187993794550997" rpy="0 0 0"/><mass value="0.0339"/><inertia ixx="7.0158413388037e-06" ixy="1.13787856174592e-10" ixz="-1.19062498369979e-11" iyy="7.01558877903507e-06" iyz="-1.97233402202727e-10" izz="9.14480410679966e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link2.STL" />
+          filename="../meshes/right/r_middle_finger_proximal_abd.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -736,175 +561,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link2.STL" />
+          filename="../meshes/right/r_middle_finger_proximal_abd.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger3_joint2"
+    name="r_middle_finger_mcp_abd"
     type="revolute">
     <origin
-      xyz="0.0022000005026625 0 0.00400000522628907"
-      rpy="0.000433224806924388 0 0" />
-    <parent
-      link="finger3_link1" />
-    <child
-      link="finger3_link2" />
-    <axis
-      xyz="-1 0 0" />
-    <limit
-      lower="-0.495"
-      upper="0.495"
-      effort="0.2"
-      velocity="8.115781022" />
-  </joint>
-  <link
-    name="finger3_link3">
-    <inertial>
-      <origin
-        xyz="-0.00112282864080627 4.39679506439392E-06 0.0155095424261443"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="1.45317494404e-06"
-        ixy="-1.40948282386e-11"
-        ixz="3.48282217527e-08"
-        iyy="1.41954593131e-06"
-        iyz="1.25835561776e-09"
-        izz="4.50044546416e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link3.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link3.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger3_joint3"
-    type="revolute">
-    <origin
-      xyz="-0.00460000064410125 1.55817799863825E-05 0.036617682393194"
-      rpy="-0.000433224785853114 0 -0.000268612686864552" />
-    <parent
-      link="finger3_link2" />
-    <child
-      link="finger3_link3" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="12.86307659" />
-  </joint>
-  <link
-    name="finger3_link4">
-    <inertial>
-      <origin
-        xyz="-0.000894355959527901 1.70486720565818E-05 0.00535176749909932"
-        rpy="0 0 0" />
-      <mass
-        value="0.014" />
-      <inertia
-        ixx="5.07103829988e-07"
-        ixy="8.95143845896e-11"
-        ixz="1.62278084329e-08"
-        iyy="3.57638959039e-07"
-        iyz="8.66476292107e-10"
-        izz="4.13132573694e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link4.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_link4.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger3_joint4"
-    type="revolute">
-    <origin
-      xyz="0 0 0.0290000000150094"
+      xyz="0 -0.001201 -0.0145"
       rpy="0 0 0" />
     <parent
-      link="finger3_link3" />
+      link="r_middle_finger_proximal" />
     <child
-      link="finger3_link4" />
+      link="r_middle_finger_proximal_abd" />
     <axis
-      xyz="-0 1 -0" />
+      xyz="0 1 0" />
     <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="13.57866158" />
+      lower="-0.6980"
+      upper="0.6980"
+      effort="0.2000"
+      velocity="8.11" />
   </joint>
   <link
-    name="finger3_tip_link">
-    <inertial>
-      <origin
-        xyz="-0.000203282574199135 1.49706419718537E-06 -0.0086110157045298"
-        rpy="0 0 0" />
-      <mass
-        value="0.004" />
-      <inertia
-        ixx="1.3345938577e-07"
-        ixy="7.55791396731e-12"
-        ixz="5.04880087603e-09"
-        iyy="1.32216772202e-07"
-        iyz="-3.36661501243e-11"
-        izz="9.81861875872e-08" />
-    </inertial>
+    name="r_middle_finger_middle">
+    <inertial><origin xyz="-5.07335390506177e-08 -0.000247886788910862 -0.0190348353019456" rpy="0 0 0"/><mass value="0.0212"/><inertia ixx="2.40525408841305e-06" ixy="4.36771620897459e-11" ixz="-1.01321951275497e-11" iyy="2.47626497450938e-06" iyz="5.57378703986573e-08" izz="6.54181652504255e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_tip_link.STL" />
+          filename="../meshes/right/r_middle_finger_middle.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -913,57 +606,101 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger3_tip_link.STL" />
+          filename="../meshes/right/r_middle_finger_middle.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger3_tip_fixed"
+    name="r_middle_finger_pip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0376"
+      rpy="0 0 0" />
+    <parent
+      link="r_middle_finger_proximal_abd" />
+    <child
+      link="r_middle_finger_middle" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="2.0940"
+      effort="0.3000"
+      velocity="12.86" />
+  </joint>
+  <link
+    name="r_middle_finger_distal">
+    <inertial><origin xyz="0.00076740598891297 -0.00278778948855706 -0.00722744222280641" rpy="0 0 0"/><mass value="0.005"/><inertia ixx="3.85365233690714e-07" ixy="-1.01492850924046e-08" ixz="-2.4295299600468e-08" iyy="4.59196561041464e-07" iyz="-8.15452100629747e-08" izz="2.05966139257898e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_middle_finger_distal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_middle_finger_distal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_middle_finger_dip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0295"
+      rpy="0 0 0" />
+    <parent
+      link="r_middle_finger_middle" />
+    <child
+      link="r_middle_finger_distal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="13.5" />
+  </joint>
+  <link
+    name="r_middle_finger_tip" />
+  <joint
+    name="r_middle_finger_tip_fixed"
     type="fixed">
     <origin
-      xyz="-0.00104042865141054 0 0.0267000008801756"
+      xyz="0 0 -0.02475"
       rpy="0 0 0" />
     <parent
-      link="finger3_link4" />
+      link="r_middle_finger_distal" />
     <child
-      link="finger3_tip_link" />
-    <axis
-      xyz="0 0 0" />
-    <limit
-      lower="0"
-      upper="0"
-      effort="100"
-      velocity="10" />
+      link="r_middle_finger_tip" />
   </joint>
   <link
-    name="finger4_link1">
-    <inertial>
-      <origin
-        xyz="-0.00132913862113604 -1.28561818942344E-07 0.000319947594750139"
-        rpy="0 0 0" />
-      <mass
-        value="0.0032" />
-      <inertia
-        ixx="8.24638309779e-08"
-        ixy="1.05172265494e-11"
-        ixz="-2.51465967181e-08"
-        iyy="7.1753197822e-08"
-        iyz="-2.98297834266e-12"
-        izz="7.65568707425e-08" />
-    </inertial>
+    name="r_middle_finger_tip_sensor_frame">
+    <inertial><origin xyz="2.95150204250277e-07 0.00147202588519464 -0.0149386735115629" rpy="0 0 0"/><mass value="0.003"/><inertia ixx="1.00794408739871e-07" ixy="-1.11956678585288e-12" ixz="-8.85068155951574e-12" iyy="1.14648629251251e-07" iyz="-2.42394954108166e-08" izz="7.40912760668819e-08"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link1.STL" />
+          filename="../meshes/right/r_middle_finger_tip_sensor_frame.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="0.55 0.78 0.95 1" />
       </material>
     </visual>
     <collision>
@@ -972,296 +709,36 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link1.STL" />
+          filename="../meshes/right/r_middle_finger_tip_sensor_frame.STL" />
       </geometry>
-      <!-- MuJoCo collision parameters - 第一指节增加margin和gap -->
-      <margin value="0.006"/>
-      <gap value="0.004"/>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger4_joint1"
-    type="revolute">
-    <origin
-      xyz="-0.0076648599285041 -0.0137122383759844 0.084428694586379"
-      rpy="0.0899413960034348 -0.0834355049367681 0.0471266288536016" />
-    <parent
-      link="palm_link" />
-    <child
-      link="finger4_link1" />
-    <axis
-      xyz="0 0.999999906157892 0.000433225355001288" />
-    <limit
-      lower="-0.32695"
-      upper="1.63595"
-      effort="1"
-      velocity="8.203047484" />
-  </joint>
-  <link
-    name="finger4_link2">
-    <inertial>
-      <origin
-        xyz="-0.00607477415013002 7.04800690908697E-06 0.0174058534366373"
-        rpy="0 0 0" />
-      <mass
-        value="0.033" />
-      <inertia
-        ixx="4.73968021209e-06"
-        ixy="-9.93299564976e-11"
-        ixz="-1.58340373869e-07"
-        iyy="4.76601396156e-06"
-        iyz="-1.45932373178e-09"
-        izz="8.7595233487e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link2.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link2.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger4_joint2"
-    type="revolute">
-    <origin
-      xyz="0.00220000053755089 0 0.00400000510026774"
-      rpy="0.000433225366118357 0 0" />
-    <parent
-      link="finger4_link1" />
-    <child
-      link="finger4_link2" />
-    <axis
-      xyz="-1 0 0" />
-    <limit
-      lower="-0.495"
-      upper="0.495"
-      effort="0.2"
-      velocity="8.115781022" />
-  </joint>
-  <link
-    name="finger4_link3">
-    <inertial>
-      <origin
-        xyz="-0.00112281978000032 4.415354241602E-06 0.0155095445407365"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="1.45317342759e-06"
-        ixy="-1.6024128714e-11"
-        ixz="3.48299632698e-08"
-        iyy="1.41954535578e-06"
-        iyz="1.25818955558e-09"
-        izz="4.50044869442e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link3.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link3.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger4_joint3"
-    type="revolute">
-    <origin
-      xyz="-0.00459999999033558 1.55818004638833E-05 0.0366176824753135"
-      rpy="-0.000433225349833524 0 -0.000268612687102299" />
-    <parent
-      link="finger4_link2" />
-    <child
-      link="finger4_link3" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="12.86307659" />
-  </joint>
-  <link
-    name="finger4_link4">
-    <inertial>
-      <origin
-        xyz="-0.000894356856806141 1.70581575012659E-05 0.00535176692291561"
-        rpy="0 0 0" />
-      <mass
-        value="0.014" />
-      <inertia
-        ixx="5.07104054865e-07"
-        ixy="8.88832844513e-11"
-        ixz="1.62277079154e-08"
-        iyy="3.57638206963e-07"
-        iyz="8.66782959474e-10"
-        izz="4.13132326341e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link4.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_link4.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger4_joint4"
-    type="revolute">
-    <origin
-      xyz="0 0 0.0290000000150089"
-      rpy="0 0 0" />
-    <parent
-      link="finger4_link3" />
-    <child
-      link="finger4_link4" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="13.57866158" />
-  </joint>
-  <link
-    name="finger4_tip_link">
-    <inertial>
-      <origin
-        xyz="-0.00020321889223914 1.52797272489139E-06 -0.00861060047549556"
-        rpy="0 0 0" />
-      <mass
-        value="0.004" />
-      <inertia
-        ixx="1.33478692647e-07"
-        ixy="6.80712298637e-12"
-        ixz="5.05037538642e-09"
-        iyy="1.32227451261e-07"
-        iyz="-3.36788147885e-11"
-        izz="9.81807790633e-08" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_tip_link.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger4_tip_link.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger4_tip_fixed"
+    name="r_middle_finger_tip_sensor_frame_fixed"
     type="fixed">
     <origin
-      xyz="-0.00104042861977702 0 0.026700000917914"
+      xyz="0 0 0"
       rpy="0 0 0" />
     <parent
-      link="finger4_link4" />
+      link="r_middle_finger_distal" />
     <child
-      link="finger4_tip_link" />
-    <axis
-      xyz="0 0 0" />
-    <limit
-      lower="0"
-      upper="0"
-      effort="100"
-      velocity="10" />
+      link="r_middle_finger_tip_sensor_frame" />
   </joint>
   <link
-    name="finger5_link1">
-    <inertial>
-      <origin
-        xyz="-0.00132914013266503 -1.21383697752886E-07 0.000319968600092965"
-        rpy="0 0 0" />
-      <mass
-        value="0.0032" />
-      <inertia
-        ixx="8.24640390473e-08"
-        ixy="1.05214686634e-11"
-        ixz="-2.51468144821e-08"
-        iyy="7.17534441126e-08"
-        iyz="-2.8320121791e-12"
-        izz="7.65572748716e-08" />
-    </inertial>
+    name="r_ring_finger_proximal">
+    <inertial><origin xyz="1.83161025017075e-09 -0.00178136940445361 -0.00760138673373379" rpy="0 0 0"/><mass value="0.0116"/><inertia ixx="9.19684021219303e-07" ixy="5.2824718574533e-13" ixz="2.26060089833958e-13" iyy="9.07912667640505e-07" iyz="-9.11687066972156e-09" izz="7.89107764311872e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link1.STL" />
+          filename="../meshes/right/r_ring_finger_proximal.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -1270,60 +747,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link1.STL" />
+          filename="../meshes/right/r_ring_finger_proximal.STL" />
       </geometry>
-      <!-- MuJoCo collision parameters - 第一指节增加margin和gap -->
-      <margin value="0.006"/>
-      <gap value="0.004"/>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger5_joint1"
+    name="r_ring_finger_mcp_flex"
     type="revolute">
     <origin
-      xyz="-0.00226865106062467 -0.0340011106648613 0.0742813381426987"
-      rpy="0.192050433506504 -0.0925172356498861 0.157672818297325" />
+      xyz="-0.019744 -0.0055929 -0.0654"
+      rpy="-0.016655 0.14163 -0.06832" />
     <parent
-      link="palm_link" />
+      link="r_wrist" />
     <child
-      link="finger5_link1" />
+      link="r_ring_finger_proximal" />
     <axis
-      xyz="0 0.999999906157892 0.000433225353070638" />
+      xyz="1 0 0" />
     <limit
-      lower="-0.32695"
-      upper="1.63595"
-      effort="1"
-      velocity="8.203047484" />
+      lower="-1.0470"
+      upper="1.5700"
+      effort="2.0000"
+      velocity="8.203" />
   </joint>
   <link
-    name="finger5_link2">
-    <inertial>
-      <origin
-        xyz="-0.0060747788344176 7.0481654495802E-06 0.0174058499757659"
-        rpy="0 0 0" />
-      <mass
-        value="0.033" />
-      <inertia
-        ixx="4.73967875661e-06"
-        ixy="-9.93299827894e-11"
-        ixz="-1.58340419083e-07"
-        iyy="4.76601491304e-06"
-        iyz="-1.45976546159e-09"
-        izz="8.75952354958e-07" />
-    </inertial>
+    name="r_ring_finger_proximal_abd">
+    <inertial><origin xyz="8.04675146186652e-08 7.3040368472784e-07 -0.0187993794550997" rpy="0 0 0"/><mass value="0.0339"/><inertia ixx="7.0158413388037e-06" ixy="1.13787856174592e-10" ixz="-1.19062498369979e-11" iyy="7.01558877903507e-06" iyz="-1.9723340220264e-10" izz="9.14480410679966e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link2.STL" />
+          filename="../meshes/right/r_ring_finger_proximal_abd.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -1332,175 +792,43 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link2.STL" />
+          filename="../meshes/right/r_ring_finger_proximal_abd.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger5_joint2"
+    name="r_ring_finger_mcp_abd"
     type="revolute">
     <origin
-      xyz="0.00220000070730803 0 0.00400000490038611"
-      rpy="0.000433225364229257 0 0" />
-    <parent
-      link="finger5_link1" />
-    <child
-      link="finger5_link2" />
-    <axis
-      xyz="-1 0 0" />
-    <limit
-      lower="-0.495"
-      upper="0.495"
-      effort="0.2"
-      velocity="8.115781022" />
-  </joint>
-  <link
-    name="finger5_link3">
-    <inertial>
-      <origin
-        xyz="-0.00112281626244697 4.43578851664489E-06 0.0155095521315327"
-        rpy="0 0 0" />
-      <mass
-        value="0.0165" />
-      <inertia
-        ixx="1.45317385214e-06"
-        ixy="-1.77088315355e-11"
-        ixz="3.48328807897e-08"
-        iyy="1.41954533145e-06"
-        iyz="1.25700456988e-09"
-        izz="4.50044441489e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link3.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link3.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger5_joint3"
-    type="revolute">
-    <origin
-      xyz="-0.0046 1.5582E-05 0.036618"
-      rpy="-0.00043323 0 -0.00026861" />
-    <parent
-      link="finger5_link2" />
-    <child
-      link="finger5_link3" />
-    <axis
-      xyz="-0 1 -0" />
-    <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="12.86307659" />
-  </joint>
-  <link
-    name="finger5_link4">
-    <inertial>
-      <origin
-        xyz="-0.000894368185113745 1.70634219463887E-05 0.00535176183287062"
-        rpy="0 0 0" />
-      <mass
-        value="0.014" />
-      <inertia
-        ixx="5.07104915731e-07"
-        ixy="8.90910174322e-11"
-        ixz="1.62273540145e-08"
-        iyy="3.57636927053e-07"
-        iyz="8.67078158646e-10"
-        izz="4.13131990893e-07" />
-    </inertial>
-    <visual>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link4.STL" />
-      </geometry>
-      <material
-        name="">
-        <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_link4.STL" />
-      </geometry>
-      <class>collision</class>
-    </collision>
-  </link>
-  <joint
-    name="finger5_joint4"
-    type="revolute">
-    <origin
-      xyz="0 0 0.029"
+      xyz="0 -0.001201 -0.0145"
       rpy="0 0 0" />
     <parent
-      link="finger5_link3" />
+      link="r_ring_finger_proximal" />
     <child
-      link="finger5_link4" />
+      link="r_ring_finger_proximal_abd" />
     <axis
-      xyz="-0 1 -0" />
+      xyz="0 1 0" />
     <limit
-      lower="-0.4932"
-      upper="1.6272"
-      effort="0.3"
-      velocity="13.57866158" />
+      lower="-0.6980"
+      upper="0.6980"
+      effort="0.2000"
+      velocity="8.11" />
   </joint>
   <link
-    name="finger5_tip_link">
-    <inertial>
-      <origin
-        xyz="-0.000203317522521486 1.48714111362219E-06 -0.00861106321403796"
-        rpy="0 0 0" />
-      <mass
-        value="0.004" />
-      <inertia
-        ixx="1.33459239781e-07"
-        ixy="7.45505532453e-12"
-        ixz="5.04921851401e-09"
-        iyy="1.32215698783e-07"
-        iyz="-3.31004127789e-11"
-        izz="9.81864148392e-08" />
-    </inertial>
+    name="r_ring_finger_middle">
+    <inertial><origin xyz="-5.07335390505635e-08 -0.000247886788910862 -0.0190348353019456" rpy="0 0 0"/><mass value="0.0212"/><inertia ixx="2.40525408841305e-06" ixy="4.36771620897457e-11" ixz="-1.01321951275779e-11" iyy="2.47626497450938e-06" iyz="5.57378703986573e-08" izz="6.54181652504255e-07"/></inertial>
     <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_tip_link.STL" />
+          filename="../meshes/right/r_ring_finger_middle.STL" />
       </geometry>
       <material
         name="">
         <color
-          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+          rgba="1 1 1 1" />
       </material>
     </visual>
     <collision>
@@ -1509,27 +837,353 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://wujihand-urdf/Description/meshes/right/finger5_tip_link.STL" />
+          filename="../meshes/right/r_ring_finger_middle.STL" />
       </geometry>
-      <class>collision</class>
     </collision>
   </link>
   <joint
-    name="finger5_tip_fixed"
+    name="r_ring_finger_pip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0376"
+      rpy="0 0 0" />
+    <parent
+      link="r_ring_finger_proximal_abd" />
+    <child
+      link="r_ring_finger_middle" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="2.0940"
+      effort="0.3000"
+      velocity="12.86" />
+  </joint>
+  <link
+    name="r_ring_finger_distal">
+    <inertial><origin xyz="0.00076740598891297 -0.00278778948855706 -0.00722744222280641" rpy="0 0 0"/><mass value="0.005"/><inertia ixx="3.85365233690714e-07" ixy="-1.01492850924046e-08" ixz="-2.4295299600468e-08" iyy="4.59196561041464e-07" iyz="-8.15452100629746e-08" izz="2.05966139257898e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_ring_finger_distal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_ring_finger_distal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_ring_finger_dip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0295"
+      rpy="0 0 0" />
+    <parent
+      link="r_ring_finger_middle" />
+    <child
+      link="r_ring_finger_distal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="13.5" />
+  </joint>
+  <link
+    name="r_ring_finger_tip" />
+  <joint
+    name="r_ring_finger_tip_fixed"
     type="fixed">
     <origin
-      xyz="-0.00104042861181322 0 0.0267000011472218"
+      xyz="0 0 -0.02475"
       rpy="0 0 0" />
     <parent
-      link="finger5_link4" />
+      link="r_ring_finger_distal" />
     <child
-      link="finger5_tip_link" />
+      link="r_ring_finger_tip" />
+  </joint>
+  <link
+    name="r_ring_finger_tip_sensor_frame">
+    <inertial><origin xyz="2.95150204250277e-07 0.00147202588519464 -0.0149386735115629" rpy="0 0 0"/><mass value="0.003"/><inertia ixx="1.00794408739871e-07" ixy="-1.11956678585288e-12" ixz="-8.85068155951574e-12" iyy="1.14648629251251e-07" iyz="-2.42394954108166e-08" izz="7.40912760668819e-08"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_ring_finger_tip_sensor_frame.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.55 0.78 0.95 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_ring_finger_tip_sensor_frame.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_ring_finger_tip_sensor_frame_fixed"
+    type="fixed">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="r_ring_finger_distal" />
+    <child
+      link="r_ring_finger_tip_sensor_frame" />
+  </joint>
+  <link
+    name="r_pinky_proximal">
+    <inertial><origin xyz="-2.12647665764062e-07 -0.00178135647039668 -0.00760144900209861" rpy="0 0 0"/><mass value="0.0116"/><inertia ixx="9.19664045720297e-07" ixy="1.97416924666018e-12" ixz="-5.47629031711395e-12" iyy="9.07907928441544e-07" iyz="-9.11609971605222e-09" izz="7.89108884463772e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_proximal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_proximal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_pinky_mcp_flex"
+    type="revolute">
+    <origin
+      xyz="-0.037351 -0.00073376 -0.055296"
+      rpy="-0.029938 0.24886 -0.13602" />
+    <parent
+      link="r_wrist" />
+    <child
+      link="r_pinky_proximal" />
     <axis
-      xyz="0 0 0" />
+      xyz="1 0 0" />
     <limit
-      lower="0"
-      upper="0"
-      effort="100"
-      velocity="10" />
+      lower="-1.0470"
+      upper="1.5700"
+      effort="2.0000"
+      velocity="8.203" />
+  </joint>
+  <link
+    name="r_pinky_proximal_abd">
+    <inertial><origin xyz="1.55646906608809e-06 5.45320202995785e-07 -0.0167849719552996" rpy="0 0 0"/><mass value="0.0304"/><inertia ixx="5.37945679675879e-06" ixy="1.12278427349778e-10" ixz="-1.64165357379841e-10" iyy="5.38012309356491e-06" iyz="-2.32489803821551e-10" izz="8.17709812022935e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_proximal_abd.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_proximal_abd.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_pinky_mcp_abd"
+    type="revolute">
+    <origin
+      xyz="0 -0.001201 -0.0145"
+      rpy="0 0 3.6273E-05" />
+    <parent
+      link="r_pinky_proximal" />
+    <child
+      link="r_pinky_proximal_abd" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-0.6980"
+      upper="0.6980"
+      effort="0.2000"
+      velocity="8.11" />
+  </joint>
+  <link
+    name="r_pinky_middle">
+    <inertial><origin xyz="-3.23236358886277e-07 -0.000264490618234346 -0.0178806678504514" rpy="0 0 0"/><mass value="0.0188"/><inertia ixx="1.98647409646703e-06" ixy="4.62365895207266e-11" ixz="4.73744493481682e-12" iyy="2.05807093165979e-06" iyz="4.70563185910699e-08" izz="5.86414432802369e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_middle.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_middle.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_pinky_pip"
+    type="revolute">
+    <origin
+      xyz="0.0001 0 -0.0336"
+      rpy="0 0 -3.6273E-05" />
+    <parent
+      link="r_pinky_proximal_abd" />
+    <child
+      link="r_pinky_middle" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="2.0940"
+      effort="0.3000"
+      velocity="12.86" />
+  </joint>
+  <link
+    name="r_pinky_distal">
+    <inertial><origin xyz="0.000767405973014053 -0.00278778950304728 -0.00722744221285949" rpy="0 0 0"/><mass value="0.005"/><inertia ixx="3.85365233924147e-07" ixy="-1.01492845925988e-08" ixz="-2.42952998025558e-08" iyy="4.59196561641253e-07" iyz="-8.1545209923448e-08" izz="2.05966139660045e-07"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_distal.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_distal.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_pinky_dip"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.0275"
+      rpy="0 0 0" />
+    <parent
+      link="r_pinky_middle" />
+    <child
+      link="r_pinky_distal" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="-1.0470"
+      upper="1.5700"
+      effort="0.3000"
+      velocity="13.5" />
+  </joint>
+  <link
+    name="r_pinky_tip" />
+  <joint
+    name="r_pinky_tip_fixed"
+    type="fixed">
+    <origin
+      xyz="0 0 -0.02475"
+      rpy="0 0 0" />
+    <parent
+      link="r_pinky_distal" />
+    <child
+      link="r_pinky_tip" />
+  </joint>
+  <link
+    name="r_pinky_tip_sensor_frame">
+    <inertial><origin xyz="2.95138642793081e-07 0.00147202588400987 -0.0149386735089922" rpy="0 0 0"/><mass value="0.003"/><inertia ixx="1.00794408761953e-07" ixy="-1.11958303792225e-12" ixz="-8.85096102984355e-12" iyy="1.14648629342808e-07" iyz="-2.4239495455377e-08" izz="7.40912760704386e-08"/></inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_tip_sensor_frame.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.55 0.78 0.95 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/right/r_pinky_tip_sensor_frame.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_pinky_tip_sensor_frame_fixed"
+    type="fixed">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="r_pinky_distal" />
+    <child
+      link="r_pinky_tip_sensor_frame" />
   </joint>
 </robot>

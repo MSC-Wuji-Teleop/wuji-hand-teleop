@@ -5,6 +5,21 @@
 
 optimizer:
   type: "AdaptiveOptimizerAnalytical"
+  # Wuji Hand 2 (Beta 2), official vendor URDF. Provenance, SHA-256 and the
+  # joint-order contract: src/wujihand_urdf/README.md. Relative to this config's
+  # own directory, which --symlink-install resolves back to the source tree.
+  urdf_path: "../../../wujihand_urdf/wujihand_right.urdf"
+  # Hand 2 uses anatomical link names (r_wrist / r_index_finger_middle), so
+  # link_naming maps the optimizer's logical roles onto them. Values are
+  # upstream's, from example/config/adaptive_analytical_wuji_glove_wuji_hand_2_right.yaml.
+  link_naming:
+    prefix:  "r_"
+    palm:    "wrist"
+    fingers: [thumb, index_finger, middle_finger, ring_finger, pinky]
+    pip:     "{finger}_middle"        # PIP
+    dip:     "{finger}_distal"        # DIP
+    tip:     "{finger}_tip"           # fingertip
+    link1:   "{finger}_proximal_abd"  # MCP abduction link (finger-plane ref)
 
 retarget:
   huber_delta: 2.0
@@ -22,6 +37,13 @@ retarget:
   couple_ratio: 0.7      # biomechanical (DIP curls ~70% of PIP)
   lp_alpha: 0.2
 
+  # FLAGGED, NOT RETUNED. The pinky values were fitted against Wuji Hand 1,
+  # whose pinky segments differ from Hand 2's: PIP 43.9 vs 33.6 mm (-10.3),
+  # DIP 29.5 vs 27.5 mm (-2.0), TIP 26.7 vs 24.8 mm (-1.9). Hand 2's pinky is
+  # SHORTER, so a >1 scale that compensated Hand 1 over-reach has no evidence
+  # behind it now. Upstream's Hand 2 glove config ships all 1.0. Left as-is
+  # because retuning needs glove hardware, which is not available offline.
+  # Re-derive with tuning_tool.py against Hand 2 before trusting glove teleop.
   segment_scaling:
     thumb:  [1.0, 1.0, 1.0]
     index:  [1.0, 1.0, 1.0]
@@ -48,10 +70,20 @@ retarget:
     middle: { d1: 2.0, d2: 4.0 }
     ring:   { d1: 2.0, d2: 4.0 }
     pinky:  { d1: 2.0, d2: 4.0 }
+  # Root-frame correction for Wuji Hand 2, not a tuned bias. Hand 2's r_wrist
+  # frame is rotated 178.45 deg from Hand 1's right_palm_link frame (measured on
+  # the URDFs; closest canonical form Rz(-90)Ry(180), residual 7.6 deg). Values
+  # are upstream's, from wuji-retargeting v2026.8.17.
+  #
+  # This REPLACES the previous (-5, -5, -20), which was a small glove calibration
+  # bias fitted in Hand 1's frame. That frame no longer applies, so the bias was
+  # dropped rather than composed on top. If glove teleop shows a systematic
+  # offset after this change, re-derive it with calibrate_offset.py against
+  # Hand 2; do not restore the old numbers.
   mediapipe_rotation:
-    x: -5.0
-    y: -5.0
-    z: -20.0
+    x: 0.0
+    y: 180.0
+    z: -90.0
   wrist_offset_cm: [0.0, 0.0, 0.0]   # disabled: SDK uses per-SN calibrated URDF, no extra bias needed
   thumb_offset_cm: [0.0, 0.0, 0.0]   # disabled: same reason
 

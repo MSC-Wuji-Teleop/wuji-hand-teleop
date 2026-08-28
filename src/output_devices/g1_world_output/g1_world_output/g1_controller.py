@@ -14,8 +14,7 @@ import numpy as np
 from g1_world_output.config_loader import G1Config
 from g1_world_output.robot_arm import (
     ARM_JOINT_NAMES_BY_TYPE,
-    G1_23_ARM_DOF,
-    G1_23_ArmController,
+    G1ArmController,
 )
 from g1_world_output.robot_arm_ik import G1_23_ArmIK
 from g1_world_output.transform_utils import chest_pose_to_pelvis
@@ -24,10 +23,10 @@ from g1_world_output.transform_utils import chest_pose_to_pelvis
 class G1CartesianController:
     """Mirror of Tianji CartesianController API, backed by Unitree G1_23 stack.
 
-    arm_type selects the joint-name layout: 'G1_23' (5 DoF/arm, the real
-    rig -- full pose-IK + DDS support) or 'G1_29' (7 DoF/arm; joint_replay/
-    sim only for now: the 29 DDS controller and 29 IK are not reinstated,
-    so connect=True or pose mode with G1_29 raises).
+    arm_type selects the arm variant: 'G1_23' (5 DoF/arm) or 'G1_29'
+    (7 DoF/arm, the rig's robot). Both drive DDS through G1ArmController.
+    The pose-IK path is still G1_23-only (10-DoF reduced model), so pose
+    mode with G1_29 raises; joint_replay needs no IK.
     """
 
     def __init__(
@@ -61,23 +60,18 @@ class G1CartesianController:
         # (or can fail on) the URDF/IK load.
         self.arm_ik: Optional[G1_23_ArmIK] = None
 
-        self.arm_ctrl: Optional[G1_23_ArmController] = None
+        self.arm_ctrl: Optional[G1ArmController] = None
         if connect:
-            if self.arm_type != 'G1_23':
-                raise NotImplementedError(
-                    f"arm_type={self.arm_type} has no DDS controller yet -- only "
-                    "G1_23 hardware control is implemented (the rig's robot is "
-                    "23-DoF; see docs/hardware_spec.md). Use dry_run for "
-                    f"{self.arm_type} joint_replay/sim work."
-                )
             self.logger.info(
-                "Connecting G1_23 arm DDS (motion_mode=%s, simulation_mode=%s)...",
+                "Connecting %s arm DDS (motion_mode=%s, simulation_mode=%s)...",
+                self.arm_type,
                 motion_mode,
                 simulation_mode,
             )
-            self.arm_ctrl = G1_23_ArmController(
+            self.arm_ctrl = G1ArmController(
                 motion_mode=motion_mode,
                 simulation_mode=simulation_mode,
+                arm_type=self.arm_type,
             )
 
         left_zsp = self._cfg.default_zsp_para.get('left', [0, -1, -0.5, 0, 0, 0])
@@ -96,7 +90,7 @@ class G1CartesianController:
         Every path that ends up commanding the arms -- IK-solved poses or
         already-solved joint angles from a replayed trajectory -- goes
         through here, so there is exactly one place that talks to
-        G1_23_ArmController and exactly one place that updates the IK
+        G1ArmController and exactly one place that updates the IK
         seed (_last_sol_q).
         """
         if self.arm_ctrl is not None:
@@ -182,7 +176,7 @@ class G1CartesianController:
             current_dq = self.arm_ctrl.get_current_dual_arm_dq()
         else:
             current_q = self._last_sol_q
-            current_dq = np.zeros(G1_23_ARM_DOF)
+            current_dq = np.zeros(2 * self._dof_side)
 
         sol_q, sol_tau, ok = self._ensure_arm_ik().solve_ik(
             left_pelvis, right_pelvis, current_q, current_dq
@@ -191,8 +185,9 @@ class G1CartesianController:
         if ok:
             self._send_dual_arm(sol_q, sol_tau)
 
-        left_joints = list(sol_q[:5]) if (ok and left_pose is not None) else None
-        right_joints = list(sol_q[5:]) if (ok and right_pose is not None) else None
+        d = self._dof_side
+        left_joints = list(sol_q[:d]) if (ok and left_pose is not None) else None
+        right_joints = list(sol_q[d:]) if (ok and right_pose is not None) else None
         left_ok = ok and left_pose is not None
         right_ok = ok and right_pose is not None
         return left_ok, right_ok, left_joints, right_joints
@@ -212,7 +207,7 @@ class G1CartesianController:
         the arm's current position (measured if connected, else the last
         solve) for whichever side is not provided, then hands off to the
         same _send_dual_arm() choke point move_to_pose_direct() uses -- the
-        DDS write loop's velocity clamp (G1_23_ArmController.clip_arm_q_target)
+        DDS write loop's velocity clamp (G1ArmController.clip_arm_q_target)
         still applies either way. Works in dry-run (arm_ctrl is None) the
         same way move_to_pose_direct() does, so joint_replay mode is usable
         without hardware.
@@ -247,10 +242,10 @@ class G1CartesianController:
         return self._joint_names[self._dof_side:]
 
     def disable_and_release(self):
-        self.logger.info("Shutting down G1_23 arm controller...")
+        self.logger.info("Shutting down %s arm controller...", self.arm_type)
         if self.arm_ctrl is not None:
             try:
                 self.arm_ctrl.shutdown()
             except Exception as exc:
                 self.logger.warning("G1 shutdown error (ignored): %s", exc)
-        self.logger.info("G1_23 arm controller released")
+        self.logger.info("%s arm controller released", self.arm_type)

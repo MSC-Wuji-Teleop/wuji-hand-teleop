@@ -7,8 +7,10 @@
 # This package remaps chest -> G1 pelvis (robot base) before Pinocchio/Casadi IK.
 # =============================================================================
 
-# G1_23: 5 DoF per arm (shoulder pitch/roll/yaw, elbow, wrist roll)
-arm_type: "G1_23"
+# G1_29 (the rig's robot): 7 DoF per arm (shoulder pitch/roll/yaw, elbow,
+# wrist roll/pitch/yaw). G1_23 (5 DoF per arm) stays supported as a secondary
+# target; pose mode (IK) is still G1_23-only.
+arm_type: "G1_29"
 
 # DDS / control
 # motion_mode true -> rt/arm_sdk: the G1's onboard controller keeps the legs.

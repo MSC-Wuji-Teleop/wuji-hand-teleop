@@ -1,0 +1,12 @@
+# Hand-controller config for RobotSTAR demo replay: selects the
+# keypoints_topic input source (subscribes /{hand_name}/keypoints21 from the
+# replay package instead of connecting a glove).
+#
+# Tracked in git, unlike wujihand_ik.yaml: it holds no serials -- hand
+# namespaces come from the controller's --side defaults, and the driver is
+# not launched in replay/sim. Pass it explicitly:
+#
+#   ros2 run controller wujihand_controller --side left \
+#       -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
+
+input_source: "keypoints_topic"

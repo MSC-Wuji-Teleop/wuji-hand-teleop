@@ -39,9 +39,9 @@ def generate_launch_description() -> LaunchDescription:
                      "'mode' ROS parameter.",
     )
     arm_type_arg = DeclareLaunchArgument(
-        "arm_type", default_value="G1_23",
-        description="'G1_23' (real rig; pose IK + DDS) or 'G1_29' (7-DoF-arm joint "
-                     "names for SOT bundle replay; joint_replay/idle + dry_run only).",
+        "arm_type", default_value="G1_29",
+        description="'G1_29' (the rig's robot; 7 DoF/arm, joint_replay + DDS) or "
+                     "'G1_23' (5 DoF/arm; the only variant with pose-IK support).",
     )
 
     g1_world_output_node = Node(

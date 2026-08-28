@@ -70,6 +70,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Added `mujoco==3.12.0` to the main `teleop` image's pip dependencies, needed by
   the new G1 sim-mode scripts.
+- Rewrote `docs/spec/spec_1.md` from a question list into the proposed hardware
+  replay design (29-DoF G1 primary, 23-DoF secondary): conditioning artifacts,
+  LowCmd slot policy, run/device state machines, safety envelope layers, and a
+  bring-up staged against TUITION §7. hardware_spec.md records the variant
+  decision (2026-08-27).
 
 ## [2026.6.13]
 
