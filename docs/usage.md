@@ -271,12 +271,63 @@ C6 (and everything after it with mounted hands) is blocked.
 plus Hand 2 `joint_states` and `hand_diagnostics` (fault codes, temperature,
 current, online bitmap). Confirm: sides not swapped, all 20 joints online
 per hand, zero pose reasonable, no faults, no sustained packet loss, E-stop
-and watchdog physically tested. Two caveats in today's software:
-`g1_world_output` has no read-only mode (its DDS constructor immediately
-position-holds all joints and raises the `arm_sdk` weight), so do not start
-it for stage A; and `wujihand_driver` sets an initial position target on
-connect, so it is not fully passive either. Reading the topics a running
-driver publishes is safe.
+and watchdog physically tested.
+
+<details>
+<summary><b>Known limitation: §7A read-only is not fully achievable today</b></summary>
+
+§7A says "do not send any motion command; connect only to read." Two pieces of
+today's software send one anyway.
+
+- `g1_world_output`: its DDS constructor immediately position-holds every
+  joint and raises the `arm_sdk` weight. Do not start it for Stage A. A
+  `--read-only` mode is specified in [spec_1](spec/spec_1.md) and not built.
+- `wujihand_driver`: on connect it reads actual positions and writes them
+  back as the initial target, to start realtime communication
+  ([wujihand_driver_node.cpp](../src/wujihandros2/wujihand_driver/src/wujihand_driver_node.cpp)).
+  So bringing the driver up is a write, not a read. It is a
+  hold-at-measured write rather than a motion command, which is the least
+  bad version of this, but it is not passive. An `enable_on_connect:=false`
+  observe mode is pending upstream.
+
+Until both exist, Stage A on the hand track means: bring the driver up
+knowing it writes measured-to-measured once, keep the joints disabled, and
+read the topics it publishes. Record this deviation in the run notes.
+
+</details>
+
+Two further things to record in Stage A, both cheap and both expensive to
+discover later:
+
+- **What the E-stop does to the software.** Whether lowstate keeps arriving,
+  whether the write thread keeps writing, and what the weight and last
+  command are when power returns. A node that resumes believing the weight is
+  1 with a stale target will snap a drooped arm to it.
+- **What the G1 does when arm commands stop.** `rt/arm_sdk` is G1-only; the
+  hands are a separate bus and are covered below. Unitree documents the blend
+  as `executed = motion_control_cmd * (1 - weight) + arm_sdk_cmd * weight`,
+  and states the motion control service does not regain full control of the
+  arms until a command arrives with weight 0. No arm_sdk command timeout or
+  watchdog is documented. So with weight at 1 and the writer dead, the blend
+  stays at 100% of the last arm_sdk command. That command is a **position**
+  target: this stack sends `q` with `dq = 0` and `tau = 0`, and the joint PD
+  gains (kp 140/50, kd 3/2) do the work, so holding it is a spring holding a
+  pose, not a sustained torque command. Benign in free space. The exception is
+  contact: a held position target against a blocked joint sustains a force of
+  roughly `kp * position_error`, which is why a collision fault still needs
+  the physical e-stop rather than a software hold. The hazard here is
+  stuck-holding with no handback, not a drop.
+- **What the hands do when hand commands stop.** Different bus, different
+  mechanism, same conclusion. `wujihandcpp` keeps its 1 kHz realtime loop on
+  the last `set_joint_target_position` target and the ROS driver has no
+  command watchdog, so the hands hold their last commanded pose. Also position
+  control.
+- **Confirm both on the rig rather than assume**, but confirm a hypothesis
+  rather than explore: robot supported, weight at 1 holding a measured pose,
+  kill the writer, check that the arms hold, that lowstate keeps arriving, and
+  how control is recovered. Repeat for one hand. Ten minutes, and it converts
+  the "safe with the supervisor dead" design claim from an assumption into a
+  recorded fact.
 
 **Stage B, single joints under support.** Robot suspended, on a protective
 frame, in a validated seated or fixed-base configuration, or otherwise
@@ -345,13 +396,19 @@ ros2 topic echo /left_arm/joint_commands --once   # 7 names under arm_type G1_29
 
 ## Which change needs which rebuild
 
+<details>
+<summary><b>Edit-to-action map</b></summary>
+
 | You changed | Required action |
 |---|---|
 | Python code, launch files, existing YAML | Nothing beyond the initial `colcon build --symlink-install`; edits are live via the bind-mount and symlinks. Restart the running node to pick them up. |
 | New files, new packages, or a new `.yaml.template` | `colcon build --symlink-install` inside the container, so `install/share/` symlinks pick them up |
 | `docker/Dockerfile` or anything in `docker/prebuilt/` | `cd docker && docker compose build` on the host |
-| Submodule pointers (package fails to import after a pull) | `git submodule update --init --recursive` on the host, then `colcon build --symlink-install` inside |
+| `src/wujihandros2` or `src/unitree_sdk2_python` pointer | `git submodule update --init --recursive` on the host, then `colcon build --symlink-install` inside |
+| `src/wuji-retargeting` pointer | `git submodule update --init --recursive`, then **`cd docker && docker compose build`** on the host. It carries a `COLCON_IGNORE`, so colcon never builds it: the container imports the copy pip-installed into the image at image-build time. `colcon build` alone silently leaves the old retargeting code running. |
 
 Config files are tracked as `.yaml.template` only; `docker/entrypoint.sh`
 seeds the real gitignored `.yaml` on first container start. Details:
 [Configure serial numbers](../README.md#configure-serial-numbers).
+
+</details>
