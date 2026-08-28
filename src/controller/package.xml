@@ -20,6 +20,9 @@
   <!-- Hardware-interface dependencies -->
   <exec_depend>wujihand_output</exec_depend>
   <exec_depend>wuji_retargeting</exec_depend>
+  <!-- q20 replay branch: hand_diagnostics subscription (lazy import;
+       required on hardware profiles, optional in sim) -->
+  <exec_depend>wujihand_msgs</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -1,0 +1,8 @@
+# q20 replay config for SIMULATION (Stage 0): no wujihand_driver in the
+# loop, so the feedback watchdogs are off and the approach phase starts
+# from the neutral pose. NEVER use this file on hardware -- the hardware
+# profile is wujihand_ik_q20.yaml (require_feedback: true).
+
+input_source: "q20_topic"
+control_rate: 200.0
+require_feedback: false

@@ -1,0 +1,26 @@
+# Hand-controller config for conditioned-clip replay (spec_1 component 4):
+# selects the q20_topic input source (subscribes /{hand_name}/joint_targets
+# from the replay publisher; no retargeter, no NLopt).
+#
+# Tracked in git, like wujihand_ik_replay.yaml: it holds no serials. Pass it
+# explicitly:
+#
+#   ros2 run controller wujihand_controller --side left \
+#       -c src/output_devices/wujihand_output/config/wujihand_ik_q20.yaml
+
+input_source: "q20_topic"
+
+# TUITION section 5: fixed-frequency control, 200 Hz - 1 kHz; final rate is
+# decided on-site. 200 Hz for replay (teleop configs stay at 120).
+control_rate: 200.0
+
+# Feedback watchdogs (joint_states + hand_diagnostics staleness, error
+# codes, joint offline, over-temperature, sustained over-current). true on
+# hardware. Set false ONLY for sim (no driver in the loop), e.g. Stage 0
+# MuJoCo runs -- watchdogs off, approach starts from the neutral pose.
+require_feedback: true
+
+# Optional overrides (defaults shown by omission):
+# hand_limits_file: /abs/path/hand_limits.yaml   # default: package config
+# neutral_pose: [0.0, 0.0, ...]                  # 20 values, default zeros
+# mapping_out_dir: ~/wuji_runs                   # joint_mapping_{side}.json

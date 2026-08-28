@@ -68,6 +68,7 @@ class WujiHand:
 
         # State cache; _last_msg_time drives is_connected freshness check.
         self._latest_positions: Optional[np.ndarray] = None
+        self._latest_efforts: Optional[np.ndarray] = None
         self._last_msg_time: float = 0.0
         self._lock = threading.Lock()
 
@@ -100,6 +101,10 @@ class WujiHand:
         with self._lock:
             first_msg = self._last_msg_time == 0.0
             self._latest_positions = np.array(msg.position, dtype=np.float32)
+            # Driver effort is the filtered actuator output in drive-current
+            # space (amps), not torque; fed to the q20 branch's EffortGuard.
+            if msg.effort and len(msg.effort) == self.NUM_JOINTS:
+                self._latest_efforts = np.array(msg.effort, dtype=np.float32)
             self._last_msg_time = time.monotonic()
         if first_msg:
             self.logger.info(f"{self.side.title()} hand connected (via wujihandros2)")
@@ -167,6 +172,34 @@ class WujiHand:
             if self._latest_positions is not None:
                 return self._latest_positions.copy()
             return None
+
+    def get_joint_efforts(self) -> Optional[np.ndarray]:
+        """(20,) filtered drive currents (amps), or None. Current space,
+        never comparable to the URDF's N*m efforts."""
+        with self._lock:
+            if self._latest_efforts is not None:
+                return self._latest_efforts.copy()
+            return None
+
+    def state_age(self) -> Optional[float]:
+        """Seconds since the last joint_states message; None = never."""
+        with self._lock:
+            last = self._last_msg_time
+        if last == 0.0:
+            return None
+        return time.monotonic() - last
+
+    def state_snapshot(self):
+        """(positions, efforts, age_s) under one lock acquisition -- for
+        fixed-rate control loops that need a coherent view per tick."""
+        with self._lock:
+            q = None if self._latest_positions is None \
+                else self._latest_positions.copy()
+            eff = None if self._latest_efforts is None \
+                else self._latest_efforts.copy()
+            last = self._last_msg_time
+        age = None if last == 0.0 else time.monotonic() - last
+        return q, eff, age
 
     def disable(self) -> None:
         """
