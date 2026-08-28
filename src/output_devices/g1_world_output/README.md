@@ -17,20 +17,50 @@ runtime:
 | mode | input | how it's driven |
 |---|---|---|
 | `pose` (default) | `/left_arm_target_pose`, `/right_arm_target_pose` | chest->pelvis remap -> `G1_23_ArmIK.solve_ik` -> DDS |
-| `joint_replay` | `/left_arm/joint_targets`, `/right_arm/joint_targets` | no IK -- joints matched by name, linearly interpolated between the two most recently received samples, sent straight to DDS |
-| `idle` | (none) | holds the arms at their current measured position |
+| `joint_replay` | `/left_arm/joint_targets`, `/right_arm/joint_targets` (named, stamped) | no IK -- joints matched by name, ramped from the current command toward the newest sample over one stamped inter-arrival period (`stream_buffer.py`), then through the safety chain (`replay_safety.py`) and the device state machine (`device_fsm.py`, spec_1 section 8) |
+| `idle` | (none) | holds the arms at their current measured position (teleop parking; the replay path parks via the FSM instead) |
 
 A message arriving on a topic that doesn't match the active mode is
 dropped with a throttled warning, not queued. Switching modes always seeds
 the next command from the arm's current measured position first (bumpless
-transfer) so the switch itself can't produce a step.
+transfer); switching away from `joint_replay` is refused while the device
+FSM holds any arm_sdk weight.
 
 Orthogonal to `mode`, the `arm_type` parameter selects the joint-name
-layout: `G1_23` (default -- the real rig, 5 DoF/arm, full pose-IK + DDS) or
-`G1_29` (7 DoF/arm, matching the SOT bundle's native layout). `G1_29` is
-**sim-only**: no 29-DoF DDS controller or IK exists, so the node refuses
-`mode=pose` and refuses to connect DDS with it -- it works under `dry_run`
-in `joint_replay`/`idle` only.
+layout: `G1_29` (the rig's robot, 7 DoF/arm, config default) or `G1_23`
+(secondary, 5 DoF/arm). Both drive DDS through `G1ArmController`; pose IK
+remains G1_23-only, so `mode=pose` requires `arm_type=G1_23`.
+
+### Replay safety (spec_1 component 3)
+
+- **Slot policy.** On `rt/arm_sdk` only the arm slots (15-28 on the 29) and
+  the weight slot (29) are ever written; slots 0-14 and 30-34 stay at
+  constructor defaults (kp = kd = 0, inert) and per-motor `mode` is never
+  set. The waist is uncommanded (`/waist/joint_targets` is reserved as the
+  topic name for a future waist-moving clip set; nothing publishes or
+  subscribes it today). `rt/lowcmd` is NOT used by this design: it releases
+  the onboard controller and owns all 29 motors every cycle, a
+  suspended-robot regime -- bench debugging only.
+- **Device state machine.** ready -> engage (weight 0->1 over >= 2 s at the
+  measured snapshot; entry gated on N fresh lowstate ticks with |dq| low)
+  -> approach -> track -> end_hold -> approach(snapshot) -> release. Faults
+  freeze command and weight (mid-engage: at the partial ramp value);
+  lowstate loss resets to ready with the weight treated as unknown. All
+  holds are constant snapshots, never live measured. Transitions are
+  Trigger services (`~/engage` .. `~/clear_fault`) that validate and return
+  immediately; progress is on `/g1/status`.
+- **Safety chain.** Position clamp (sourced ceilings, margin param),
+  per-joint rate limit at the deploy rows, staleness-to-hold, divergence
+  fault -- in the control loop; plus the always-on per-joint 250 Hz DDS
+  clip at the hardware-ceiling rows (simulation_mode included). Limits:
+  `config/g1_deploy_limits.yaml` (ceiling rows sourced from the Unitree
+  URDF; deploy rows provisional until Stage A).
+- **Gains** live in `config/g1_robot.yaml` (`gains:` table, `default` and
+  `vendor` profiles); **network_interface** there pins the Unitree DDS NIC
+  (`CYCLONEDDS_URI` governs only the ROS graph).
+- **`--read-only`** (Stage A, TUITION 7A): subscribe lowstate, publish
+  `joint_states`/`/g1/imu`/`/g1/status`, never construct the DDS writer,
+  refuse every motion service.
 
 ```
 pico_input                                    (mode=pose)
@@ -42,12 +72,13 @@ pico_input                                    (mode=pose)
        G1ArmController        (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 
 replay_publisher (or any joint source)    (mode=joint_replay)
-  -> /left_arm/joint_targets  (JointState, named)
-  -> /right_arm/joint_targets (JointState, named)
+  -> /left_arm/joint_targets  (JointState, named, stamped)
+  -> /right_arm/joint_targets (JointState, named, stamped)
   -> g1_world_output
-       match by name against joint_names(side), interpolate by arrival time
+       match by name, ramp toward newest over one stamped period
+       device FSM + safety chain (clamp, rate limit, staleness, divergence)
        G1CartesianController.move_to_joints_direct  (no IK)
-       G1ArmController        (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
+       G1ArmController        (robot_arm.py -> rt/arm_sdk slot policy)
 ```
 
 ### Replaying a SOT bundle sample (`joint_replay` mode)

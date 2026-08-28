@@ -47,7 +47,11 @@ def generate_launch_description() -> LaunchDescription:
     g1_world_output_node = Node(
         package="g1_world_output",
         executable="g1_world_output_node",
-        name="g1_world_output_node",
+        # The node name is a pinned contract: the supervisor calls
+        # /g1_world_output/{engage,...} (docs/spec/spec_1_interfaces.md).
+        # Renaming it silently orphans every supervisor call, including
+        # the FAULT_HOLD fan-out.
+        name="g1_world_output",
         output="screen",
         parameters=[{
             "control_rate": ParameterValue(LaunchConfiguration("control_rate"), value_type=float),

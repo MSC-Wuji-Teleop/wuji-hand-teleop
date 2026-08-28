@@ -43,6 +43,10 @@ class G1Config:
     reset_wrist_pose: Dict[str, Dict[str, np.ndarray]]
     default_zsp_para: Dict[str, list]
     config_path: Path
+    network_interface: Optional[str]
+    limits_file: Path
+    gains: Dict[str, float]
+    gains_profile: str
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> 'G1Config':
@@ -136,6 +140,37 @@ class G1Config:
 
         urdf_dir = cls._resolve_urdf_dir((raw.get('urdf_package_dir') or '').strip())
 
+        nic = (raw.get('network_interface') or '').strip() or None
+
+        limits_raw = (raw.get('limits_file') or '').strip()
+        if limits_raw:
+            limits_file = Path(limits_raw).expanduser()
+            if not limits_file.is_absolute():
+                limits_file = (config_path.parent / limits_file).resolve()
+        else:
+            limits_file = config_path.parent / 'g1_deploy_limits.yaml'
+
+        gains_cfg = raw.get('gains') or {}
+        profile = str(gains_cfg.get('profile', 'default'))
+        profiles = gains_cfg.get('profiles') or {}
+        default_gains = {'arm_kp': 140.0, 'arm_kd': 3.0,
+                         'wrist_kp': 50.0, 'wrist_kd': 2.0}
+        if profiles:
+            if profile not in profiles:
+                raise ValueError(
+                    f"gains.profile '{profile}' not in gains.profiles "
+                    f"{sorted(profiles)} ({config_path})"
+                )
+            gains = {k: float(v) for k, v in profiles[profile].items()}
+            missing = set(default_gains) - set(gains)
+            if missing:
+                raise ValueError(
+                    f"gains profile '{profile}' missing keys {sorted(missing)} "
+                    f"({config_path})"
+                )
+        else:
+            gains = default_gains
+
         return cls(
             raw=raw,
             arm_type=raw.get('arm_type', 'G1_23'),
@@ -149,6 +184,10 @@ class G1Config:
             reset_wrist_pose=reset_wrist_pose,
             default_zsp_para=raw.get('default_zsp_para', {}),
             config_path=config_path,
+            network_interface=nic,
+            limits_file=limits_file,
+            gains=gains,
+            gains_profile=profile,
         )
 
     def get_world_to_chest_rotation(self, side: str) -> np.ndarray:

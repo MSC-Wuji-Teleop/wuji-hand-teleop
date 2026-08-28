@@ -12,8 +12,10 @@ from typing import Optional, Tuple
 import numpy as np
 
 from g1_world_output.config_loader import G1Config
+from g1_world_output.replay_safety import ArmLimits
 from g1_world_output.robot_arm import (
     ARM_JOINT_NAMES_BY_TYPE,
+    ArmGains,
     G1ArmController,
 )
 from g1_world_output.robot_arm_ik import G1_23_ArmIK
@@ -37,6 +39,7 @@ class G1CartesianController:
         logger=None,
         connect: bool = True,
         arm_type: Optional[str] = None,
+        read_only: bool = False,
     ):
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         self._cfg = config if config is not None else G1Config.load()
@@ -49,11 +52,20 @@ class G1CartesianController:
             )
         self._joint_names = ARM_JOINT_NAMES_BY_TYPE[self.arm_type]
         self._dof_side = len(self._joint_names) // 2
+        self.read_only = read_only
 
         motion_mode = self._cfg.motion_mode if motion_mode is None else motion_mode
         simulation_mode = (
             self._cfg.simulation_mode if simulation_mode is None else simulation_mode
         )
+
+        # Per-joint limits: the always-on DDS clip and the node's safety
+        # chain both read this file (g1_deploy_limits.yaml). Mandatory for
+        # any connecting controller; read-only needs no ceilings.
+        self.limits: Optional[ArmLimits] = None
+        if connect and not read_only:
+            self.limits = ArmLimits.from_yaml(self._cfg.limits_file,
+                                              self._joint_names)
 
         # Lazy: only 'pose' mode needs Pinocchio+CasADi. Built on first use
         # in _ensure_arm_ik() so 'joint_replay'/'idle' modes never pay for
@@ -63,15 +75,20 @@ class G1CartesianController:
         self.arm_ctrl: Optional[G1ArmController] = None
         if connect:
             self.logger.info(
-                "Connecting %s arm DDS (motion_mode=%s, simulation_mode=%s)...",
-                self.arm_type,
-                motion_mode,
-                simulation_mode,
+                "Connecting %s arm DDS (motion_mode=%s, simulation_mode=%s, "
+                "read_only=%s, nic=%s, gains_profile=%s)...",
+                self.arm_type, motion_mode, simulation_mode, read_only,
+                self._cfg.network_interface, self._cfg.gains_profile,
             )
             self.arm_ctrl = G1ArmController(
                 motion_mode=motion_mode,
                 simulation_mode=simulation_mode,
                 arm_type=self.arm_type,
+                read_only=read_only,
+                network_interface=self._cfg.network_interface,
+                gains=ArmGains(**self._cfg.gains),
+                vel_ceilings=(self.limits.vel_ceiling
+                              if self.limits is not None else None),
             )
 
         left_zsp = self._cfg.default_zsp_para.get('left', [0, -1, -0.5, 0, 0, 0])
@@ -111,6 +128,45 @@ class G1CartesianController:
         q = self.arm_ctrl.get_current_dual_arm_q()
         d = self._dof_side
         return list(q[:d]), list(q[d:])
+
+    def get_measured_state(self):
+        """(q, dq, tau) full dual-arm arrays, or (None, None, None)."""
+        if self.arm_ctrl is None:
+            return None, None, None
+        return (self.arm_ctrl.get_current_dual_arm_q(),
+                self.arm_ctrl.get_current_dual_arm_dq(),
+                self.arm_ctrl.get_current_dual_arm_tau())
+
+    def lowstate_age(self) -> Optional[float]:
+        if self.arm_ctrl is None:
+            return None
+        return self.arm_ctrl.lowstate_age()
+
+    def set_weight(self, weight: float) -> None:
+        if self.arm_ctrl is not None:
+            self.arm_ctrl.set_weight(weight)
+
+    def get_weight(self) -> float:
+        return self.arm_ctrl.get_weight() if self.arm_ctrl is not None else 0.0
+
+    def status_snapshot(self) -> dict:
+        """DDS-side fields for /g1/status (interfaces doc)."""
+        if self.arm_ctrl is None:
+            return {'mode_machine': None, 'tick': None, 'lowstate_age_s': None,
+                    'max_motor_temp_c': None, 'voltage_v': None,
+                    'write_fault': None}
+        age = self.arm_ctrl.lowstate_age()
+        return {
+            'mode_machine': self.arm_ctrl.get_mode_machine(),
+            'tick': self.arm_ctrl.get_lowstate_tick(),
+            'lowstate_age_s': None if age is None else round(age, 4),
+            'max_motor_temp_c': self.arm_ctrl.get_arm_max_temperature(),
+            'voltage_v': self.arm_ctrl.get_arm_min_voltage(),
+            'write_fault': self.arm_ctrl.write_fault_reason,
+        }
+
+    def get_imu(self) -> Optional[dict]:
+        return self.arm_ctrl.get_imu() if self.arm_ctrl is not None else None
 
     def move_to_init(self, wait: bool = True, timeout: float = 3.0) -> bool:
         """Move both arms to configured reset wrist poses via IK."""
@@ -207,7 +263,7 @@ class G1CartesianController:
         the arm's current position (measured if connected, else the last
         solve) for whichever side is not provided, then hands off to the
         same _send_dual_arm() choke point move_to_pose_direct() uses -- the
-        DDS write loop's velocity clamp (G1ArmController.clip_arm_q_target)
+        DDS write loop's per-joint velocity clip (always on)
         still applies either way. Works in dry-run (arm_ctrl is None) the
         same way move_to_pose_direct() does, so joint_replay mode is usable
         without hardware.

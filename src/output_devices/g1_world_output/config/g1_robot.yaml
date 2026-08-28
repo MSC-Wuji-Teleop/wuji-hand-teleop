@@ -14,10 +14,33 @@ arm_type: "G1_29"
 
 # DDS / control
 # motion_mode true -> rt/arm_sdk: the G1's onboard controller keeps the legs.
-# Default for sessions on the real robot. Set false (rt/lowcmd, full low-level
-# bus) only with the robot hanging on a stand / in debug mode.
+# Default for sessions on the real robot. rt/lowcmd (motion_mode false) is
+# NOT used by the replay design: it releases the onboard controller and owns
+# all 29 motors every cycle, a suspended-robot regime. Bench debugging only.
 motion_mode: true
 simulation_mode: false   # true -> ChannelFactoryInitialize(1)
+
+# NIC for the Unitree DDS participant. CYCLONEDDS_URI governs only the ROS
+# graph: the Unitree SDK builds its own CycloneDDS config and ignores the
+# env var, so on a multi-NIC host this parameter is the only way to pin the
+# robot link. Empty = SDK default (first interface).
+network_interface: ""
+
+# Per-joint limits file for the replay safety chain and the always-on
+# 250 Hz DDS clip. Empty = g1_deploy_limits.yaml in this config directory.
+limits_file: ""
+
+# Arm kp/kd tiers (spec_1: gains are config, not constants; retuning is a
+# config change validated in Stage B). Only arm slots are ever written
+# under the LowCmd slot policy, so there is no hold tier.
+#   default: the tiers the stack has been running (shoulders/elbows 140/3,
+#            wrists 50/2)
+#   vendor:  Unitree's g1 arm7 example uniform 60/1.5, selectable fallback
+gains:
+  profile: default
+  profiles:
+    default: {arm_kp: 140.0, arm_kd: 3.0, wrist_kp: 50.0, wrist_kd: 2.0}
+    vendor:  {arm_kp: 60.0,  arm_kd: 1.5, wrist_kp: 60.0, wrist_kd: 1.5}
 
 # Path to g1_wuji2_description (directory that contains g1_23_wuji2.urdf + meshes/).
 # Leave blank to resolve via the g1_wuji2_description package's ament share

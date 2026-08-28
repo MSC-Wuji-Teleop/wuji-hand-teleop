@@ -13,31 +13,43 @@ Three modes, switchable at runtime via the 'mode' ROS parameter:
               -> g1_world_output (chest->pelvis remap) -> G1 IK -> DDS LowCmd
 
   joint_replay
-    joint_replay_publisher.py -> /left_arm/joint_targets  (sensor_msgs/JointState)
-                              -> /right_arm/joint_targets (sensor_msgs/JointState)
-              -> g1_world_output (interpolate by arrival time) -> DDS LowCmd
-    For sources that ship joint angles directly (e.g. a replayed reference
-    trajectory) rather than end-effector poses -- no IK involved. See
-    TUITION.md/HANDOFF_README.md: a 50 FPS offline reference must not be
-    treated as 50 Hz step commands, so this mode interpolates between the
-    two most recently received samples rather than holding/jumping.
+    replay_publisher -> /left_arm/joint_targets  (sensor_msgs/JointState,
+                     -> /right_arm/joint_targets  named, stamped)
+              -> StreamBuffer (ramp toward newest over one stamped period)
+              -> device FSM (engage/approach/track/end_hold/release,
+                 spec_1 section 8) + safety chain (position clamp, per-joint
+                 rate limit, staleness hold, divergence fault)
+              -> DDS LowCmd under the arm-slots+weight slot policy
+    Service-gated: ~/engage ~/approach ~/track ~/end_hold ~/park ~/release
+    ~/fault ~/clear_fault (std_srvs/Trigger; non-blocking accept/reject,
+    progress in the control loop, completion on /g1/status). See
+    docs/spec/spec_1_interfaces.md.
 
   idle
     Holds the arms at their current measured position. Used as a safe
-    parking mode between the other two.
+    parking mode between the other two (teleop legacy; the replay path
+    parks via the FSM instead).
+
+Publications: /left,right_arm/joint_states (position, velocity, effort),
+/left,right_arm/joint_commands, /g1/imu (sensor_msgs/Imu), /g1/status
+(String JSON: fsm fields + mode_machine, tick, lowstate age, max motor
+temperature, min arm bus voltage).
+
+--read-only (Stage A, TUITION 7A): subscribe lowstate, publish
+joint_states/imu/status; never construct the DDS writer, never touch the
+weight, refuse every motion service.
 
 Messages arriving for a topic that doesn't match the active mode are
 dropped with a throttled warning, not queued. Switching modes seeds the
 next command from the arm's current measured position first (bumpless
-transfer), so a mode change itself can never produce a step.
-
-Topic contract for 'pose' matches tianji_world_output so pico_input /
-Monitor can swap output devices without remapping publishers.
+transfer); switching away from joint_replay is refused while the device
+FSM holds any weight.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import signal
 import sys
 from datetime import datetime
@@ -52,12 +64,16 @@ from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.utilities import remove_ros_args
 from scipy.spatial.transform import Rotation as R
-from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
+from sensor_msgs.msg import Imu, JointState
+from std_msgs.msg import Float64MultiArray, String
+from std_srvs.srv import Trigger
 
 from g1_world_output.config_loader import G1Config
+from g1_world_output.device_fsm import ArmDeviceFSM, DeviceState, FsmConfig, TickInputs
 from g1_world_output.g1_controller import G1CartesianController
+from g1_world_output.replay_safety import ArmLimits, ReplaySafetyChain
 from g1_world_output.ros2_logging import ROS2LoggerAdapter, setup_ros2_logging_bridge
+from g1_world_output.stream_buffer import StreamBuffer
 
 LOG_DIR = Path.home() / ".g1_teleop_logs"
 
@@ -67,46 +83,18 @@ ARM_JOINT_QOS = QoSProfile(
     depth=1,
 )
 
+# joint_targets streams are RELIABLE end to end (plan amendment A5): the
+# publisher pins the same profile, and a BEST_EFFORT mismatch would silently
+# drop frames into the interpolators.
+TARGET_QOS = QoSProfile(
+    reliability=QoSReliabilityPolicy.RELIABLE,
+    history=QoSHistoryPolicy.KEEP_LAST,
+    depth=10,
+)
+
 VALID_MODES = ('pose', 'joint_replay', 'idle')
 
-
-class _SideBuffer:
-    """Two most-recent (timestamp, q) samples for one arm, for interpolation.
-
-    seed() is for a mode switch (or startup): both prev and next are set to
-    the same (measured) value so interpolate() holds there until a real
-    sample arrives via push(), which then ramps from that measured position
-    to the first real target instead of stepping.
-    """
-
-    def __init__(self):
-        self.prev_t: Optional[float] = None
-        self.prev_q: Optional[list] = None
-        self.next_t: Optional[float] = None
-        self.next_q: Optional[list] = None
-
-    def seed(self, t: float, q: list) -> None:
-        self.prev_t, self.prev_q = t, list(q)
-        self.next_t, self.next_q = t, list(q)
-
-    def push(self, t: float, q: list) -> None:
-        if self.next_q is not None:
-            self.prev_t, self.prev_q = self.next_t, self.next_q
-        else:
-            self.prev_t, self.prev_q = t, q
-        self.next_t, self.next_q = t, q
-
-    def interpolate(self, now: float) -> Optional[list]:
-        if self.next_q is None:
-            return None
-        if self.prev_q is None or self.next_t <= self.prev_t:
-            return self.next_q
-        alpha = (now - self.prev_t) / (self.next_t - self.prev_t)
-        alpha = min(max(alpha, 0.0), 1.0)
-        return [
-            (1.0 - alpha) * p + alpha * n
-            for p, n in zip(self.prev_q, self.next_q)
-        ]
+STATUS_PERIOD_S = 0.1
 
 
 class G1WorldOutputNode(Node):
@@ -117,25 +105,36 @@ class G1WorldOutputNode(Node):
         motion_mode: bool | None = None,
         simulation_mode: bool | None = None,
         dry_run: bool = False,
+        read_only: bool = False,
     ):
         super().__init__("g1_world_output")
         setup_ros2_logging_bridge(self.get_logger())
 
         # Load YAML first so it can seed the ROS parameter defaults below --
-        # declaring these with a literal False would make the parameter's
-        # resolved value never be None, so G1CartesianController's own
-        # "YAML if None" fallback (g1_controller.py) could never fire.
-        # Precedence ends up: CLI flag > ROS launch param > YAML > False.
+        # precedence: CLI flag > ROS launch param > YAML > False.
         self._cfg = G1Config.load()
 
+        # 90 Hz default serves the pose (teleop) path, whose per-tick IK
+        # solve is expensive; the replay runbook passes 250.0 explicitly.
         self.declare_parameter('control_rate', 90.0)
         self.declare_parameter('motion_mode', self._cfg.motion_mode)
         self.declare_parameter('simulation_mode', self._cfg.simulation_mode)
         self.declare_parameter('dry_run', False)
+        self.declare_parameter('read_only', False)
         self.declare_parameter('mode', 'pose')
-        # 'G1_23' (real rig, full pose+DDS) or 'G1_29' (joint_replay/sim only
-        # -- 7-DoF-arm joint names for the SOT bundle; no DDS/IK yet).
+        # 'G1_29' (the rig's robot, 7-DoF arms; DDS since aae4638) or
+        # 'G1_23' (secondary, 5-DoF arms). Pose IK remains G1_23-only.
         self.declare_parameter('arm_type', self._cfg.arm_type)
+        # Replay safety-chain / FSM thresholds (see replay_safety.py,
+        # device_fsm.py; defaults are the spec's numbers).
+        self.declare_parameter('target_staleness_s', 0.25)
+        self.declare_parameter('divergence_rad', 0.35)
+        self.declare_parameter('divergence_ticks', 10)
+        self.declare_parameter('position_margin_rad', 0.0)
+        self.declare_parameter('lowstate_staleness_s', 0.2)
+        self.declare_parameter('engage_ramp_s', 2.0)
+        self.declare_parameter('release_ramp_s', 2.0)
+        self.declare_parameter('engage_fresh_ticks', 50)
 
         arm_type = str(self.get_parameter('arm_type').value)
         control_rate = float(self.get_parameter('control_rate').value)
@@ -145,6 +144,10 @@ class G1WorldOutputNode(Node):
             simulation_mode = bool(self.get_parameter('simulation_mode').value)
         if not dry_run:
             dry_run = bool(self.get_parameter('dry_run').value)
+        if not read_only:
+            read_only = bool(self.get_parameter('read_only').value)
+        self._dry_run = dry_run
+        self._read_only = read_only
 
         initial_mode = str(self.get_parameter('mode').value)
         if initial_mode not in VALID_MODES:
@@ -152,6 +155,10 @@ class G1WorldOutputNode(Node):
                 f"Unknown mode '{initial_mode}', defaulting to 'pose'"
             )
             initial_mode = 'pose'
+        if read_only:
+            # Stage A: observation only. joint_replay's loop is inert in
+            # read-only, and pose would solve IK toward motion.
+            initial_mode = 'joint_replay'
         if initial_mode == 'pose' and arm_type != 'G1_23':
             raise ValueError(
                 f"mode=pose requires arm_type=G1_23 (the pose IK is G1_23-only); "
@@ -171,7 +178,8 @@ class G1WorldOutputNode(Node):
 
         logger_adapter = ROS2LoggerAdapter(self.get_logger())
         self.get_logger().info(
-            f"Initializing G1 controller (motion={motion_mode} sim={simulation_mode} dry_run={dry_run})..."
+            f"Initializing G1 controller (motion={motion_mode} sim={simulation_mode} "
+            f"dry_run={dry_run} read_only={read_only})..."
         )
         self.controller = G1CartesianController(
             config=self._cfg,
@@ -180,13 +188,53 @@ class G1WorldOutputNode(Node):
             logger=logger_adapter,
             connect=not dry_run,
             arm_type=arm_type,
+            read_only=read_only,
         )
+        self._dof_side = len(self.controller.joint_names('left'))
+        self._side_names = {'left': self.controller.joint_names('left'),
+                            'right': self.controller.joint_names('right')}
+        self._joint_names_all = (self._side_names['left']
+                                 + self._side_names['right'])
 
+        # ---- replay machinery (FSM + chains + buffers), built regardless
+        # of mode so a runtime switch into joint_replay is ready.
+        limits_all = ArmLimits.from_yaml(self._cfg.limits_file, self._joint_names_all)
+        chains = {}
+        for side in ('left', 'right'):
+            side_names = self.controller.joint_names(side)
+            side_limits = ArmLimits.from_yaml(self._cfg.limits_file, side_names)
+            chains[side] = ReplaySafetyChain(
+                side_limits,
+                control_dt=1.0 / control_rate,
+                position_margin=float(self.get_parameter('position_margin_rad').value),
+                staleness_timeout_s=float(self.get_parameter('target_staleness_s').value),
+                divergence_threshold_rad=float(self.get_parameter('divergence_rad').value),
+                divergence_ticks=int(self.get_parameter('divergence_ticks').value),
+            )
+        self._fsm = ArmDeviceFSM(
+            self._joint_names_all,
+            chains,
+            limits_all.deploy_velocity,
+            FsmConfig(
+                control_dt=1.0 / control_rate,
+                engage_ramp_s=max(2.0, float(self.get_parameter('engage_ramp_s').value)),
+                release_ramp_s=max(2.0, float(self.get_parameter('release_ramp_s').value)),
+                engage_fresh_ticks=int(self.get_parameter('engage_fresh_ticks').value),
+                lowstate_staleness_s=float(self.get_parameter('lowstate_staleness_s').value),
+                sim=dry_run,
+            ),
+        )
+        self._buffers = {'left': StreamBuffer(), 'right': StreamBuffer()}
+        self._bad_target_warned = {'left': False, 'right': False}
+        self._first_joint_target_received = False
+
+        # ---- pose-mode state
         self.left_arm_pose = None
         self.right_arm_pose = None
         self.left_arm_direction = self._cfg.get_default_zsp_direction('left')
         self.right_arm_direction = self._cfg.get_default_zsp_direction('right')
 
+        # ---- subscriptions
         self.left_pose_sub = self.create_subscription(
             PoseStamped, '/left_arm_target_pose', self.left_pose_callback, 10
         )
@@ -200,12 +248,15 @@ class G1WorldOutputNode(Node):
             Vector3Stamped, '/right_arm_elbow_direction', self.right_elbow_callback, 10
         )
         self.left_joint_targets_sub = self.create_subscription(
-            JointState, '/left_arm/joint_targets', self._left_joint_targets_callback, 10
+            JointState, '/left_arm/joint_targets',
+            self._left_joint_targets_callback, TARGET_QOS
         )
         self.right_joint_targets_sub = self.create_subscription(
-            JointState, '/right_arm/joint_targets', self._right_joint_targets_callback, 10
+            JointState, '/right_arm/joint_targets',
+            self._right_joint_targets_callback, TARGET_QOS
         )
 
+        # ---- publications
         self.left_state_pub = self.create_publisher(
             JointState, '/left_arm/joint_states', ARM_JOINT_QOS
         )
@@ -224,10 +275,18 @@ class G1WorldOutputNode(Node):
         self.right_zsp_para_pub = self.create_publisher(
             Float64MultiArray, '/right_arm/zsp_para', ARM_JOINT_QOS
         )
+        self.imu_pub = self.create_publisher(Imu, '/g1/imu', 10)
+        self.status_pub = self.create_publisher(String, '/g1/status', 10)
 
-        self._joint_buffers = {'left': _SideBuffer(), 'right': _SideBuffer()}
-        self._bad_target_warned = {'left': False, 'right': False}
-        self._first_joint_target_received = False
+        # ---- FSM transition services (spec_1 interfaces doc). Handlers
+        # validate and return immediately; motion progresses in the loop.
+        for name, handler in (
+            ('engage', self._srv_engage), ('approach', self._srv_approach),
+            ('track', self._srv_track), ('end_hold', self._srv_end_hold),
+            ('park', self._srv_park), ('release', self._srv_release),
+            ('fault', self._srv_fault), ('clear_fault', self._srv_clear_fault),
+        ):
+            self.create_service(Trigger, f'~/{name}', handler)
 
         # mode starts as 'pose' as a placeholder so _enter_mode's transition
         # logging/logic is well-defined even when initial_mode is 'pose'.
@@ -237,14 +296,12 @@ class G1WorldOutputNode(Node):
 
         self.timer = self.create_timer(1.0 / control_rate, self.control_loop)
         self.joint_publish_timer = self.create_timer(0.01, self._publish_joint_state)
+        self.status_timer = self.create_timer(STATUS_PERIOD_S, self._publish_status)
 
         self.get_logger().info(
-            f"G1 World Output node initialized (mode={self.mode}, Topic-based, no TF)."
+            f"G1 World Output node initialized (mode={self.mode}, "
+            f"read_only={read_only}, arm_type={arm_type})."
         )
-        self.get_logger().info("Subscribing to:")
-        self.get_logger().info("  - /left_arm_target_pose, /right_arm_target_pose (mode=pose)")
-        self.get_logger().info("  - /left_arm_elbow_direction, /right_arm_elbow_direction (optional, echo only)")
-        self.get_logger().info("  - /left_arm/joint_targets, /right_arm/joint_targets (mode=joint_replay)")
 
         self._first_pose_received = False
         self._debug_counter = 0
@@ -258,23 +315,29 @@ class G1WorldOutputNode(Node):
     def _enter_mode(self, new_mode: str) -> None:
         """Switch active mode with bumpless transfer.
 
-        Seeds the joint-replay interpolation buffers from the arm's current
-        measured position before switching, so whichever mode is entered
-        next starts from where the arm actually is. For 'pose', also runs
-        the existing move_to_init() reset-pose IK solve (unchanged
-        behavior); for 'joint_replay'/'idle' it is skipped so those modes
-        never need Pinocchio+CasADi.
+        Seeds the replay stream buffers from the arm's current measured
+        position so joint_replay starts from where the arm actually is.
+        'pose' runs the existing move_to_init() reset IK and takes arm_sdk
+        authority (weight 1, legacy teleop behavior); joint_replay leaves
+        the weight to the device FSM (0 until an operator engage).
         """
         old_mode = self.mode
+        if self._read_only:
+            self.mode = 'joint_replay'
+            return
         if new_mode == 'pose':
             self.controller.move_to_init(wait=True, timeout=2.0)
 
-        now = self._now()
         left_q, right_q = self.controller.get_current_joints()
         if left_q is not None:
-            self._joint_buffers['left'].seed(now, left_q)
+            self._buffers['left'].seed(left_q)
         if right_q is not None:
-            self._joint_buffers['right'].seed(now, right_q)
+            self._buffers['right'].seed(right_q)
+
+        if new_mode == 'pose' and not self._dry_run:
+            # Teleop parity: the pose path has always run at full arm_sdk
+            # authority. (The replay path ramps via the FSM instead.)
+            self.controller.set_weight(1.0)
 
         self.mode = new_mode
         self.get_logger().info(f"Mode: {old_mode} -> {new_mode}")
@@ -292,10 +355,87 @@ class G1WorldOutputNode(Node):
                     successful=False,
                     reason="mode=pose requires arm_type=G1_23 (the pose IK is G1_23-only)",
                 )
+            if p.name == 'mode' and self.mode == 'joint_replay' \
+                    and p.value != 'joint_replay' \
+                    and (self._fsm.weight > 0.0
+                         or self._fsm.state is not DeviceState.READY):
+                return SetParametersResult(
+                    successful=False,
+                    reason=f"device FSM is {self._fsm.state.value} at weight "
+                           f"{self._fsm.weight:.2f}; park and release before "
+                           "leaving joint_replay",
+                )
+            if p.name == 'mode' and p.value == 'joint_replay' \
+                    and self.mode != 'joint_replay' \
+                    and self.controller.get_weight() > 0.0:
+                # pose mode holds arm_sdk weight 1 outside the FSM. Entering
+                # joint_replay would hand the FSM (weight attr 0) the write
+                # path, and the next control tick would step the hardware
+                # weight 1 -> 0 with no ramp: an instant authority handback
+                # the >= 2 s release rule exists to prevent. Restarting the
+                # node releases properly (shutdown ramps the weight down).
+                return SetParametersResult(
+                    successful=False,
+                    reason=f"arm_sdk weight is "
+                           f"{self.controller.get_weight():.2f} (pose/idle "
+                           "authority); restart the node to enter "
+                           "joint_replay -- an in-place switch would drop "
+                           "the weight without a ramp",
+                )
         for p in params:
             if p.name == 'mode' and p.value != self.mode:
                 self._enter_mode(p.value)
         return SetParametersResult(successful=True)
+
+    # ==================== FSM services ====================
+
+    def _fsm_reply(self, ok_msg) -> Trigger.Response:
+        ok, msg = ok_msg
+        resp = Trigger.Response()
+        resp.success = bool(ok)
+        resp.message = json.dumps(
+            {'result': msg, **self._fsm.status()}, sort_keys=True)
+        return resp
+
+    def _motion_service_allowed(self):
+        if self._read_only:
+            return False, 'read-only node: motion services are disabled (7A)'
+        if self.mode != 'joint_replay':
+            return False, f"mode is '{self.mode}', not joint_replay"
+        return True, ''
+
+    def _srv_engage(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_engage() if ok else (False, why))
+
+    def _srv_approach(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_approach() if ok else (False, why))
+
+    def _srv_track(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_track() if ok else (False, why))
+
+    def _srv_end_hold(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_end_hold() if ok else (False, why))
+
+    def _srv_park(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_park() if ok else (False, why))
+
+    def _srv_release(self, request, response):
+        ok, why = self._motion_service_allowed()
+        return self._fsm_reply(self._fsm.request_release() if ok else (False, why))
+
+    def _srv_fault(self, request, response):
+        # Fault latching is allowed in every mode, read-only included: it
+        # only ever freezes.
+        return self._fsm_reply(self._fsm.fault('external fault trigger'))
+
+    def _srv_clear_fault(self, request, response):
+        # Allowed in every mode, read-only included (clearing only unlatches).
+        return self._fsm_reply(self._fsm.request_clear_fault())
 
     # ==================== 'pose' mode callbacks ====================
 
@@ -338,9 +478,10 @@ class G1WorldOutputNode(Node):
         self._handle_joint_targets(msg, 'right')
 
     def _handle_joint_targets(self, msg: JointState, side: str) -> None:
-        if self.mode != 'joint_replay':
+        if self.mode != 'joint_replay' or self._read_only:
             self.get_logger().warning(
-                f"Ignoring {side} joint target: mode is '{self.mode}', not 'joint_replay'",
+                f"Ignoring {side} joint target: mode is '{self.mode}'"
+                + (' (read-only)' if self._read_only else ''),
                 throttle_duration_sec=5.0,
             )
             return
@@ -368,35 +509,45 @@ class G1WorldOutputNode(Node):
 
         if not self._first_joint_target_received:
             self._first_joint_target_received = True
-            self.get_logger().info("First joint-replay target received, starting control...")
+            self.get_logger().info("First joint-replay target received.")
 
-        q = [float(by_name[n]) for n in names]
-        self._joint_buffers[side].push(self._now(), q)
+        q = np.array([by_name[n] for n in names], dtype=float)
+        stamp_s = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        now = self._now()
+        sl = slice(0, self._dof_side) if side == 'left' \
+            else slice(self._dof_side, 2 * self._dof_side)
+        current_cmd = None if self._fsm.cmd is None else self._fsm.cmd[sl]
+        self._buffers[side].push(now, stamp_s, q, current_cmd=current_cmd)
+        self._fsm.chains[side].mark_input(now)
 
     # ==================== Publishing ====================
 
-    def _make_arm_joint_state(self, stamp, side: str, joints, frame_id: str) -> JointState:
+    def _make_arm_joint_state(self, stamp, side: str, positions, frame_id: str,
+                              velocities=None, efforts=None) -> JointState:
         msg = JointState()
         msg.header.stamp = stamp
         msg.header.frame_id = frame_id
-        msg.name = self.controller.joint_names(side)
-        msg.position = [float(j) for j in joints]
+        msg.name = self._side_names[side]
+        msg.position = [float(j) for j in positions]
+        if velocities is not None:
+            msg.velocity = [float(v) for v in velocities]
+        if efforts is not None:
+            msg.effort = [float(e) for e in efforts]
         return msg
 
     def _publish_joint_state(self) -> None:
         try:
-            left_joints, right_joints = self.controller.get_current_joints()
+            q, dq, tau = self.controller.get_measured_state()
         except Exception:
             return
+        if q is None:
+            return
+        d = self._dof_side
         stamp = self.get_clock().now().to_msg()
-        if left_joints is not None:
-            self.left_state_pub.publish(
-                self._make_arm_joint_state(stamp, 'left', left_joints, 'left_base_state')
-            )
-        if right_joints is not None:
-            self.right_state_pub.publish(
-                self._make_arm_joint_state(stamp, 'right', right_joints, 'right_base_state')
-            )
+        self.left_state_pub.publish(self._make_arm_joint_state(
+            stamp, 'left', q[:d], 'left_base_state', dq[:d], tau[:d]))
+        self.right_state_pub.publish(self._make_arm_joint_state(
+            stamp, 'right', q[d:], 'right_base_state', dq[d:], tau[d:]))
 
     def _publish_joint_command(self, left_joints, right_joints) -> None:
         stamp = self.get_clock().now().to_msg()
@@ -419,9 +570,39 @@ class G1WorldOutputNode(Node):
                 msg.data = [float(x) for x in zsp]
                 pub.publish(msg)
 
+    def _publish_status(self) -> None:
+        payload = {
+            **self._fsm.status(),
+            **self.controller.status_snapshot(),
+            'mode': self.mode,
+            'read_only': self._read_only,
+            'dry_run': self._dry_run,
+        }
+        msg = String()
+        msg.data = json.dumps(payload, sort_keys=True)
+        self.status_pub.publish(msg)
+
+        imu = self.controller.get_imu()
+        if imu is not None:
+            m = Imu()
+            m.header.stamp = self.get_clock().now().to_msg()
+            m.header.frame_id = 'g1_pelvis'
+            w, x, y, z = imu['quaternion']  # Unitree order (w, x, y, z)
+            m.orientation.w, m.orientation.x = float(w), float(x)
+            m.orientation.y, m.orientation.z = float(y), float(z)
+            gx, gy, gz = imu['gyroscope']
+            m.angular_velocity.x, m.angular_velocity.y, m.angular_velocity.z = \
+                float(gx), float(gy), float(gz)
+            ax, ay, az = imu['accelerometer']
+            m.linear_acceleration.x, m.linear_acceleration.y, \
+                m.linear_acceleration.z = float(ax), float(ay), float(az)
+            self.imu_pub.publish(m)
+
     # ==================== Control loop ====================
 
     def control_loop(self) -> None:
+        if self._read_only:
+            return  # observation only: no commands, ever (7A)
         if self.mode == 'pose':
             self._control_loop_pose()
         elif self.mode == 'joint_replay':
@@ -461,26 +642,33 @@ class G1WorldOutputNode(Node):
 
     def _control_loop_joint_replay(self) -> None:
         now = self._now()
-        left_q = self._joint_buffers['left'].interpolate(now)
-        right_q = self._joint_buffers['right'].interpolate(now)
-        if left_q is None and right_q is None:
-            return
+        q, dq, tau = self.controller.get_measured_state()
+        age = self.controller.lowstate_age()
+        stream = {side: self._buffers[side].interpolate(now)
+                  for side in ('left', 'right')}
+        out = self._fsm.tick(TickInputs(
+            now=now, measured_q=q, measured_dq=dq, lowstate_age=age,
+            stream=stream,
+        ))
+        for event in self._fsm.events:
+            self.get_logger().info(f'FSM: {event}')
+            self._write_detail_log(f'FSM: {event}')
+        self._fsm.events.clear()
 
-        l_success, r_success = self.controller.move_to_joints_direct(
-            left_q=left_q, right_q=right_q,
-        )
-        self._publish_joint_command(
-            left_q if l_success else None, right_q if r_success else None
-        )
+        d = self._dof_side
+        if out.cmd is not None:
+            self.controller.move_to_joints_direct(
+                left_q=out.cmd[:d], right_q=out.cmd[d:])
+            self._publish_joint_command(out.cmd[:d], out.cmd[d:])
+        self.controller.set_weight(out.weight)
 
         self._debug_counter += 1
         if self._debug_counter >= self._debug_interval:
             self._debug_counter = 0
-            line = f"joint_replay: L_active={l_success} R_active={r_success}"
-            if left_q:
-                line += f" | L_q=[{','.join(f'{j:.2f}' for j in left_q)}]"
-            if right_q:
-                line += f" | R_q=[{','.join(f'{j:.2f}' for j in right_q)}]"
+            line = (f"joint_replay: fsm={self._fsm.state.value} "
+                    f"weight={out.weight:.2f}")
+            if out.cmd is not None:
+                line += f" | cmd=[{','.join(f'{j:.2f}' for j in out.cmd)}]"
             self.get_logger().info(line)
             self._write_detail_log(line)
 
@@ -561,17 +749,25 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument('--simulation-mode', action='store_true', help='DDS sim domain')
     parser.add_argument(
         '--dry-run', action='store_true',
-        help='Simulation mode: solve real IK from the pose topics but never connect to DDS/hardware. '
-             'Still needs Pinocchio+CasADi in "pose" mode -- pair with scripts/mujoco_visualizer.py '
-             'in the teleop container to see the result without a physical G1.',
+        help='No DDS at all: the replay FSM runs in sim (measured := command). '
+             'Pair with scripts/mujoco_visualizer.py in the teleop container.',
+    )
+    parser.add_argument(
+        '--read-only', action='store_true',
+        help='Stage A (TUITION 7A): subscribe lowstate and publish '
+             'joint_states/imu/status; never write DDS, never touch the '
+             'arm_sdk weight, refuse every motion service.',
     )
     args = parser.parse_args(cli_argv)
+    if args.dry_run and args.read_only:
+        parser.error('--dry-run (no DDS) and --read-only (DDS, no writer) conflict')
 
     rclpy.init(args=raw_argv)
     node = G1WorldOutputNode(
         motion_mode=True if args.motion_mode else None,
         simulation_mode=True if args.simulation_mode else None,
         dry_run=args.dry_run,
+        read_only=args.read_only,
     )
 
     _shutdown_done = False
