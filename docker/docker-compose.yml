@@ -80,6 +80,13 @@ services:
       # reference data, nothing in the stack may write into it. Lives at the
       # repo root rather than src/ so colcon never scans its ~GBs of media.
       - ../RobotSTAR_demos:/home/wuji/ros2_ws/RobotSTAR_demos:ro
+      # Conditioned clip artifacts and run directories (bags, manifests,
+      # tracking summaries -- TUITION section 11 return-package data). Host
+      # bind mounts so they survive container recreation; the in-container
+      # paths keep the spec's literal ~/wuji_clips and ~/wuji_runs. At the
+      # repo root, outside src/, so colcon never scans them (gitignored).
+      - ../wuji_clips:/home/wuji/wuji_clips:rw
+      - ../wuji_runs:/home/wuji/wuji_runs:rw
       # --- Wuji Studio calibration ---
       # Studio writes <SN>.toml to host ~/.wuji/sdk/params/; SDK reads it in
       # the container. entrypoint.sh chowns this if docker auto-created it as root.

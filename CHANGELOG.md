@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Hardware replay pipeline (spec_1, 2026-08-28).** The full software scope
+  of [docs/spec/spec_1.md](docs/spec/spec_1.md), Stage 0 target:
+  - `condition_clip` (replay package): bundle sample -> audited
+    `conditioned_clip_v1.{npz,json}` artifact. Arm extraction by name,
+    offline hand retargeting (Retargeter reset per clip, PCHIP retime onto
+    the arm grid, shared qpos permutation), per-joint FD audits against
+    curated limits, integer time redistribution `k`, per-clip
+    `max_allowed_speed_scale`, deterministic outputs, `--single-joint`
+    Stage B generator.
+  - Curated limits files with two row kinds (sourced hardware ceilings vs
+    provisional deploy caps): `g1_world_output/config/g1_deploy_limits.yaml`,
+    `wujihand_output/config/hand_limits.yaml`.
+  - `replay_publisher` reworked into a service-gated pacer (load /
+    publish_first / start / fault; publishes nothing on spin; stamps
+    `t0 + j*dt_play`; hand q20 targets replace keypoints21 on this path).
+  - `g1_world_output`: arm-slots+weight LowCmd slot policy (no per-motor
+    mode, waist unwritten), device state machine (engage/approach/track/
+    end_hold/release with gated engage, lowstate-loss reset, fault-hold),
+    safety chain (`replay_safety.py`), stamped-stream interpolation fixing
+    the arrival-time ZOH defect (`stream_buffer.py`), always-on per-joint
+    250 Hz DDS clip, `--read-only` Stage A mode, `/g1/imu` + `/g1/status`,
+    velocity/effort in joint_states, `network_interface` and `gains:`
+    config, extended lowstate mirror (receive time, tick, tau, temps, IMU).
+  - `wujihand_controller` `q20_topic` input source: no retargeter, hand
+    device FSM (hold/approach/track/end_hold) with position/rate clamps,
+    feedback watchdogs (joint_states + hand_diagnostics staleness, error
+    codes, offline joints, over-temperature, amp-space effort guard),
+    handedness-vs-namespace assert, `joint_mapping_{side}.json` writer;
+    the keypoints branch now resets the retargeter after stream gaps.
+  - Supervisor + tools (replay package): run FSM with load gates (verdict,
+    allowed scale, sample-01 first-clip ban, GT-before-Ours), pinned arm
+    sequence with frame-0 barrier, six Layer-3 detectors with FAULT_HOLD
+    fan-out, mcap bag + `run_manifest.json` + `events.jsonl` run dirs,
+    `run_ctl`, `choose_first_clip`, `make_artifacts`,
+    `hardware_manifest_template.json`.
+  - `replay_sim.launch.py` (Stage 0 teleop-side bring-up), piecewise-linear
+    command-stream analyzer + recorder, GitHub Actions ROS-free test lane
+    on both container numpy majors, `wuji_clips/` + `wuji_runs/` host bind
+    mounts.
+  - Runtime contracts pinned in
+    [docs/spec/spec_1_interfaces.md](docs/spec/spec_1_interfaces.md);
+    205 ROS-free unit tests across the three packages.
+
 ### Removed
 
 - **Fork cleanse to the actual rig (2026-08-25).** Removed the upstream packages

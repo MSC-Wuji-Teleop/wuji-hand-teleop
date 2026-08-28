@@ -56,3 +56,5 @@ src/camera/config/camera_config.yaml
 INTEGRATION_PLAN.md
 src/camera/config/udev/99-teleop-cameras.rules
 RobotSTAR_demos/
+wuji_clips/
+wuji_runs/

@@ -1,0 +1,42 @@
+# ROS-free test lane (spec_1 Stage 0 gate: CI smoke green).
+#
+# Runs every pure-numpy test suite -- the safety chains, device FSMs,
+# stream buffers, pacer, conditioning, supervisor gates/monitors, and the
+# cross-container parity tests -- on BOTH numpy majors, matching the two
+# runtime images (teleop pins numpy 2.2.6, g1-world-output pins 1.26.4).
+# Container-only tests (ament, rclpy, retargeter) skip themselves.
+#
+# The heavier colcon/container lane stays manual for now: the images build
+# several GB of submodules and the runners have no bundle data.
+
+name: ci
+
+on:
+  push:
+    branches: [main, alex_dev, nathan_dev]
+  pull_request:
+
+jobs:
+  rosfree-tests:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - numpy: "numpy==1.26.4"   # g1-world-output image pin
+            scipy: "scipy==1.14.1"
+          - numpy: "numpy>=2.2,<3"   # teleop image line
+            scipy: "scipy>=1.14"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install test deps
+        run: pip install "${{ matrix.numpy }}" "${{ matrix.scipy }}" PyYAML pytest
+      - name: g1_world_output (safety chain, device FSM, stream buffer, analyzer)
+        run: pytest src/output_devices/g1_world_output/tests -q
+      - name: wujihand_output (hand safety, hand FSM, parity)
+        run: pytest src/output_devices/wujihand_output/tests -q
+      - name: replay (artifact, conditioning, pacer, gates, post-run tools)
+        run: pytest src/input_devices/replay/test -q

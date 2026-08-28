@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
-"""Smoke tests for chest -> pelvis remapping (no robot / DDS required)."""
+"""Smoke tests for chest -> pelvis remapping (no robot / DDS required).
+
+The two config-loading tests resolve g1_wuji2_description through ament and
+skip cleanly outside a sourced workspace (host venv / CI ROS-free lane).
+"""
+
+import sys
+from pathlib import Path
 
 import numpy as np
+import pytest
 from scipy.spatial.transform import Rotation as R
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from g1_world_output.config_loader import G1Config, reload_config
 from g1_world_output.transform_utils import (
@@ -20,6 +30,7 @@ def test_chest_world_roundtrip():
 
 
 def test_chest_pose_to_pelvis_applies_origin():
+    pytest.importorskip('ament_index_python')
     reload_config()
     cfg = G1Config.load()
     T = np.eye(4)
@@ -29,6 +40,7 @@ def test_chest_pose_to_pelvis_applies_origin():
 
 
 def test_chest_pose_rotation_remap():
+    pytest.importorskip('ament_index_python')
     reload_config()
     # Identity chest orientation -> chest_to_world rotation in pelvis frame
     T = np.eye(4)

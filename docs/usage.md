@@ -13,7 +13,7 @@ trackers), see the [guides index](README.md).
 - [Build and test](#build-and-test): colcon and pytest inside the container.
 - [Launch](#launch): Monitor GUI, raw launch files, sim modes.
 - [SOT bundle replay (sim)](#sot-bundle-replay-sim): replaying a recorded sample in MuJoCo.
-- [Hardware replay](#hardware-replay): checklist and staged bring-up for the real rig (G1 + both hands). Not runnable yet.
+- [Hardware replay](#hardware-replay): operator flow, checklist, and staged bring-up for the real rig (G1 + both hands). Software built; container verification and Stages A-F pending.
 - [Verify](#verify): the topic rates that prove the pipeline is up.
 - [Which change needs which rebuild](#which-change-needs-which-rebuild): edit-to-action map.
 
@@ -125,75 +125,99 @@ all: [Simulation](../README.md#simulation).
 
 ## SOT bundle replay (sim)
 
-Replays one `RobotSTAR_demos/` sample through the production
-output controllers, mirrored in MuJoCo on the 29-DoF model. No input hardware,
-no robot. Four processes; read the bundle's
-[TUITION.md](../RobotSTAR_demos/TUITION.md) before ever pointing
-any of this at hardware.
+Replays one `RobotSTAR_demos/` sample through the production output
+controllers, mirrored in MuJoCo on the 29-DoF model. No input hardware, no
+robot. Read the bundle's [TUITION.md](../RobotSTAR_demos/TUITION.md) before
+ever pointing any of this at hardware.
 
-The five terminals below form this graph. Each box shows the mode parameter
-that selects its replay branch; the modes are node parameters, not separate
-processes ([architecture](architecture.md#sot-bundle-replay)):
+Since the spec_1 rework this is the conditioned-artifact flow: hands are
+retargeted OFFLINE by `condition_clip` (the artifact carries q20 in device
+order), and the publisher is service-gated. The old five-terminal flow that
+streamed live keypoints (`--method-dir`, `keypoints21`) is retired with it;
+`wujihand_controller`'s `keypoints_topic` input source remains for future
+teleop-shaped sources, but nothing publishes `keypoints21` today.
 
 ```mermaid
 graph LR
-    SOT["replay_publisher<br/>(terminal 5)"]
-    HC["wujihand_controller x2<br/>input_source=keypoints_topic<br/>(terminals 2 and 3)"]
-    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29,<br/>dry_run (terminal 1)"]
-    VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml<br/>(terminal 4)"]
+    CC["condition_clip<br/>(offline, once per sample)"]
+    SOT["replay_publisher<br/>(gated: load/publish_first/start)"]
+    HC["wujihand_controller x2<br/>input_source=q20_topic"]
+    G1O["g1_world_output<br/>mode=joint_replay, dry_run<br/>(own container)"]
+    SUP["supervisor + run_ctl"]
+    VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml"]
 
-    SOT -->|"/left,right_hand/keypoints21"| HC
+    CC -->|"conditioned_clip_v1.npz"| SOT
     SOT -->|"/left,right_arm/joint_targets"| G1O
+    SOT -->|"/left,right_hand/joint_targets"| HC
     HC -->|"/left,right_hand/joint_commands"| VIZ
     G1O -->|"/left,right_arm/joint_commands"| VIZ
+    SUP -.->|"gates, barrier, faults"| SOT
 ```
 
 ```bash
-# terminal 1 — G1 node in joint-replay mode (host, from docker/).
-# arm_type G1_29 = the bundle's native 7-DoF-arm joint names (also the
-# launch default). dry_run:=true is what keeps this sim-only — without it
-# the node opens real DDS. control_rate 250 Hz interpolates the 50 FPS
-# reference.
+# terminal 1 -- G1 node in joint-replay mode (host, from docker/).
+# dry_run:=true keeps this sim-only; control_rate 250 Hz interpolates the
+# 50 FPS reference.
 docker compose run --rm --name g1-world-output g1_world_output \
     ros2 launch g1_world_output g1_world_output.launch.py \
     dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
 
-# terminal 2 + 3 — hand controllers on the keypoints topic (teleop container).
-# wujihand_ik_replay.yaml is tracked in the repo (input_source: keypoints_topic)
-ros2 run controller wujihand_controller --side left \
-    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
-ros2 run controller wujihand_controller --side right \
-    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
+# terminal 2 -- everything teleop-side: publisher, both hand controllers
+# (q20 sim profile), supervisor, MuJoCo viewer (teleop container)
+ros2 launch wuji_teleop_bringup replay_sim.launch.py
 
-# terminal 4 — viewer on the 29-DoF model (teleop container)
-python3 src/output_devices/g1_world_output/scripts/mujoco_visualizer.py \
-    --mjcf src/g1_wuji2_description/g1_29_wuji2_fixed.xml
-
-# terminal 5 — the replay source (teleop container). --loop to repeat.
-ros2 run replay replay_publisher -- \
-    --method-dir RobotSTAR_demos/samples/<sample>/GT --loop
+# terminal 3 -- condition a sample, then drive the run (teleop container)
+ros2 run replay condition_clip \
+    --method-dir RobotSTAR_demos/samples/<sample>/GT --out-dir ~/wuji_clips
+ros2 run replay run_ctl load ~/wuji_clips/<sample>_GT/conditioned_clip_v1.npz \
+    --speed 1.0
+ros2 run replay run_ctl arm      # publish_first -> engage -> approach -> barrier
+ros2 run replay run_ctl start
+ros2 run replay run_ctl status -w
 ```
 
 The bundle is bind-mounted read-only into the teleop container at
-`/home/wuji/ros2_ws/RobotSTAR_demos` (docker-compose.yml), so the
-relative path above works from the container's default workdir. A container
-created before that mount was added needs `docker compose up -d teleop` to
-recreate it (then rebuild the workspace inside — the build lives in the
-container). Pick the first sample from the batch audits, not by eye: the
-bundle flags at least one sample as failing its deployment audit. Never feed
-`legacy_wuji_sim_only/hand_targets.csv` anywhere — hand joints are regenerated
-live from the 21-point keypoints (that is the entire point of the
-`keypoints_topic` path).
+`/home/wuji/ros2_ws/RobotSTAR_demos`; artifacts land in `~/wuji_clips/` and
+run directories in `~/wuji_runs/`, both host bind mounts (docker-compose).
+Pick the first sample with `choose_first_clip`, not by eye. Never feed
+`legacy_wuji_sim_only/hand_targets.csv` anywhere: hand joints are always
+regenerated from the 21-point keypoints, now offline in `condition_clip`
+through the production retargeter (reset per clip, TUITION 3.1). The full
+Stage 0 gate checklist is [spec/spec_1_stage0.md](spec/spec_1_stage0.md).
 
 ## Hardware replay
 
-Replaying a bundle sample on the real G1 and both Wuji Hand 2 units. **Not
-runnable yet.** As of 2026-08-27 the DDS controller drives the 29-DoF arms
-(`arm_type: G1_29`, the config default), but the safety envelope TUITION
-requires is not implemented: no feedback gating (§5), no bounded
-startup/termination (§8), no automated stop conditions (§9), no run logging
-(§10), and the hands have no q20 replay branch yet. Planned topology:
-[architecture](architecture.md#hardware-replay-design-planned).
+Replaying a conditioned clip on the real G1 and both Wuji Hand 2 units. The
+software pipeline is built per [spec_1](spec/spec_1.md) (runtime contracts:
+[spec_1_interfaces](spec/spec_1_interfaces.md)): offline conditioning with
+audited verdicts (`condition_clip`), a service-gated publisher, device state
+machines with Layer-1 safety chains in both device nodes (position clamps,
+per-joint rate limits, staleness-to-hold, divergence faults, feedback
+watchdogs), a supervisor owning the run state machine, load gates, the
+alignment barrier, Layer-3 monitors, and mcap logging. **Container
+verification and the staged bring-up (Stages A-F) have not run yet**; the
+flow below is the sim (Stage 0) sequence, and everything hardware-facing
+stays behind the operator gates.
+
+```bash
+# offline, teleop container: condition + pick the first clip
+ros2 run replay condition_clip --method-dir RobotSTAR_demos/samples/<s>/GT \
+    --out-dir ~/wuji_clips
+ros2 run replay choose_first_clip --clips-dir ~/wuji_clips \
+    --bundle RobotSTAR_demos
+
+# bring-up (teleop container) + arm node (its own container)
+ros2 launch wuji_teleop_bringup replay_sim.launch.py     # sim profile
+# hardware hand profile: wujihand_ik_q20.yaml (require_feedback: true)
+
+# operator terminal
+ros2 run replay run_ctl load <artifact.npz> --speed 0.25
+ros2 run replay run_ctl arm      # publish_first -> engage -> approach -> barrier
+ros2 run replay run_ctl start
+ros2 run replay run_ctl stop     # = the fault path; no resume
+ros2 run replay run_ctl park && ros2 run replay run_ctl release
+ros2 run replay make_artifacts --run-dir ~/wuji_runs/<run>/
+```
 
 Two blockers are not software: the Hand 2 mount adapter does not exist (the
 vendor STL is a Hand v1 part, so hands cannot ride the arms; see
