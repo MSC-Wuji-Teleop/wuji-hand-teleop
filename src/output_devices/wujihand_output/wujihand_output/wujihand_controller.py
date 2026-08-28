@@ -10,8 +10,9 @@ Multi-core parallelism: one process per hand -> independent retargeter,
 independent GIL -> good multi-core CPU utilization.
 """
 import logging
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 
 try:
@@ -94,6 +95,8 @@ class WujiHandController:
         # IK retargeter
         self.retargeter: Optional['Retargeter'] = None
         self._ik_enabled = False
+        # Optimizer-qpos -> device-order permutation; None means identity.
+        self._qpos_perm: Optional[np.ndarray] = None
 
         if enable_ik and RETARGETER_AVAILABLE:
             self._init_retargeter(retarget_config)
@@ -135,10 +138,64 @@ class WujiHandController:
         config_path = config or self._resolve_retarget_config()
         if config_path and Path(config_path).exists():
             self.retargeter = Retargeter.from_yaml(config_path, self.side)
+            self._qpos_perm = self._build_qpos_perm(self.retargeter)
             self._ik_enabled = True
             self.logger.info(f"IK retarget config: {Path(config_path).name}")
         else:
             self.logger.warning("No IK retarget config found")
+
+    @staticmethod
+    def _urdf_joint_order(config: dict) -> Optional[List[str]]:
+        """Movable joint names in URDF declaration order.
+
+        That order is the vendor's own flat 20-element convention (thumb, index,
+        middle, ring, pinky, 4 each) and is what wujihand_driver's JOINT_NAMES
+        and the MuJoCo HAND_CODES mapping both index positionally.
+
+        Returns None when the config sets no urdf_path, i.e. the bundled Wuji
+        Hand 1 fallback, where Pinocchio's order already matches and no remap is
+        wanted.
+        """
+        rel = (config.get('optimizer') or {}).get('urdf_path')
+        if not rel:
+            return None
+        path = Path(rel)
+        if not path.is_absolute():
+            path = (Path(config['__yaml_dir']) / path).resolve()
+        root = ET.parse(path).getroot()
+        return [j.get('name') for j in root.findall('joint')
+                if j.get('type') != 'fixed']
+
+    def _build_qpos_perm(self, retargeter) -> Optional[np.ndarray]:
+        """Permutation taking optimizer qpos order -> device order.
+
+        Pinocchio orders joints by its own tree walk, which urdfdom sorts by
+        child-link name. Wuji Hand 1's finger1..finger5 names happen to sort into
+        declaration order, so the two agree and no remap is needed. Wuji Hand 2's
+        anatomical names do not: Pinocchio yields index, middle, pinky, ring,
+        thumb. Publishing that raw would send thumb angles to the index finger.
+
+        Raises when a urdf_path override is set but the names cannot be aligned.
+        Falling back to the identity there would silently drive the wrong
+        fingers, which is worse than refusing to start.
+        """
+        dst = self._urdf_joint_order(retargeter.config)
+        if dst is None:
+            return None
+        src = list(retargeter.optimizer.robot.dof_joint_names)
+        idx = {n: i for i, n in enumerate(src)}
+        missing = [n for n in dst if n not in idx]
+        if missing or len(dst) != len(src):
+            raise RuntimeError(
+                f"{self.side}-hand qpos remap failed: URDF declares {len(dst)} "
+                f"movable joints, optimizer has {len(src)}; unmatched={missing}"
+            )
+        perm = np.array([idx[n] for n in dst], dtype=int)
+        if np.array_equal(perm, np.arange(len(perm))):
+            self.logger.info("qpos remap: identity (URDF order matches optimizer)")
+            return None
+        self.logger.info(f"qpos remap active: optimizer -> device {perm.tolist()}")
+        return perm
 
     def _init_hand(self) -> None:
         if self.node is None:
@@ -176,7 +233,7 @@ class WujiHandController:
             keypoints: hand keypoints, shape (21, 3) or (63,).
 
         Returns:
-            (20,) joint-angle array, or None on failure.
+            (20,) joint-angle array in device order, or None on failure.
         """
         if self.retargeter is None:
             return None
@@ -184,7 +241,8 @@ class WujiHandController:
             keypoints = np.asarray(keypoints, dtype=np.float32)
             if keypoints.shape == (63,):
                 keypoints = keypoints.reshape(21, 3)
-            return self.retargeter.retarget(keypoints)
+            q = self.retargeter.retarget(keypoints)
+            return q if self._qpos_perm is None else q[self._qpos_perm]
         except Exception as e:
             self.logger.error(f"{self.side}-hand IK retarget failed: {e}")
             return None

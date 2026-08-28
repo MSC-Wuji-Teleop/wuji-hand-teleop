@@ -196,15 +196,21 @@ RUN pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} wuji-sdk==${WUJI_SDK_VE
 # below restores legacy compat without mutating the submodule source. Pinocchio
 # is supplied by the cmeel `pin==4.0.0` wheel in §5.
 #
-# URDF sideload: wuji-retargeting expects URDFs at
+# URDF sideload: wuji-retargeting falls back to URDFs at
 # `wuji_retargeting/wuji-description/hand/body/urdf/{left,right}.urdf`, normally
 # populated by its `wuji-description` sub-submodule. `git submodule update
 # --init --recursive` from the outer repo doesn't traverse that nested submodule
 # reliably, so we copy the same URDFs from `wujihandros2/external/wuji-description`
 # (same upstream, same tag-tracked content) into the installed package after pip.
+#
+# These are Wuji Hand 1 models and are only the FALLBACK, taken when a config
+# sets no `optimizer.urdf_path`. Every retarget config under
+# `output_devices/wujihand_output/config/` sets it, pointing at the Hand 2 models
+# in `src/wujihand_urdf/` (bind-mounted from the host, so no image rebuild is
+# needed to change them). The sideload stays for upstream's own example configs.
 COPY src/wuji-retargeting /tmp/wuji-retargeting
 COPY src/wujihandros2/external/wuji-description/hand/body/urdf /tmp/wuji-description-urdf
-RUN printf 'from setuptools import setup, find_packages\nsetup(\n    name="wuji-retargeting",\n    version="2026.05.26",\n    packages=find_packages(include=["wuji_retargeting*"]),\n    install_requires=["numpy==2.2.6", "nlopt==2.10.0", "pyyaml", "scipy>=1.11.0"],\n)\n' > /tmp/wuji-retargeting/setup.py \
+RUN printf 'from setuptools import setup, find_packages\nsetup(\n    name="wuji-retargeting",\n    version="2026.8.17",\n    packages=find_packages(include=["wuji_retargeting*"]),\n    install_requires=["numpy==2.2.6", "nlopt==2.10.0", "pyyaml", "scipy>=1.11.0"],\n)\n' > /tmp/wuji-retargeting/setup.py \
     && pip3 install --no-cache-dir /tmp/wuji-retargeting \
     && WUJI_RT_DIR=$(python3 -c "import wuji_retargeting, os; print(os.path.dirname(wuji_retargeting.__file__))") \
     && mkdir -p "$WUJI_RT_DIR/wuji-description/hand/body/urdf" \
