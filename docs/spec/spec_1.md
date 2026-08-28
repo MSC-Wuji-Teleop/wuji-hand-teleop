@@ -11,6 +11,50 @@ The rig's robot is the **29-DoF G1** (waist yaw/roll/pitch, 7-DoF arms). The
 **23-DoF** variant (waist yaw only, 5-DoF arms) stays a supported secondary
 target. Decided 2026-08-27; hardware_spec.md carries the dated record.
 
+## Pipeline and where each piece is specified
+
+One offline stage conditions a clip; one publisher paces both devices from one
+timer; each device node owns its own bus and its own final clamps. No new
+runtime nodes on the data path: `joint_replay` and `q20_topic` are modes on
+the device nodes that already exist.
+
+```mermaid
+graph LR
+    CC["condition_clip<br/>offline: retarget + audit"]
+    ART[("conditioned clip<br/>artifact")]
+    SOT["replay_publisher<br/>one timer = one clock"]
+    G1O["g1_world_output<br/>mode=joint_replay<br/>arm_type=G1_29"]
+    HC["wujihand_controller x2<br/>input_source=q20_topic"]
+    DDS["Unitree G1 29-DoF<br/>DDS rt/arm_sdk"]
+    DRV["wujihand_driver<br/>USB, unchanged"]
+    SUP["supervisor<br/>gates, faults, logging"]
+
+    CC --> ART --> SOT
+    SOT -->|"/left,right_arm/joint_targets<br/>named q14, stamped"| G1O
+    SOT -->|"/left,right_hand/joint_targets<br/>named q20, stamped"| HC
+    G1O --> DDS
+    HC -->|"/left,right_hand/joint_commands"| DRV
+    SUP -.->|"load / start / fault"| SOT
+    SUP -.->|"state, diagnostics"| G1O
+    SUP -.->|"state, diagnostics"| HC
+```
+
+Dashed edges are supervision, not the data path: the devices stay safe with
+the supervisor dead ([safety envelope](#safety-envelope-where-it-lives)).
+
+| Piece | What it does | Specified in |
+|---|---|---|
+| `condition_clip` | bundle sample to audited artifact; retarget, retime, verdict | [component 1](#1-condition_clip-new-offline-replay-package) |
+| `replay_publisher` | paces both target streams from one timer | [component 2](#2-replay_publisher-modified), [one clock](#one-clock) |
+| `g1_world_output` | arm interpolation, safety chain, DDS slot policy, device FSM | [component 3](#3-g1_world_output-modified) |
+| `wujihand_controller` | hand q20 interpolation, clamps, diagnostics watchdog | [component 4](#4-wujihand_controller-q20-branch-modified-controller-package) |
+| `wujihand_driver` | USB endpoint, unchanged; upstream PR pending | [component 5](#5-wujihand_driver-no-fork-now) |
+| supervisor | load gates, alignment barrier, fault latch, bag | [component 6](#6-supervisor-new-node-replay-package), [run state machine](#run-state-machine) |
+| what runs when | staged bring-up A to F, with gates | [bring-up](#bring-up-staged-against-7) |
+| what stops it | four safety layers and their owners | [safety envelope](#safety-envelope-where-it-lives) |
+| what it records | §10 logs and the §11 return package | [logging](#logging-10-and-return-package-11) |
+| what is not buildable yet | adapter, identities, limits, branch flips | [hard blockers](#hard-blockers) |
+
 ## Measured facts
 
 These replace the 2026-08-26 draft's facts. All were recomputed from the bundle
@@ -38,9 +82,18 @@ on 2026-08-27; the commands live with the audit tooling (section: conditioning).
    Wuji solutions and must never reach Hand 2 (§2.1). Hand 2 angles are
    regenerated from `hand2_input/*_human_targets_v5.npz` keypoints (§3.1).
 
-## Current state (HEAD 5ce3ea8)
+## Current state (af7ee14)
 
-Commit 5ce3ea8 landed the G1_29 DDS control MVP: `G1ArmController(arm_type)`
+Commit af7ee14 ("Bugfix & Migration") replaced the retargeting hand model: the
+optimizer was fitting Wuji Hand 1 geometry while commanding Hand 2. It bumps
+the `wuji-retargeting` pin to v2026.8.17, ships the official Hand 2 Beta 2
+URDFs, adds the root-frame correction, and remaps qpos to device order. Detail,
+including the 30-clip diff §3.1 asks for, is under
+[component 1](#1-condition_clip-new-offline-replay-package). This clears the
+model half of hard blocker 2.
+
+Commit aae4638 ("Unstable & Untested Integration") landed the G1_29 DDS
+control MVP: `G1ArmController(arm_type)`
 drives either variant over `rt/arm_sdk` or `rt/lowcmd` (250 Hz write thread,
 CRC, weight at slot 29, writer lockfile), and `arm_type` defaults to `G1_29`.
 Pose IK stays G1_23-only; joint_replay needs no IK. The commit message itself
@@ -103,34 +156,165 @@ Arms:
 - Extract the 14 arm joints from `body_q` by name (waist is measured zero; see
   the waist paragraph below).
 - Audit with position finite differences against a curated deploy-limits YAML
-  (`g1_deploy_limits.yaml`, values copied from the hardware_spec.md joint
-  table plus per-joint velocity/acceleration rows). The bundle's 0.5 rad/s
-  figure is a screening parameter (§6 says so), not a deployment limit; the
-  deployment numbers are parameters, revised on-site once §6 official limits
-  are recorded.
+  (`g1_deploy_limits.yaml`). The file carries **two distinct kinds of row, and
+  must not conflate them**: the hardware ceiling, which is sourced, and the
+  deployment cap, which is our choice and is not.
+
+  **Hardware ceilings are sourced, per joint, for position, velocity and
+  torque.** They are Unitree's published `<limit>` values from
+  `g1_29dof_rev_1_0.urdf` in `unitreerobotics/unitree_ros`, which
+  `scripts/fetch_g1_description.sh` already pulls and `g1_29_wuji2.urdf`
+  already carries. Verified against upstream on 2026-08-28:
+
+  | joint group | position (rad) | velocity (rad/s) | effort (N·m) |
+  |---|---|---|---|
+  | shoulder pitch/roll/yaw, elbow | see URDF, per joint | 37 | 25 |
+  | wrist roll | ±1.9722 | 37 | 25 |
+  | **wrist pitch, wrist yaw** | ±1.6144 | **22** | **5** |
+  | waist yaw | ±2.618 | 32 | 88 |
+  | waist roll, waist pitch | ±0.52 | 30 | 35 |
+
+  Wrist pitch and yaw are the weak pair: 5 N·m, a fifth of every other arm
+  joint. Any torque audit must be per joint, not a single global cap, or it
+  will pass a wrist load that the wrist cannot hold.
+
+  **What is still unsourced is acceleration**, which URDFs do not carry, and
+  the **deployment** cap. §6 requires official deployment limits recorded on
+  the rig before the first run, and a 37 rad/s actuator ceiling is a design
+  rating, not a safe replay speed. So the file keeps a provisional deploy
+  block pinned to the bundle's conservative screening pair (0.5 rad/s,
+  3.0 rad/s²), commented provisional-until-§6, layered under the sourced
+  ceilings. The ceiling rows are asserted always; the deploy rows are what
+  Stage A replaces.
+
+  This sharpens measured fact 3. Sustained p99.5 speed of 7.8 to 17.2 rad/s is
+  **under** the 37 rad/s hardware ceiling, so retiming those clips is a safety
+  choice, not a hardware necessity. The single-frame spikes are not: 161.4
+  rad/s on sample 02 GT is **4.4x the ceiling**, and 7.3x for a wrist
+  pitch/yaw joint at 22. Branch flips are a hard violation of a sourced limit,
+  which is why §7E is right that slowing down does not fix them.
 - Sustained overspeed gets integer time redistribution `k` (same mechanism as
   the bundle's own retiming: waypoints untouched, §7E compliant), capped at a
   configured maximum.
 - Spikes and branch flips are never smoothed. They go into the audit and drive
-  the verdict: `go`, `conditional` (residual spikes under a hard threshold;
-  manual kinematic preview required), or `no-go` (position violation or any
-  flip/step above the threshold).
+  the verdict: `pass` or `fail`. The full audit numbers land in the JSON
+  either way, so a clip whose numbers make an operator want a kinematic
+  preview gets one on the operator's judgment; that does not need a third
+  machine-readable tier.
 
 Hands:
 - Per side: `Retargeter.from_yaml(...)`, then `reset()` (§3.1), then step all
   source-rate keypoint frames to q20. PCHIP-retime q20 onto the arm frame grid
   so both devices share one timeline. Audit against a hand-limits YAML (values
-  from the hand URDF, e.g. finger1_joint1 [-0.045, 1.651], velocity 8.59).
+  from the hand URDF, e.g. r_thumb_cmc_flex [-1.187, 1.291], velocity 8.587).
+  See the §6 hand-limit deviation below before trusting those numbers.
+- **Named deviation from §6 (hand limits).** The hand-limits YAML above is
+  read from `src/wujihand_urdf/wujihand_{left,right}.urdf`, now the official
+  `wujihand2-beta2-{side}` vendor file (see the §3.1 note below). It is still a
+  simulation model, and §6 forbids substituting a description package's limits
+  for official hardware limits. Its thumb velocity of 8.587 rad/s is 2.1x the
+  4.0 rad/s the bundle itself used as a conservative hand screening figure.
+  Until Stage A records official Hand 2 limits: clamp hand velocity at
+  4.0 rad/s, not the URDF value, and add an **effort** clamp to the hand chain
+  (position and rate only is not enough). Per-joint effort limits are already
+  available from the hardware at runtime, published by the driver in
+  `hand_diagnostics.effort_limits`
+  (`wujihand_driver_node.cpp:309`), so this costs a subscription, not a
+  measurement campaign.
+- **The driver's placeholder limits are indexed onto the wrong joint.**
+  `wujihand_driver_node.cpp:157-162` writes the abduction pair [-0.5, 0.5] at
+  `abd_idx = f * JOINTS_PER_FINGER`, that is position **0** of each finger. On
+  both Hand 1 and Hand 2, position 0 is **flexion** and position 1 is
+  abduction (each hand's position-0 joint axis is parallel to its PIP and DIP
+  axes; position 1 is perpendicular). So the parameters advertise flexion as
+  [-0.5, 0.5] rad, a third of its real travel, and abduction as [0, 1.57],
+  which is both one-sided and 2.2x Hand 2's published ±0.698. Nothing is
+  actually clamped by these values (they are only written into ROS parameters
+  at lines 183-186, never applied to a command), so this is latent, not an
+  active fault. It matters twice: anything that reads those parameters as
+  ground truth gets a wrong picture, and the upstream `wujihand_driver` PR
+  listed in [out of scope](#out-of-scope) adds real clamps, at which point the
+  mis-indexing becomes an active fault. Fix the index in that PR.
+  Note also that the earlier "35% wider than the published limit" reading of
+  this placeholder was measured against Hand 1 (`±0.37` in the
+  `wuji-description` Hand 1 URDF; the retired `wujihand_urdf` Hand 1 pair said
+  `±0.495`). Hand 2 Beta 2 publishes `±0.698` for every non-thumb MCP
+  abduction, so against the hardware this campaign drives, ±0.5 is 28%
+  **narrower**, not wider. The conservative direction, but for the wrong joint.
 - **Named deviation from §3.1.** TUITION and the handoff README specify the
   official SDK `RetargetSession` with `HandModel.WujiHand2`. Neither symbol
-  exists in this repo. This design substitutes the vendored `wuji-retargeting`
-  NLopt `Retargeter`: same 21-keypoint-to-20-joint contract, deterministic,
-  offline, and already the mapping the teleop path trusts. Its hand description
-  is a pinned submodule whose match to the delivered hardware revision (Beta 1
-  vs Beta 2, §2.2) is unconfirmed. The substitution, the pin, and the config
-  hash are recorded in `hand2_retarget_meta.json`. Action item: once the
-  hardware revision is confirmed, evaluate the official SDK route on the rig
-  host and either adopt it or re-affirm this substitution.
+  exists **in this repo**, but both exist upstream: `RetargetSession`
+  (Python and C, `wuji_retarget_session_create/_step/_reset/_free`) shipped in
+  wuji-sdk **v2026.7.21**, documented as mapping 21 MediaPipe-order keypoints
+  to 20 joint angles in firmware order. Our `wuji-retargeting` submodule was
+  pinned at **v2026.6.10**, about six weeks earlier, and is now at
+  **v2026.8.17** for the model fix below.
+
+  That bump does **not** close this deviation. `RetargetSession` ships in
+  wuji-**sdk**, a separate dependency; wuji-retargeting v2026.8.17 does not
+  contain the symbol, and the image's shim `setup.py` strips `wuji-sdk` from
+  `install_requires`. We still run our own optimizer, not the official session.
+
+  **The model half of this action item is done** (commit af7ee14). What it was
+  and what it now is:
+
+  - The vendored description tree held only `hand/` and `glove/`, so the
+    optimizer was fitting **Wuji Hand 1** geometry and commanding Hand 2. Not a
+    version-label nit: the index MCP segment differs by 23.1 mm, and the MCP
+    abduction segment by 9.9 mm at a 3.2x ratio.
+  - `src/wujihand_urdf/` now holds the official `wujihand2-beta2-{side}` files,
+    byte-identical to `wuji-description` v2026.8.19 (SHA-256 recorded in that
+    package's README); the Hand 1 pair moved to `deprecated/`.
+  - The `wuji-retargeting` pin moved v2026.6.10 to **v2026.8.17**, which adds
+    `optimizer.link_naming` (Hand 2's anatomical link names) and resolves the
+    PIP/DIP qpos indices from the kinematic chain instead of hardcoding them.
+    Verified behavior-neutral on the old path: **bitwise identical** q20 across
+    all 60 trajectories.
+  - Two defects that a URDF swap alone would have shipped, both now fixed:
+    Hand 2's root frame is rotated **178.45°** from Hand 1's, so without the
+    `mediapipe_rotation` correction the mean optimizer residual goes 5.42 to
+    136.63; and Pinocchio orders Hand 2's joints `index, middle, pinky, ring,
+    thumb` (urdfdom sorts children by link name, and Hand 1's `finger1..5`
+    happen to sort into declaration order), so raw q20 would have sent thumb
+    angles to the index finger. `wujihand_controller` now remaps qpos to URDF
+    declaration order and raises rather than falling back to identity.
+  - **§2.2's revision question no longer gates the retarget model.** Beta 1 and
+    Beta 2 were diffed joint by joint: all 25 common joints carry identical
+    origin xyz and rpy (max difference 0.000e+00), same names, order and
+    limits; Beta 2 adds only 5 fixed sensor-pad frames. IK output is identical
+    on either revision. Beta 2 is shipped because it matches
+    `g1_wuji2_description` and the firmware v2.0.0 line, not because the
+    numbers differ. The revision still gates **firmware**, so blocker 2 stands
+    for that reason alone.
+
+  **§3.1 diff, all 30 clips, both hands** (15 samples x GT/Ours, 9920 frames),
+  old pipeline to shipping config, per §3.1's "diff before any hand hardware
+  run":
+
+  | scope | max \|Δq\| (rad) | RMS Δq (rad) |
+  |---|---|---|
+  | all 20 joints | 2.5056 | 0.3649 |
+  | worst joint (pinky_dip) | 2.5056 | 0.7268 |
+  | best joint (middle_pip) | 0.4763 | 0.0896 |
+
+  The pinky dominates because that is where the two hands differ most: PIP
+  43.9 to 33.6 mm, a 23% shortening. Fit quality is unchanged to slightly
+  better (mean residual 5.422 to 5.211), which is the expected result: both are
+  20-DoF anthropomorphic hands, so the optimizer fits the human keypoints about
+  as well either way. The point is not that the residual drops, it is that q20
+  now means something on Hand 2. All 9920 frames are finite and inside Hand 2's
+  limits to 1e-7 rad.
+
+  The substitution, the pin, and the config hash are still recorded in
+  `hand2_retarget_meta.json`. Note that even upstream's Hand 2 kp/kv gains are
+  provisional: the release notes say they are carried over from Hand 1
+  calibration pending system identification on Hand 2 hardware.
+
+  **Still open:** adopt `RetargetSession` with `HandModel.WujiHand2` (needs the
+  wuji-sdk dependency in the image), and re-derive the glove configs'
+  `segment_scaling` against Hand 2. Those pinky values were fitted against Hand
+  1's longer pinky and are flagged in place, not retuned, because retuning
+  needs glove hardware.
 
 Artifact:
 - `conditioned_clip_v1.npz`: arm q [T,14] + names, left/right q20 [T,20] on the
@@ -144,7 +328,7 @@ Artifact:
 
 ### 2. `replay_publisher` (modified)
 
-- Consumes artifacts (`--clip`); refuses `no-go` verdicts on hardware profiles
+- Consumes artifacts (`--clip`); refuses `fail` verdicts on hardware profiles
   (`--force-sim` exists for simulation only).
 - Service-gated: `load` (String JSON request: artifact path, speed_scale, arm
   sides), `publish_first` (repeat frame 0, do not advance), `start`. Publishes
@@ -158,9 +342,9 @@ Artifact:
   makes arms and hands play the same clip by construction; no cross-check
   handshake is needed.
 - Stamps tick i with `t0 + i * dt_play`, where `dt_play = k / (target_fps *
-  speed_scale)`, and latches a transport message (String JSON: t0, dt_play,
-  frame count, artifact sha256). `speed_scale` is time redistribution only,
-  layered on the baked k.
+  speed_scale)`. `speed_scale` is time redistribution only, layered on the
+  baked k. No side-channel transport topic: the device nodes need the stamps,
+  and the artifact hash lives in `run_manifest.json`.
 - Per-side and per-device scope for §7C runs is part of the `load` request:
   the publisher publishes only the in-scope target topics.
 
@@ -168,18 +352,21 @@ Artifact:
 
 **LowCmd slot policy** (pinned; today's write-all-35 behavior is replaced):
 
-- `rt/arm_sdk`: write slots 12 to 14 (waist, hold at the pose measured at
-  engage, gains from the `waist_hold` row), 15 to 28 (arms), and 29 (weight).
-  Slots 0 to 11 and 30 to 34 are never written; they stay at constructor
+- `rt/arm_sdk`: write slots 15 to 28 (arms) and 29 (weight). Nothing else.
+  Slots 0 to 14 and 30 to 34 are never written; they stay at constructor
   defaults (kp = kd = 0, inert). Per-motor `mode` is not set (the vendor arm7
   example never sets it). `mode_machine` is copied from lowstate; `mode_pr` is
-  0. Stage A/B verify waist-hold behavior under arm_sdk on this firmware.
+  0. The waist is uncommanded, so by the same rule it is not written: holding
+  it at kp 300 would put our position loop in contention with the balance
+  controller §2.3 assigns it to. Stage A confirms on the real firmware that
+  arm_sdk holds the waist with its slots unwritten; if it does not, the write
+  returns as a one-line exception with a recorded reason.
 - `rt/lowcmd`: not used by this design. It requires releasing the onboard
   controller and owning all 29 motors every cycle, a suspended-robot regime.
   Documented so nobody discovers the difference on hardware.
 
 **Waist.** Measured zero in every clip, and the owner decision is to skip
-commanding it. The waist stays hold-at-measured under the slot policy above.
+commanding it. Its slots are left unwritten under the slot policy above.
 `/waist/joint_targets` is reserved as the topic name for a future clip set that
 moves the waist; nothing publishes or subscribes it today.
 
@@ -195,22 +382,42 @@ ROS): position clamp (curated limits, margin parameter), per-joint rate limit
 means hold last command), divergence monitor (|measured - last command| above
 threshold for M consecutive ticks raises a fault). Runs in the joint_replay
 loop. The 250 Hz DDS-thread clip becomes per-joint, parametric from the same
-limits file, and **always on, simulation_mode included**. A latched
-`/soft_estop` (std_msgs/Bool) freezes the node into hold.
+limits file, and **always on, simulation_mode included**. There is no
+separate software-stop topic: `run_ctl stop` calls the supervisor's fault
+Trigger, supervisor death is already covered by the staleness hold, and
+force relief is the physical e-stop (Layer 4). One operator stop path, not
+three.
 
 **Device state machine** (§8):
 
 ```
 ready (hold measured)
   -> engage   weight 0 -> 1 over >= 2 s, commanding the measured pose;
-              that pose is snapshotted as the park pose
+              that pose is snapshotted as the release target
   -> approach measured -> frame 0 under approach limits;
               done when max error < 0.05 rad and measured dq ~ 0
   -> track    follow the stamped stream
   -> end_hold hold the last target; confirm dq ~ 0 for >= 1 s
-  -> park     slew back to the snapshot under approach limits
+  -> approach re-entered with target = snapshot (no separate park state)
   -> release  weight 1 -> 0 over >= 2 s while commanding the snapshot
 ```
+
+**Entering engage is gated.** The snapshot is commanded truth for the whole
+run and the target of the release slew, so `ready -> engage` requires N
+consecutive lowstate frames inside the staleness bound with measured |dq|
+below a threshold. A snapshot taken from a 200 ms-old frame, or while the arm
+is still settling, would be wrong for the entire run. About five lines, and it
+removes a silent single point of failure from the two states that touch the
+robot hardest.
+
+**Losing power or lowstate resets the machine.** An e-stop event, or any
+lowstate gap beyond the staleness bound while in a powered state, forces the
+node back to `ready`: discard the snapshot, treat the weight as unknown,
+require a fresh engage from measured. Without this rule a node that comes back
+believing weight is 1 with a stale target snaps a drooped arm to that target,
+which is the discontinuity §8 forbids arriving by a path nothing else in the
+design covers. What the e-stop actually does to the write path and to lowstate
+is a named Stage A deliverable, recorded beside §6's "E-stop behavior" field.
 
 Release happens at the snapshot because that is the pose the onboard
 controller was itself maintaining at engage; it minimizes the takeover jump.
@@ -235,8 +442,7 @@ pin the Unitree participant's NIC. The docker cyclonedds.xml peer config is
 validated same-host only; a separate-host G1 is untested topology.
 
 **Gains** move from hardcoded constants to a `gains:` table in `g1_robot.yaml`:
-today's tiers (shoulders/elbows 140/3, wrists 50/2, hold 300/5, `waist_hold`
-300/5) as default, the vendor example's uniform 60/1.5 as a selectable
+today's tiers (shoulders/elbows 140/3, wrists 50/2, hold 300/5) as default, the vendor example's uniform 60/1.5 as a selectable
 fallback profile. Retuning becomes a config change, validated in Stage B.
 
 ### 4. `wujihand_controller` q20 branch (modified; controller package)
@@ -256,14 +462,45 @@ Per hand:
 - Fixed-rate loop on the existing `control_rate` parameter, raised to 200 Hz
   for replay (§5 range is 200 Hz to 1 kHz; final rate decided on-site);
   interpolates between the two most recent stamped targets with the same
-  interpolate-toward-newest scheme as the arm ZOH fix; clamps to the
-  hand-limits YAML; rate-limits; runs its own approach phase and mirrors the
-  §8 device state machine.
+  interpolate-toward-newest scheme as the arm ZOH fix; clamps position,
+  rate, and effort against the hand limits (see the §6 hand-limit deviation);
+  runs its own approach phase. Its state machine is four states, not the arm's
+  seven: hold, approach, track, end_hold. Engage, park, and release exist only
+  to manage the `rt/arm_sdk` weight, and the hand has no weight and no onboard
+  controller to hand back to.
 - **Publishes unnamed full-20 arrays in driver order** every cycle. Named
   publishing is forbidden until the driver's named-path zero-fill is fixed
-  upstream. A preflight assert compares the driver's `joint_states` names
-  against the retargeter's URDF order and refuses to run on mismatch
-  (recorded in `joint_mapping.json`).
+  upstream. A preflight assert refuses to run on mismatch, recorded in
+  `joint_mapping.json`.
+
+  What the assert has to establish: we publish 20 bare numbers, and the driver
+  reads element `i` as finger `i / 4`, joint `i % 4`
+  (`wujihand_driver_node.cpp:407-408`). Nothing carries meaning across that
+  boundary except position. So the only question is whether **our element `i`
+  and the driver's element `i` are the same physical joint.**
+
+  **It cannot be a name comparison,** which is what the earlier draft assumed.
+  The driver names its joints `finger{1..5}_joint{1..4}`
+  (`wujihand_driver_node.cpp:22-26`); since af7ee14 our URDF names them
+  `r_thumb_cmc_flex` and so on. Both name the same 20 joints in the same order,
+  but no string is shared, so `set(ours) == set(theirs)` fails on a **correct**
+  system. An assert that fires when everything is right gets deleted, and then
+  nothing is checked.
+
+  Split it by what is actually knowable:
+
+  - **Offline, in software:** 20 elements; 5 groups of 4; our order is URDF
+    declaration order, thumb to pinky. `_build_qpos_perm` establishes this by
+    construction and it is verified 20/20 per side against the MuJoCo actuator
+    mapping. Record both name lists side by side in `joint_mapping.json` so the
+    intended correspondence is written down rather than assumed.
+  - **Stage A, physically:** that the driver's `finger1` really is the thumb.
+    This is a firmware fact; no amount of software agrees or disagrees with it.
+    The repo asserts it in the `HAND_CODES` comment, and that is an assumption,
+    not evidence. Confirm it the same way §7A already confirms left from right:
+    command one distinguishable joint on the finger you believe is the thumb
+    and watch which finger moves. Thirty seconds, and it is the only step that
+    catches an off-by-one across all five fingers.
 - **Named deviation from §5.** The driver consumes position only; velocity
   and effort in commands are ignored end to end. The branch therefore
   publishes position-only rather than implying a contract the driver does
@@ -274,15 +511,24 @@ Per hand:
   nonzero `error_codes[i]`, joint offline, or over-temperature means hold
   last command and raise a fault.
 
-The `wuji_glove` and `keypoints_topic` branches are untouched.
+The `wuji_glove` and `keypoints_topic` branches keep their existing structure,
+but af7ee14 changed what they load: both now retarget against the Hand 2 URDF
+with `optimizer.link_naming`, carry the root-frame `mediapipe_rotation`, and go
+through the qpos remap. `keypoints_topic` also split per side, because
+`urdf_path` and `link_naming.prefix` are side-specific and the optimizer has no
+`{side}` token; `_resolve_retarget_config` already preferred the per-side name,
+so that needed no code change. The `q20_topic` branch here is unaffected: it
+constructs no retargeter.
 
 ### 5. `wujihand_driver`: no fork now
 
 The zero-fill hazard cannot trigger on unnamed full-20 commands, and patching a
 pinned submodule does not fit the bind-mounted workspace. Plan: file the
-upstream PR (named-path zero-fill fix, clamp to real URDF limits, command-age
-diagnostic, observe mode); rely on the preflight name assert and the q20
-branch's clamps meanwhile; fork and repoint `.gitmodules` only if upstream declines.
+upstream PR (named-path zero-fill fix, clamp to real URDF limits, **fix the
+placeholder abduction limits being indexed onto the flexion joint**,
+command-age diagnostic, observe mode); rely on the preflight contract assert
+and the q20 branch's clamps meanwhile; fork and repoint `.gitmodules` only if
+upstream declines.
 
 ### 6. Supervisor (new node; replay package)
 
@@ -290,40 +536,57 @@ One node, no new interface package: std_msgs/String JSON plus std_srvs/Trigger
 cover the whole surface, which keeps interface builds out of the containers and
 lets logs be read anywhere without message definitions. It owns the run state
 machine, the load-time gates, one cross-device "all aligned" barrier, the
-operator start, and a latched fault. Beside it, an operator CLI (`run_ctl`) and
-four tools: `single_joint_test.py` (Stage B), `choose_first_clip.py` (scans the
-30 audit JSONs for the §7F first-clip criteria), `collect_manifest.py`
-(Stage A), `make_artifacts.py` (post-run, offline).
+operator start, and a latched fault. Beside it, an operator CLI (`run_ctl`)
+and two scripts: `choose_first_clip.py` (scans the 30 audit JSONs for the §7F
+first-clip criteria) and `make_artifacts.py` (post-run, offline). Two things
+deliberately are **not** tools. Stage B's single-joint tests emit a tiny
+conditioned-clip artifact (slow ramp on one joint, everything else at
+measured) and load through the same `load`/`start` path as a real clip, so
+the supervisor grows no second motion interface and Stage B validates the
+path Stage C depends on. And `hardware_manifest.json` ships as a template
+with §6's checklist as empty fields: most of its items (revision, serials,
+mount model, E-stop behavior) are human observations, so it is a form the
+operator fills in Stage A, not a collector to build and keep in sync.
 
 ## Run state machine
 
-Device state machines (above) carry §8. The run level is deliberately small:
+Device state machines (above) carry §8. The run level is deliberately four
+states: the §7 checks are preconditions on transitions, not resident states,
+and device state is reported as fields in `/run/status` rather than mirrored.
 
 ```
-IDLE -> LOADED -> CONNECTED -> ENGAGED -> ALIGNED -> RUNNING
-                                                        |
-                       clip end: END_HOLD -> PARKED -> RELEASED -> IDLE
-
-any powered state -> FAULT_HOLD (latched)
+IDLE -> ARMED -> RUNNING -> IDLE
+                    |
+   any powered state -> FAULT (latched)
 ```
 
-- **LOADED** gates: artifact verdict is go/conditional, joint names match the
-  rig variant, requested speed is within the per-clip allowed scale, sample 01
-  refused as first clip, GT-before-Ours (loading Ours requires a passing GT
-  `tracking_summary.json` at the same scope and scale, or an explicit
-  override) (§7D, §7F).
-- **CONNECTED** preflight (§7A): lowstate fresh, mode_machine recorded
-  (MotionSwitcher CheckMode), 20+20 hand joints online and enabled, zero error
-  codes, sides correct, hand name-order assert passed, comm soak clean, e-stop
-  and watchdog physically exercised. Operator signs the checklist.
-- **ENGAGED / ALIGNED**: devices run engage then approach; the barrier waits
-  for every in-scope device to report frame-0 hold.
-- **RUNNING**: operator start; the only automatic exits are clip end and fault.
-- **FAULT_HOLD**: devices freeze per their state machines (weight frozen at its
-  current value if mid-engage), the publisher stops advancing, everything keeps
-  streaming its hold command. No resume: operator inspects, parks, releases,
-  and reruns from the start. Further loads are refused until an explicit
-  operator clear-fault (§9: do not continue after an abnormal event).
+- **`load` preconditions** (§7D, §7F): artifact verdict is `pass`, joint names
+  match the rig variant, requested speed is within the per-clip allowed scale,
+  sample 01 refused as first clip, GT-before-Ours (loading Ours requires a
+  passing GT `tracking_summary.json` at the same scope and scale, or an
+  explicit override).
+- **`arm` preconditions** (§7A preflight): lowstate fresh, mode_machine
+  recorded (MotionSwitcher CheckMode), 20+20 hand joints online, zero error
+  codes, sides physically confirmed (see below), hand name-order assert
+  passed, comm soak clean, e-stop and watchdog physically exercised. Operator
+  signs the checklist. `arm` then runs each device's engage and approach.
+- **`start`** waits on one condition, not a state: every in-scope device
+  reporting frame-0 hold. Operator-issued. The only automatic exits from
+  RUNNING are clip end and fault.
+- **FAULT** (latched): devices freeze per their state machines (weight frozen
+  at its current value if mid-engage), the publisher stops advancing,
+  everything keeps streaming its hold command. No resume: operator inspects,
+  parks, releases, and reruns from the start. Further loads are refused until
+  an explicit operator clear-fault (§9: do not continue after an abnormal
+  event).
+
+**Sides physically confirmed.** Firmware handedness tells you which hand a
+device *is*, not which arm it is bolted to, and both hands enumerate under the
+same USB VID:PID. So the check is three parts: assert the driver-reported
+handedness matches the topic namespace, record serial-to-side in
+`joint_mapping.json`, and have the operator command one distinguishable joint
+on the hand they believe is left and watch which physical hand moves. Only the
+last part catches a mounting error, and it is thirty seconds of Stage A.
 
 Every motion-initiating transition is an operator service call. Every stop is
 automatic or operator. Solo operation: one launch terminal, one `run_ctl`
@@ -331,26 +594,85 @@ terminal, one hand on the physical e-stop.
 
 ## Safety envelope: where it lives
 
+Four layers, drawn over the same pipeline as above. The load-bearing property
+is that Layer 1 lives **inside the device nodes**, not in a separate guard
+process: the last software hop before each bus is the authoritative clamp, so
+a clip keeps being safe when the publisher, the supervisor, or the network
+dies. Every layer's failure response is hold, never zero (§8).
+
+```mermaid
+graph LR
+    subgraph L0["Layer 0 - offline gate"]
+        CC["condition_clip<br/>verdict pass / fail<br/>per-clip allowed speed<br/>spikes never smoothed"]
+    end
+
+    SOT["replay_publisher<br/>no clamps here by design:<br/>a dumb pacer, refuses no-go at load"]
+
+    subgraph L1["Layer 1 - last software hop (authoritative)"]
+        G1O["g1_world_output<br/>position clamp, per-joint rate limit,<br/>staleness to hold, divergence to fault<br/>+ always-on 250 Hz DDS clip"]
+        HC["wujihand_controller x2<br/>position clamp, rate limit,<br/>staleness to hold"]
+    end
+
+    subgraph L2["Layer 2 - device boundary"]
+        DDS["rt/arm_sdk<br/>onboard balance controller stays active<br/>weight ramps in and out"]
+        DRV["wujihand_driver<br/>1 kHz realtime loop<br/>upstream PR pending"]
+    end
+
+    SUP["Layer 3 - supervisor<br/>cross-device liveness, barrier timeout,<br/>joint offline, error codes,<br/>effort saturation, temperature,<br/>mode_machine change"]
+
+    OP(["Layer 4 - operator<br/>physical e-stop"]):::phys
+
+    CC --> SOT
+    SOT --> G1O
+    SOT --> HC
+    G1O --> DDS
+    HC --> DRV
+
+    SUP -.->|"FAULT_HOLD"| G1O
+    SUP -.->|"FAULT_HOLD"| HC
+    SUP -.-> SOT
+    G1O -.->|"state"| SUP
+    HC -.->|"diagnostics"| SUP
+
+    OP ==>|"cuts power, relieves force"| DDS
+    OP ==>|"cuts power, relieves force"| DRV
+
+    classDef phys fill:#c0392b,stroke:#7b241c,color:#fff
+```
+
+Reading the two diagrams together: Layers 0 and 3 are the boxes that only
+appear in supervision (dashed above); Layers 1 and 2 are the same data-path
+boxes as the pipeline diagram, carrying their own guards. Layer 4 reaches
+every powered box directly.
+
+Two things the drawing makes explicit. Layer 1 keeps holding safely with
+every dashed edge cut, so no software stop needs a healthy supervisor. And
+Layer 4 is the only layer that can *reduce* force: every software layer holds
+position, which for a collision or effort-saturation fault sustains contact
+until a human intervenes.
+
 - **Layer 0, offline**: the conditioning gate. Cheapest place to stop a bad
   clip; produces the per-clip allowed speed.
 - **Layer 1, last software hop** (authoritative): the arm safety chain plus the
   always-on per-joint DDS clip; the hand q20 branch's clamps, rate limit, and
   staleness hold. These act even if everything else dies: stale input means
-  hold last command, never zero. `/soft_estop` lives here: operator-owned
-  (`run_ctl` publishes it latched), consumed directly by the arm node and both
-  hand nodes, no supervisor in the path.
+  hold last command, never zero. This is why no software stop path needs the
+  supervisor alive: cutting its edges leaves every device holding.
 - **Layer 2, device boundary**: driver behavior as-is plus the upstream PR;
   on the arm side, `rt/arm_sdk` with the onboard balance controller active
   (§2.3) and the weight semantics above.
-- **Layer 3, supervisor**: the §9 detector table. Divergence (measured vs the
-  post-limiter command, not the raw target), per-tick command jump, topic-age
-  watchdogs (lowstate 200 ms, hand states 100 ms, diagnostics 500 ms), hand
-  joint offline, error codes, effort saturation for over 1 s, temperature warn
-  and trip thresholds, mode_machine change and IMU drift as a balance proxy.
-  Thresholds are per-stage YAML profiles. Response is always FAULT_HOLD. Two
-  named gaps: no direct balance-alarm flag is exposed on lowstate, and
-  collision detection is a heuristic (effort spike plus deviation); the primary
-  defense for both is §7 stage ordering and the operator's eyes.
+- **Layer 3, supervisor**: only what the supervisor alone can see. Divergence
+  and per-device topic staleness stay at Layer 1, where they must act with the
+  supervisor dead; duplicating them here would mean two thresholds that can
+  disagree and two places to look when a fault fires. That leaves:
+  cross-device liveness, the alignment-barrier timeout, hand joint offline and
+  error codes, effort saturation for over 1 s, temperature warn and trip, and
+  mode_machine change (cheap, unambiguous, and the signal that the onboard
+  controller changed state under you). Response is always FAULT_HOLD. Named
+  gap: no direct balance-alarm flag is exposed on lowstate, and collision
+  detection is not a detector here at all, because effort saturation and
+  divergence each already trip independently and a real collision trips both.
+  Collision defense is §7 stage ordering and the operator's eyes.
 - **Layer 4, physical**: the operator e-stop. It is **the designed force-relief
   path for collision and effort-saturation faults**, because the software
   response is a position hold by design (§8 forbids zeroing commands). A
@@ -360,9 +682,8 @@ terminal, one hand on the physical e-stop.
 ## One clock
 
 One publisher stamps both devices' target streams from one timeline
-(t0 + i * dt_play) and latches the transport message (artifact sha256, for
-the log). The arm node and both hand nodes interpolate their stamped streams
-the same way. All processes run on one host, so one ROS clock. §10's unified
+(t0 + i * dt_play). The arm node and both hand nodes interpolate their
+stamped streams the same way. All processes run on one host, so one ROS clock. §10's unified
 monotonic timestamps are the bag's receive times, with the lowstate tick
 recorded in `/g1/status` for a DDS-side cross-check.
 
@@ -380,10 +701,15 @@ Run directory `~/wuji_runs/<UTC>_<sample>_<method>_<scale>_<scope>/`:
 run_manifest.json      clip, method, scale, scope, git SHA, image digests,
                        operator, threshold profile
 bag/                   mcap
-events.jsonl           live-written by the supervisor (survives bag loss)
-fault_log.jsonl        live-written                          (§10)
+events.jsonl           live-written by the supervisor, severity field
+                       (survives bag loss)
+fault_log.jsonl        post-run, the filtered view of events (§10)
 command_vs_actual.npz  post-run, make_artifacts.py           (§10)
-tracking_summary.json  per-joint RMSE, max error, lag, pass/fail
+tracking_summary.json  per-joint RMSE, max error, lag, pass/fail.
+                       Proposed pass criteria, unratified: zero faults,
+                       arm RMSE <= 0.15 rad and max error <= 0.35 rad,
+                       hand RMSE <= 0.15 rad, all comm ages inside
+                       watchdog bounds for the full clip
 real_run.mp4           operator camera; a start-marker event syncs it
 ```
 
@@ -403,9 +729,9 @@ and the **hand track** (both hands benchtop on the rig host). Combined runs
 
 | Stage | Gate in | Work | Gate out |
 |---|---|---|---|
-| 0: all-sim (runnable now) | none | `replay_sim.launch.py` collapses the manual terminals; conditioning over all 30 clips (determinism check, verdict table); full state-machine traversal; fault drills (kill publisher mid-run, inject stale input and a frame jump); **the hand q20 branch drives the MuJoCo hand model** via its joint_commands; assert arm commands piecewise-linear; same stream against `arm_type:=G1_23` dry-run | CI smoke green; artifacts generate and validate |
-| A: read-only (§7A) | rig host wired; physical e-stop present | arm `--read-only`; hands observed without motion commands; `collect_manifest.py`; 10 min comm soak; e-stop and watchdog physically tested | signed §7A checklist; `hardware_manifest.json`, `joint_mapping.json` |
-| B: single joint, supported (§7B) | A passed; G1 suspended or supported | `single_joint_test.py` through the supervisor: all 20+20 hand joints, then each arm joint; verify index, sign, zero, feedback agreement, current, temperature; verify the arm_sdk slot policy (legs unaffected, waist held); gain tuning | `stage_b_report.json` per device |
+| 0: all-sim (runnable now) | none | `replay_sim.launch.py` collapses the manual terminals; conditioning over all 30 clips (verdict table); full state-machine traversal; fault drills (kill publisher mid-run, inject stale input and a frame jump); **the hand q20 branch drives the MuJoCo hand model** via its joint_commands; assert arm commands piecewise-linear; §3.3 visual comparison against the bundle reference videos | CI smoke green; artifacts generate and validate |
+| A: read-only (§7A) | rig host wired; physical e-stop present | arm `--read-only`; hand track per the §7A limitation below; fill `hardware_manifest.json` from the template; 10 min comm soak; e-stop and watchdog physically tested, with their software-side effect recorded | signed §7A checklist; `hardware_manifest.json`, `joint_mapping.json` |
+| B: single joint, supported (§7B) | A passed; G1 suspended or supported | single-joint artifacts through the normal load path: all 20+20 hand joints, then each arm joint; verify index, sign, zero, feedback agreement, current, temperature; verify the arm_sdk slot policy (legs and waist unaffected); gain tuning | `stage_b_report.json` per device |
 | C: separate (§7C) | B passed on that track; first clip from `choose_first_clip.py` (01 excluded) | order: hands-left, hands-right, arms-left, arms-right, arms-both; step 6 combined is blocked on the adapter | scoped `tracking_summary.json` in bounds, zero faults, operator sign-off |
 | D: GT before Ours (§7D) | C scoped passes | enforced by the load gate, per track before the adapter, combined after | GT passing before any Ours, per sample |
 | E: slow then normal (§7E) | D passing at the current rung | ladder 0.25x, 0.5x, 1.0x; each rung capped by the per-clip allowed scale (FD peaks vs deploy limits); time redistribution only | §11 item 11 list. Arithmetic: sustained 7.8 to 17.2 rad/s against 3 to 6 rad/s proposed limits gives k of 2 to 6; spike clips stay wrist no-gos until regenerated |
@@ -413,63 +739,45 @@ and the **hand track** (both hands benchtop on the rig host). Combined runs
 
 ## DoF variant policy
 
-- **G1_29 is primary.** `arm_type: "G1_29"` is the default (5ce3ea8). The
-  bundle replays as recorded: 14 arm joints, wrist pitch/yaw included (rms
-  0.88 rad in the data, so this content matters).
-- **G1_23 stays supported** with zero extra plumbing: every hop matches joints
-  by name, and the arm node warns-and-ignores names its table lacks, so the
-  same 7-joint-per-side stream drives a 5-joint table. Known limitation:
-  wrist pitch/yaw content is dropped on the 23, so §3.3 palm-orientation
-  checks will differ; record it in the run manifest when a 23 rig is used.
-- Both composed models (`g1_29_wuji2*`, `g1_23_wuji2*`) live in
-  `g1_wuji2_description` for the §4 revalidation work once the real mount
-  transform is measured.
-
-## Answers to the 2026-08-26 questions
-
-M1: (1) 29 primary, 23 secondary, above. (2) Joint space; landed as
-`joint_replay` plus the safety chain. (3) Baked integer k per clip plus a run
-`speed_scale`, both time redistribution. (4) Do not trust `body_dq`; position
-FD only (measured 1.7x understatement). (5) Yes via the vendored retargeter,
-recorded as a named §3.1 deviation; revision confirmation blocked on hardware.
-(6) Waist measured all-zero; hold, topic name reserved, not implemented.
-(7) Curated limits YAML sourced from hardware_spec.md; uncommanded DoF are not
-written (slot policy). (8) Layer 1: node-level safety chain plus the always-on
-parametric DDS clip; hand q20-branch clamps. (9) Engage/approach/track/end_hold/
-park/release, §8 above; abort is FAULT_HOLD. (10) `condition_clip` and the
-supervisor live in the replay package; the hand q20 branch lives in the
-existing `wujihand_controller` node (controller package).
-
-M2: (1) joint_replay reaches DDS through the existing choke point; the 29
-controller landed in 5ce3ea8. (2) Weight: 0 to 1 over at least 2 s at the held
-measured pose on engage; untouched mid-run; 1 to 0 over at least 2 s at the
-park snapshot on release; frozen at its current value on a mid-engage fault.
-(3) `set_enabled` at ENGAGED after a clean preflight; mid-run fault holds,
-operator inspects, `reset_error`, rerun from start. (4) The physical e-stop,
-held by the operator; software never zeroes or auto-releases. (5) First clip
-and scale from `choose_first_clip.py` against the audits, at the per-clip
-allowed scale. (6) `command_vs_actual.npz` and `tracking_summary.json` against
-`rt/lowstate` and hand `joint_states`. (7) Proposed pass numbers, to ratify:
-zero faults; arm RMSE <= 0.15 rad and max error <= 0.35 rad; hand RMSE <=
-0.15 rad; all comm ages inside watchdog bounds for the full clip.
+`arm_type: "G1_29"` is the default (aae4638) and the bundle replays as
+recorded: 14 arm joints, wrist pitch/yaw included (rms 0.88 rad in the data,
+so this content matters). A 23-DoF rig should work with no extra plumbing,
+because every hop matches joints by name and the arm node warns-and-ignores
+names its table lacks, but that path is untested and out of scope for this
+campaign; wrist pitch/yaw content would be dropped. Both composed models
+(`g1_29_wuji2*`, `g1_23_wuji2*`) stay in `g1_wuji2_description` for the §4
+revalidation once the real mount transform is measured.
 
 ## Hard blockers
 
 1. **Mount adapter does not exist** (the vendor STL is a Hand v1 part).
    Blocks combined stages and the §4 flange-transform measurement.
-2. **Hand 2 revision, serials, firmware unconfirmed** (§2.2). Blocks the
-   retarget model pin and hand hardware stages beyond A.
+2. **Hand 2 serials and firmware unconfirmed** (§2.2). Blocks hand hardware
+   stages beyond A. No longer blocks the retarget model: Beta 1 and Beta 2 are
+   kinematically identical, so the shipped Beta 2 URDF is correct either way
+   (§3.1 note). The revision still decides the firmware line, since v2.0.0
+   targets Beta 2 and Beta 1 does not receive it.
 3. **G1 identity unrecorded** (firmware, SDK commit, onboard mode hosting
    arm_sdk; §6). Gate for any DDS write; waist-hold-under-arm_sdk behavior
    unverified on this firmware.
 4. **Wrist branch flips** in several clips need upstream regeneration or a
    per-clip wrist no-go; a decision with the trajectory authors.
-5. **Official deployment limits unrecorded** (§6); screening-derived values
-   govern until then, and 1.0x may be unreachable for spiky clips.
+5. **Official deployment limits and acceleration limits unrecorded** (§6);
+   screening-derived values govern until then, and 1.0x may be unreachable for
+   spiky clips. Narrowed 2026-08-28: per-joint position, velocity and torque
+   **ceilings** are sourced from Unitree's published URDF and already vendored
+   (component 1). What is missing is the deployment cap, which is a rig
+   decision, and acceleration, which no URDF carries.
 
 ## Out of scope
 
 Teleop (spec_2), the camera pipeline (operator camera covers `real_run.mp4`),
 any change to the balance or whole-body controller, pause/resume, waist
-command mode, the driver fork (upstream PR first), autonomous return-to-neutral
-beyond the park slew, and monitor GUI changes.
+command mode, the 23-DoF hardware path, monitor GUI changes, and any
+effort/temperature guard on the hand end-of-run pose (position-controlled
+replay does not load the servos enough to warrant it; the hands slew to a
+neutral pose at clip end under approach limits, per §8's "return smoothly to
+a safe pose"). The upstream
+`wujihand_driver` PR (named-path zero-fill, real clamps, command-age
+diagnostic, observe mode) is out-of-band work: the design does not depend on
+it, since unnamed full-20 commands cannot trip the zero-fill.
