@@ -16,6 +16,15 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>python3-scipy</depend>
+  <depend>python3-yaml</depend>
+  <!-- Offline conditioning imports the limits loaders from these packages
+       (g1_world_output.replay_safety, wujihand_output.hand_safety) and the
+       qpos permutation from wujihand_output.wujihand_controller. All are
+       import-light (numpy + yaml); no DDS or IK is pulled in. -->
+  <exec_depend>g1_world_output</exec_depend>
+  <exec_depend>wujihand_output</exec_depend>
 
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
