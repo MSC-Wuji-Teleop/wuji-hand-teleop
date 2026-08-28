@@ -10,10 +10,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/templates',
+            ['templates/hardware_manifest_template.json']),
     ],
     install_requires=[
         'setuptools',
         'numpy',
+        'scipy',   # PCHIP retime in conditioning (hand q20 -> arm grid)
+        'PyYAML',
     ],
     zip_safe=True,
     maintainer='Nathan Jew',
@@ -24,6 +28,11 @@ setup(
     entry_points={
         'console_scripts': [
             'replay_publisher = replay.replay_publisher:main',
+            'condition_clip = replay.condition_clip:main',
+            'supervisor = replay.supervisor:main',
+            'run_ctl = replay.run_ctl:main',
+            'choose_first_clip = replay.choose_first_clip:main',
+            'make_artifacts = replay.make_artifacts:main',
         ],
     },
 )
