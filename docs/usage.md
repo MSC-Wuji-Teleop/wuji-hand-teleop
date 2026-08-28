@@ -159,9 +159,11 @@ docker compose run --rm --name g1-world-output g1_world_output \
     dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
 
 # terminal 2 + 3 — hand controllers on the keypoints topic (teleop container).
-# /tmp/replay.yaml needs one line:  input_source: "keypoints_topic"
-ros2 run controller wujihand_controller --side left  -c /tmp/replay.yaml
-ros2 run controller wujihand_controller --side right -c /tmp/replay.yaml
+# wujihand_ik_replay.yaml is tracked in the repo (input_source: keypoints_topic)
+ros2 run controller wujihand_controller --side left \
+    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
+ros2 run controller wujihand_controller --side right \
+    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
 
 # terminal 4 — viewer on the 29-DoF model (teleop container)
 python3 src/output_devices/g1_world_output/scripts/mujoco_visualizer.py \
