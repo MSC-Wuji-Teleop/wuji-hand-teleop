@@ -1,6 +1,7 @@
-"""g1_world_output — Unitree G1_23 arm output for PICO teleoperation.
+"""g1_world_output — Unitree G1 arm output node.
 
-Subscribes to the same chest-frame pose topics as tianji_world_output,
-remaps into the G1 pelvis frame, then runs Pinocchio/Casadi IK and DDS
-arm control (5 DoF per arm).
+Three modes: 'pose' remaps chest-frame targets into the pelvis frame and
+solves Pinocchio/CasADi IK; 'joint_replay' takes named joint targets and
+skips IK; 'idle' holds position. Output goes over Unitree SDK2 DDS, which
+is G1_23 only (5 DoF per arm).
 """

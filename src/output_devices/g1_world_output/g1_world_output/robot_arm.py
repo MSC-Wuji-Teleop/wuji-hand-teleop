@@ -1,8 +1,10 @@
 """
-Unitree G1_23 dual-arm DDS controller.
+Unitree G1 arm DDS controller, plus the shared arm joint-name tables.
 
-G1_23 LowCmd / LowState arm control over Unitree SDK2 DDS.
-5 DoF per arm (shoulder pitch/roll/yaw, elbow, wrist roll) = 10 total.
+G1_23_ArmController drives 5 DoF per arm (10 total) over Unitree SDK2 DDS
+LowCmd / LowState. ARM_JOINT_NAMES_BY_TYPE also carries the G1_29 layout
+(7 DoF per arm), which has no DDS controller and serves the name-matched
+joint_replay/sim path only.
 
 Adapted from Unitree's public G1 arm DDS example code (unitreerobotics/
 unitree_sdk2_python / xr_teleoperate reference scripts) -- class/method
