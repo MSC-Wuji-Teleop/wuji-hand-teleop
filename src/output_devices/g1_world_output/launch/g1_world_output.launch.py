@@ -43,6 +43,13 @@ def generate_launch_description() -> LaunchDescription:
         description="'G1_29' (the rig's robot; 7 DoF/arm, joint_replay + DDS) or "
                      "'G1_23' (5 DoF/arm; the only variant with pose-IK support).",
     )
+    read_only_arg = DeclareLaunchArgument(
+        "read_only", default_value="false",
+        description="Stage A (TUITION 7A): subscribe lowstate and publish "
+                     "joint_states//g1/imu//g1/status; never construct the DDS "
+                     "writer, never touch the arm_sdk weight, refuse every "
+                     "motion service.",
+    )
 
     g1_world_output_node = Node(
         package="g1_world_output",
@@ -60,6 +67,7 @@ def generate_launch_description() -> LaunchDescription:
             "dry_run": ParameterValue(LaunchConfiguration("dry_run"), value_type=bool),
             "mode": ParameterValue(LaunchConfiguration("mode"), value_type=str),
             "arm_type": ParameterValue(LaunchConfiguration("arm_type"), value_type=str),
+            "read_only": ParameterValue(LaunchConfiguration("read_only"), value_type=bool),
         }],
     )
 
@@ -70,5 +78,6 @@ def generate_launch_description() -> LaunchDescription:
         dry_run_arg,
         mode_arg,
         arm_type_arg,
+        read_only_arg,
         g1_world_output_node,
     ])

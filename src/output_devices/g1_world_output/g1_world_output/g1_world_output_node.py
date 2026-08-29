@@ -135,6 +135,15 @@ class G1WorldOutputNode(Node):
         self.declare_parameter('engage_ramp_s', 2.0)
         self.declare_parameter('release_ramp_s', 2.0)
         self.declare_parameter('engage_fresh_ticks', 50)
+        # Completion thresholds, tunable on-site without a code edit:
+        # approach_done_err must exceed the arm's static tracking error
+        # under gravity at the configured gains, or approach never
+        # completes and the barrier times out.
+        self.declare_parameter('engage_dq_max', 0.05)
+        self.declare_parameter('approach_done_err', 0.05)
+        self.declare_parameter('approach_done_dq', 0.05)
+        self.declare_parameter('end_hold_dq', 0.05)
+        self.declare_parameter('end_hold_confirm_s', 1.0)
 
         arm_type = str(self.get_parameter('arm_type').value)
         control_rate = float(self.get_parameter('control_rate').value)
@@ -220,7 +229,12 @@ class G1WorldOutputNode(Node):
                 engage_ramp_s=max(2.0, float(self.get_parameter('engage_ramp_s').value)),
                 release_ramp_s=max(2.0, float(self.get_parameter('release_ramp_s').value)),
                 engage_fresh_ticks=int(self.get_parameter('engage_fresh_ticks').value),
+                engage_dq_max=float(self.get_parameter('engage_dq_max').value),
                 lowstate_staleness_s=float(self.get_parameter('lowstate_staleness_s').value),
+                approach_done_err=float(self.get_parameter('approach_done_err').value),
+                approach_done_dq=float(self.get_parameter('approach_done_dq').value),
+                end_hold_dq=float(self.get_parameter('end_hold_dq').value),
+                end_hold_confirm_s=float(self.get_parameter('end_hold_confirm_s').value),
                 sim=dry_run,
             ),
         )
