@@ -184,6 +184,11 @@ class TestApproachTrack:
         assert fsm.state is DeviceState.READY
         assert out.weight == 0.0
         assert fsm.snapshot is None
+        # Done-flags must not leak into the next run: the supervisor's arm
+        # sequence trusts status and would skip engage/approach, leaving
+        # track refused (found by the sweep-test second-run traversal).
+        assert fsm.status()['engage_done'] is False
+        assert fsm.status()['approach_done'] is False
 
     def test_scoped_side_holds_snapshot_constant(self):
         # Only the left stream is fresh; the right side must stay at its

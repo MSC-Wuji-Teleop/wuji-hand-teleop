@@ -555,7 +555,15 @@ class G1WorldOutputNode(Node):
         except Exception:
             return
         if q is None:
-            return
+            # dry_run has no DDS lowstate: synthesize measured := command,
+            # the same convention the FSM uses internally in sim, so the
+            # joint_states topic (and the bag / make_artifacts /
+            # tracking_summary evidence chain) exists in the all-sim gate.
+            fsm = getattr(self, '_fsm', None)
+            if not (self._dry_run and fsm is not None and fsm.cmd is not None):
+                return
+            q = fsm.cmd
+            dq = tau = np.zeros_like(q)
         d = self._dof_side
         stamp = self.get_clock().now().to_msg()
         self.left_state_pub.publish(self._make_arm_joint_state(

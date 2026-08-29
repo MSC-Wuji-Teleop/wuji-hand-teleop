@@ -310,6 +310,8 @@ class ArmDeviceFSM:
             self.cmd = None
             self.snapshot = None
             self._fresh_streak = 0
+            self._engage_done = False
+            self._approach_done = False
             return self._output(inputs)
 
         # Engage-gate freshness streak (counted in ready only).
@@ -399,6 +401,12 @@ class ArmDeviceFSM:
                 self.cmd = None
                 self.snapshot = None
                 self._fresh_streak = 0
+                # Stale done-flags must not survive into the next run: the
+                # supervisor's arm sequence trusts them and would skip
+                # engage/approach, leaving track refused (found by the
+                # sweep-test second-run traversal).
+                self._engage_done = False
+                self._approach_done = False
 
         return self._output(inputs)
 
