@@ -187,6 +187,10 @@ Stage 0 gate checklist is [spec/spec_1_stage0.md](spec/spec_1_stage0.md).
 
 ## Hardware replay
 
+**The step-by-step operator runbook, per bring-up stage, is
+[spec/spec_1_bringup.md](spec/spec_1_bringup.md)** (fill-in checklist,
+per-stage commands, debug blocks). This section is the short orientation.
+
 Replaying a conditioned clip on the real G1 and both Wuji Hand 2 units. The
 software pipeline is built per [spec_1](spec/spec_1.md) (runtime contracts:
 [spec_1_interfaces](spec/spec_1_interfaces.md)): offline conditioning with
