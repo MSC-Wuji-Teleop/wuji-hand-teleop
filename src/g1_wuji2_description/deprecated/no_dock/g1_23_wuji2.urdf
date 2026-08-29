@@ -776,10 +776,32 @@
     </collision>
   </link>
   <joint name="left_wuji_mount_joint" type="fixed">
-    <origin xyz="0.00375 0 0" rpy="0 -1.5707963267948966 0" />
-    <parent link="left_hand_dock" />
+    <origin xyz="0.122 0.003 0.0" rpy="0 -1.5707963267948966 0" />
+    <parent link="left_wrist_roll_rubber_hand" />
     <child link="left_wuji_l_mount" />
   </joint>
+  <link name="left_wuji_l_mount">
+    <inertial>
+      <origin xyz="-0.00285741697914718 0.00108288053431767 -0.0169808713459416" rpy="0 0 0" />
+      <mass value="0.069" />
+      <inertia ixx="1.88365122313648e-05" ixy="4.89774353038097e-07" ixz="-3.61925327666321e-06" iyy="2.51530310830588e-05" iyz="6.19512991940014e-07" izz="2.40568066368163e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/wuji/left/l_mount.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.627450980392157 0.627450980392157 0.627450980392157 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/wuji/left/l_mount.STL" />
+      </geometry>
+    </collision>
+  </link>
   <link name="left_wuji_l_wrist">
     <inertial>
       <origin xyz="-0.00354846481180995 0.00346683963964194 -0.0356860644390601" rpy="0 0 0" />
@@ -802,6 +824,11 @@
       </geometry>
     </collision>
   </link>
+  <joint name="left_wuji_l_wrist_fixed" type="fixed">
+    <origin xyz="0.003 -0.00030011 -0.0285" rpy="0 0 0" />
+    <parent link="left_wuji_l_mount" />
+    <child link="left_wuji_l_wrist" />
+  </joint>
   <link name="left_wuji_l_thumb_proximal">
     <inertial>
       <origin xyz="0.00079122509322412 0.00178311370157685 -0.0070198628440797" rpy="0 0 0" />
@@ -1548,10 +1575,32 @@
     <child link="left_wuji_l_pinky_tip_sensor_frame" />
   </joint>
   <joint name="right_wuji_mount_joint" type="fixed">
-    <origin xyz="0.00375 0 0" rpy="0 -1.5707963267948966 0" />
-    <parent link="right_hand_dock" />
+    <origin xyz="0.122 -0.003 0.0" rpy="0 -1.5707963267948966 0" />
+    <parent link="right_wrist_roll_rubber_hand" />
     <child link="right_wuji_r_mount" />
   </joint>
+  <link name="right_wuji_r_mount">
+    <inertial>
+      <origin xyz="-0.00285955798828514 -0.00108266456258402 -0.0169824080918136" rpy="0 0 0" />
+      <mass value="0.069" />
+      <inertia ixx="1.88383383719118e-05" ixy="-4.89630318986146e-07" ixz="-3.62094690649355e-06" iyy="2.51546999610975e-05" iyz="-6.20117672157845e-07" izz="2.40566043667912e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/wuji/right/r_mount.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.627450980392157 0.627450980392157 0.627450980392157 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/wuji/right/r_mount.STL" />
+      </geometry>
+    </collision>
+  </link>
   <link name="right_wuji_r_wrist">
     <inertial>
       <origin xyz="-0.00354289960216114 -0.00346747236064104 -0.0356950477107829" rpy="0 0 0" />
@@ -1574,6 +1623,11 @@
       </geometry>
     </collision>
   </link>
+  <joint name="right_wuji_r_wrist_fixed" type="fixed">
+    <origin xyz="0.003 0.00025016 -0.0285" rpy="0 0 1.6399E-05" />
+    <parent link="right_wuji_r_mount" />
+    <child link="right_wuji_r_wrist" />
+  </joint>
   <link name="right_wuji_r_thumb_proximal">
     <inertial>
       <origin xyz="0.000853657429950494 -0.00195618452655939 -0.0073180857322072" rpy="0 0 0" />
@@ -2318,101 +2372,5 @@
     <origin xyz="0 0 0" rpy="0 0 0" />
     <parent link="right_wuji_r_pinky_distal" />
     <child link="right_wuji_r_pinky_tip_sensor_frame" />
-  </joint>
-  <link name="left_hand_dock">
-    <inertial>
-      <origin xyz="0.00131483 0.00000025 0.00000016" rpy="0 0 0" />
-      <mass value="0.01136153" />
-      <inertia ixx="0.000002342076" ixy="0.000000000000" ixz="0.000000000000" iyy="0.000001865220" iyz="0.000000000000" izz="0.000000846662" />
-    </inertial>
-    <visual>
-      <origin xyz="-0.00275 0 0" rpy="0 0 -1.5707963267948966" />
-      <geometry>
-        <mesh filename="meshes/g1-hand-dock.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="-0.00275 0 0" rpy="0 0 -1.5707963267948966" />
-      <geometry>
-        <mesh filename="meshes/g1-hand-dock.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="left_hand_dock_joint" type="fixed">
-    <origin xyz="0.122 0.003 0.0" rpy="0 0 0" />
-    <parent link="left_wrist_roll_rubber_hand" />
-    <child link="left_hand_dock" />
-  </joint>
-  <link name="left_wuji_l_mount">
-    <inertial>
-      <origin xyz="-0.00285741697914718 0.00108288053431767 -0.0169808713459416" rpy="0 0 0" />
-      <mass value="0.069" />
-      <inertia ixx="1.88365122313648e-05" ixy="4.89774353038097e-07" ixz="-3.61925327666321e-06" iyy="2.51530310830588e-05" iyz="6.19512991940014e-07" izz="2.40568066368163e-05" />
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/wuji/left/l_mount.STL" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/wuji/left/l_mount.STL" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="left_wuji_l_wrist_fixed" type="fixed">
-    <origin xyz="0.003 -0.00030011 -0.0285" rpy="0 0 0" />
-    <parent link="left_wuji_l_mount" />
-    <child link="left_wuji_l_wrist" />
-  </joint>
-  <link name="right_hand_dock">
-    <inertial>
-      <origin xyz="0.00131483 0.00000025 0.00000016" rpy="0 0 0" />
-      <mass value="0.01136153" />
-      <inertia ixx="0.000002342076" ixy="0.000000000000" ixz="0.000000000000" iyy="0.000001865220" iyz="0.000000000000" izz="0.000000846662" />
-    </inertial>
-    <visual>
-      <origin xyz="-0.00275 0 0" rpy="0 0 -1.5707963267948966" />
-      <geometry>
-        <mesh filename="meshes/g1-hand-dock.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="-0.00275 0 0" rpy="0 0 -1.5707963267948966" />
-      <geometry>
-        <mesh filename="meshes/g1-hand-dock.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="right_hand_dock_joint" type="fixed">
-    <origin xyz="0.122 -0.003 0.0" rpy="0 0 0" />
-    <parent link="right_wrist_roll_rubber_hand" />
-    <child link="right_hand_dock" />
-  </joint>
-  <link name="right_wuji_r_mount">
-    <inertial>
-      <origin xyz="-0.00285955798828514 -0.00108266456258402 -0.0169824080918136" rpy="0 0 0" />
-      <mass value="0.069" />
-      <inertia ixx="1.88383383719118e-05" ixy="-4.89630318986146e-07" ixz="-3.62094690649355e-06" iyy="2.51546999610975e-05" iyz="-6.20117672157845e-07" izz="2.40566043667912e-05" />
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/wuji/right/r_mount.STL" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="meshes/wuji/right/r_mount.STL" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="right_wuji_r_wrist_fixed" type="fixed">
-    <origin xyz="0.003 0.00025016 -0.0285" rpy="0 0 1.6399E-05" />
-    <parent link="right_wuji_r_mount" />
-    <child link="right_wuji_r_wrist" />
   </joint>
 </robot>
