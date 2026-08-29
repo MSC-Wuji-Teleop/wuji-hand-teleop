@@ -51,7 +51,9 @@ python3 -m pytest src/input_devices/replay/test \
 The Linux CI build passed, but the sim flow has not RUN anywhere yet. Run
 it once before hardware: [spec_1_stage0.md](spec_1_stage0.md) steps 2-5
 (conditioning sweep, one load/arm/start traversal in MuJoCo, the
-piecewise-linear assert). If the traversal works in sim, every gate,
+piecewise-linear assert) -- its step 3 carries the full transition-by-
+transition command set, which is the same operator sequence every
+hardware stage below uses. If the traversal works in sim, every gate,
 service name, and topic below is known-wired.
 
 While the sweep runs, note each clip's verdict, `k`, and
