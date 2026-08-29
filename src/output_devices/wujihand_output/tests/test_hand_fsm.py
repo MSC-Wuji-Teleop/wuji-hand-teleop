@@ -113,10 +113,74 @@ class TestTraversal:
                 break
         assert fsm.state is HandState.HOLD
         np.testing.assert_allclose(out.cmd, 0.0, atol=0.05)   # neutral
+        # approach_done must not leak into the next run: the supervisor's
+        # arm sequence trusts status and would skip this hand's approach,
+        # leaving track refused (found by the sweep-test second-run
+        # traversal).
+        assert fsm.status()['approach_done'] is False
         # And the next run can approach again.
         fsm.mark_target_input(now)
         ok, msg = fsm.request_approach()
         assert ok, msg
+
+    def test_release_acknowledges_parked_hand(self):
+        # Release has no weight to ramp: it succeeds on a parked (holding)
+        # hand, keeps the frozen command, and stays in hold.
+        fsm = make_fsm()
+        target = np.full(NUM_JOINTS, 0.1)
+        fsm.tick(inputs(0.0, q=target))
+        fsm.mark_target_input(0.0)
+        fsm.request_approach()
+        out = fsm.tick(inputs(DT, q=target, stream=target))
+        fsm.request_track()
+        fsm.request_end_hold()
+        fsm.request_park()
+        for i in range(3000):
+            now = 1.0 + i * DT
+            out = fsm.tick(inputs(now, q=out.cmd))
+            if fsm.state is HandState.HOLD:
+                break
+        assert fsm.state is HandState.HOLD
+        held = out.cmd.copy()
+        ok, msg = fsm.request_release()
+        assert ok and 'holding' in msg
+        assert fsm.state is HandState.HOLD
+        out = fsm.tick(inputs(now + DT, q=out.cmd))
+        np.testing.assert_array_equal(out.cmd, held)   # nothing zeroed
+
+    def test_release_refused_unless_parked(self):
+        fsm = make_fsm()
+        target = np.full(NUM_JOINTS, 0.1)
+        fsm.tick(inputs(0.0, q=target))
+        fsm.mark_target_input(0.0)
+        fsm.request_approach()
+        fsm.tick(inputs(DT, q=target, stream=target))
+        ok, msg = fsm.request_release()   # approach(stream), not parked
+        assert not ok and 'parked' in msg
+        fsm.request_track()
+        ok, msg = fsm.request_release()
+        assert not ok and 'is track' in msg
+        fsm.request_end_hold()
+        ok, msg = fsm.request_release()
+        assert not ok and 'is end_hold' in msg
+
+    def test_release_completes_park_finishing_this_tick(self):
+        # approach(neutral) with approach_done but before the tick that
+        # would flip to hold: release treats it as parked.
+        fsm = make_fsm()
+        target = np.full(NUM_JOINTS, 0.01)
+        fsm.tick(inputs(0.0, q=target))
+        fsm.mark_target_input(0.0)
+        fsm.request_approach()
+        fsm.tick(inputs(DT, q=target, stream=target))
+        fsm.request_track()
+        fsm.request_end_hold()
+        fsm.request_park()
+        fsm.state = HandState.APPROACH
+        fsm.approach_target_kind = 'neutral'
+        fsm._approach_done = True
+        ok, _ = fsm.request_release()
+        assert ok and fsm.state is HandState.HOLD
 
     def test_track_holds_on_stale_stream(self):
         fsm = make_fsm()

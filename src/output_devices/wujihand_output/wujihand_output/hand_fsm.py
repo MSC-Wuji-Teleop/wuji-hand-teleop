@@ -1,11 +1,13 @@
 """Hand q20 device state machine (spec_1 component 4). ROS-free.
 
-Four states, not the arm's seven: hold, approach, track, end_hold. Engage,
-park, and release exist on the arm only to manage the rt/arm_sdk weight;
-the hand has no weight and no onboard controller to hand back to. Park is
-an alias that re-enters approach with the configured neutral pose as the
-target (spec: hands slew to a neutral pose at clip end under approach
-limits, section 8 "return smoothly to a safe pose").
+Four states, not the arm's seven: hold, approach, track, end_hold. Engage
+exists on the arm only to manage the rt/arm_sdk weight; the hand has no
+weight and no onboard controller to hand back to. Park is an alias that
+re-enters approach with the configured neutral pose as the target (spec:
+hands slew to a neutral pose at clip end under approach limits, section 8
+"return smoothly to a safe pose"). Release is an acknowledgment only --
+it succeeds on a parked (holding) hand so the supervisor can fan release
+out to every in-scope device, and ramps nothing.
 
 Layer-1 duties carried here (they must act with the supervisor dead):
   - position clamp + per-joint rate limit on every command (deploy rows of
@@ -158,6 +160,29 @@ class HandDeviceFSM:
         self.events.append('park: approach re-entered with target = neutral')
         return True, 'parking to neutral'
 
+    def request_release(self):
+        """The hand has no weight: release only acknowledges a completed park.
+
+        Mirrors the arm's release gate so the supervisor can fan release out
+        to every in-scope device. A parked (holding) hand keeps holding its
+        frozen command -- nothing ramps down and nothing is zeroed.
+        """
+        if self.state is HandState.HOLD:
+            self.events.append('release: parked hand keeps holding '
+                               '(no weight to ramp)')
+            return True, 'released (holding)'
+        if (self.state is HandState.APPROACH
+                and self.approach_target_kind == 'neutral'
+                and self._approach_done):
+            # Park completing this very tick; equivalent to hold.
+            self.state = HandState.HOLD
+            self._approach_done = False  # never stale into the next run
+            self.events.append('release: parked hand keeps holding '
+                               '(no weight to ramp)')
+            return True, 'released (holding)'
+        return False, (f'release requires a parked hand (hold after park), '
+                       f'is {self.state.value}')
+
     def fault(self, reason: str):
         self.fault_info = {'reason': reason, 'state': self.state.value}
         self.state = HandState.FAULT
@@ -169,6 +194,7 @@ class HandDeviceFSM:
             return True, 'no fault latched'
         self.fault_info = None
         self.state = HandState.HOLD
+        self._approach_done = False  # never stale into the next run
         self.effort_guard.reset()
         self.events.append('fault cleared')
         return True, 'fault cleared'
@@ -255,6 +281,10 @@ class HandDeviceFSM:
                 # approach would refuse the next run's approach request
                 # (which requires hold/end_hold) and stall its barrier.
                 self.state = HandState.HOLD
+                # Stale approach_done must not survive into the next run:
+                # the supervisor's arm sequence trusts it and would skip
+                # this hand's approach, leaving track refused.
+                self._approach_done = False
                 self.events.append('park complete; holding neutral')
 
         elif self.state is HandState.TRACK:

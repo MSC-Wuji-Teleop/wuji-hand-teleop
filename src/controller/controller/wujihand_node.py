@@ -429,6 +429,7 @@ class WujiHandControllerNode(Node):
         for name, handler in (
             ('approach', self._srv_approach), ('track', self._srv_track),
             ('end_hold', self._srv_end_hold), ('park', self._srv_park),
+            ('release', self._srv_release),
             ('fault', self._srv_fault), ('clear_fault', self._srv_clear_fault),
         ):
             self.create_service(Trigger, f'~/{name}', handler)
@@ -586,6 +587,9 @@ class WujiHandControllerNode(Node):
 
     def _srv_park(self, request, response):
         return self._fsm_reply(self._fsm.request_park())
+
+    def _srv_release(self, request, response):
+        return self._fsm_reply(self._fsm.request_release())
 
     def _srv_fault(self, request, response):
         return self._fsm_reply(self._fsm.fault('external fault trigger'))
