@@ -93,6 +93,31 @@ class TestTraversal:
         step = np.abs(out.cmd - frozen)
         assert np.max(step) <= 4.0 * DT + 1e-9   # 4.0 rad/s cap
 
+    def test_park_completion_returns_to_hold(self):
+        # A parked hand must be re-approachable for the next clip: staying
+        # in approach would refuse the next run and stall its barrier.
+        fsm = make_fsm()
+        target = np.full(NUM_JOINTS, 0.1)
+        fsm.tick(inputs(0.0, q=target))
+        fsm.mark_target_input(0.0)
+        fsm.request_approach()
+        out = fsm.tick(inputs(DT, q=target, stream=target))
+        fsm.request_track()
+        fsm.request_end_hold()
+        ok, _ = fsm.request_park()
+        assert ok
+        for i in range(3000):
+            now = 1.0 + i * DT
+            out = fsm.tick(inputs(now, q=out.cmd))
+            if fsm.state is HandState.HOLD:
+                break
+        assert fsm.state is HandState.HOLD
+        np.testing.assert_allclose(out.cmd, 0.0, atol=0.05)   # neutral
+        # And the next run can approach again.
+        fsm.mark_target_input(now)
+        ok, msg = fsm.request_approach()
+        assert ok, msg
+
     def test_track_holds_on_stale_stream(self):
         fsm = make_fsm()
         target = np.full(NUM_JOINTS, 0.1)

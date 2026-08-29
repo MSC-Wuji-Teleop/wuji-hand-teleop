@@ -250,6 +250,12 @@ class HandDeviceFSM:
             ref = measured if measured is not None else self.cmd
             self._max_target_error = float(np.max(np.abs(ref - target)))
             self._approach_done = self._max_target_error < self.cfg.approach_done_err
+            if self._approach_done and self.approach_target_kind == 'neutral':
+                # Park complete: a parked hand is a holding hand. Staying in
+                # approach would refuse the next run's approach request
+                # (which requires hold/end_hold) and stall its barrier.
+                self.state = HandState.HOLD
+                self.events.append('park complete; holding neutral')
 
         elif self.state is HandState.TRACK:
             stale = self.target_staleness.is_stale(inputs.now)
