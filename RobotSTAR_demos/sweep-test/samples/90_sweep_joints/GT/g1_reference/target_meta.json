@@ -1,0 +1,130 @@
+{
+ "donor_sample": "samples/05_test_G42xKICVj9U_5-5-rgb_front/GT",
+ "frames": 1029,
+ "generated": "2026-08-29T20:34:04.877909+00:00",
+ "generator": "RobotSTAR_demos/sweep-test/generate_sweep_sample.py",
+ "joint_actuator_order": {
+  "body_actuators": [
+   "left_hip_pitch",
+   "left_hip_roll",
+   "left_hip_yaw",
+   "left_knee",
+   "left_ankle_pitch",
+   "left_ankle_roll",
+   "right_hip_pitch",
+   "right_hip_roll",
+   "right_hip_yaw",
+   "right_knee",
+   "right_ankle_pitch",
+   "right_ankle_roll",
+   "waist_yaw",
+   "waist_roll",
+   "waist_pitch",
+   "left_shoulder_pitch",
+   "left_shoulder_roll",
+   "left_shoulder_yaw",
+   "left_elbow",
+   "left_wrist_roll",
+   "left_wrist_pitch",
+   "left_wrist_yaw",
+   "right_shoulder_pitch",
+   "right_shoulder_roll",
+   "right_shoulder_yaw",
+   "right_elbow",
+   "right_wrist_roll",
+   "right_wrist_pitch",
+   "right_wrist_yaw"
+  ]
+ },
+ "max_arm_velocity_rad_s": 0.24997175052190526,
+ "safe_timing_at_requested_scale": true,
+ "sweep": {
+  "arm_amplitude_cap_rad": 0.2,
+  "arm_amplitudes_rad": {
+   "left_elbow": 0.2,
+   "left_shoulder_pitch": -0.2,
+   "left_shoulder_roll": 0.2,
+   "left_shoulder_yaw": 0.2,
+   "left_wrist_pitch": 0.2,
+   "left_wrist_roll": 0.2,
+   "left_wrist_yaw": 0.2,
+   "right_elbow": 0.2,
+   "right_shoulder_pitch": -0.2,
+   "right_shoulder_roll": -0.2,
+   "right_shoulder_yaw": 0.2,
+   "right_wrist_pitch": 0.2,
+   "right_wrist_roll": 0.2,
+   "right_wrist_yaw": 0.2
+  },
+  "hand_blend": {
+   "left": {
+    "fraction": 0.6,
+    "target": "argmax"
+   },
+   "right": {
+    "fraction": 0.5,
+    "target": "median"
+   }
+  },
+  "hand_cycle_s": 6.0,
+  "headroom": 0.5,
+  "hold_s": 0.5,
+  "position_margin": 0.1,
+  "segments": [
+   {
+    "end_frame": 152,
+    "group": "left_arm",
+    "joints": [
+     "left_shoulder_pitch",
+     "left_shoulder_roll",
+     "left_shoulder_yaw",
+     "left_elbow",
+     "left_wrist_roll",
+     "left_wrist_pitch",
+     "left_wrist_yaw"
+    ],
+    "phase": "arms",
+    "start_frame": 25
+   },
+   {
+    "end_frame": 304,
+    "group": "right_arm",
+    "joints": [
+     "right_shoulder_pitch",
+     "right_shoulder_roll",
+     "right_shoulder_yaw",
+     "right_elbow",
+     "right_wrist_roll",
+     "right_wrist_pitch",
+     "right_wrist_yaw"
+    ],
+    "phase": "arms",
+    "start_frame": 177
+   },
+   {
+    "end_frame": 679,
+    "group": "left_hand",
+    "joints": "thumb keypoint blend, {'target': 'argmax', 'fraction': 0.6}",
+    "phase": "hands",
+    "start_frame": 379
+   },
+   {
+    "end_frame": 1004,
+    "group": "right_hand",
+    "joints": "thumb keypoint blend, {'target': 'median', 'fraction': 0.5}",
+    "phase": "hands",
+    "start_frame": 704
+   }
+  ],
+  "stop_s": 1.0,
+  "thumb_keypoints": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "target_fps": 50.0,
+ "time_scale": 1,
+ "version": "sweep-test/4"
+}
