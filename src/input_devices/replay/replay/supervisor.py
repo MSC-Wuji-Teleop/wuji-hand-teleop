@@ -58,6 +58,7 @@ from replay.run_gates import (
     check_load_gates,
     fault_actions,
     load_run_history,
+    release_gate_problems,
     start_actions,
 )
 
@@ -101,6 +102,10 @@ class SupervisorNode(Node):
         # False for sim profiles (no wujihand driver): hand_diagnostics
         # liveness is not demanded by Layer 3.
         self.declare_parameter('expect_hand_diagnostics', True)
+        # Sim-only fault-injection drills (mirrors the publisher's
+        # --force-sim): load-gate problems are logged and bypassed instead
+        # of refused. NEVER with hardware attached.
+        self.declare_parameter('force_sim', False)
 
         self.run_state = RunState.IDLE
         self.request: Optional[SupervisorLoadRequest] = None
@@ -155,8 +160,10 @@ class SupervisorNode(Node):
         ):
             self.create_service(Trigger, f'~/{name}', handler)
 
-        # Async service clients, created lazily per (target, service).
-        self._clients = {}
+        # Async Trigger clients, created lazily per (target, service).
+        # NOT named _clients: that attribute is rclpy.Node's own client
+        # list, and shadowing it breaks create_client.
+        self._trigger_clients = {}
         self._param_client = self.create_client(
             SetParameters, f"{TARGET_NODES['replay']}/set_parameters")
 
@@ -204,8 +211,14 @@ class SupervisorNode(Node):
         }
         line = json.dumps(record, sort_keys=True)
         log = self.get_logger()
-        (log.error if severity in ('fault', 'error') else log.info)(
-            f'{severity}: {event}' + (f' -- {detail}' if detail else ''))
+        text = f'{severity}: {event}' + (f' -- {detail}' if detail else '')
+        # Two call sites on purpose: rclpy pins a fixed severity per call
+        # site, so one shared line raises "Logger severity cannot be
+        # changed between calls" the first time severity flips.
+        if severity in ('fault', 'error'):
+            log.error(text)
+        else:
+            log.info(text)
         msg = String()
         msg.data = line
         self.events_pub.publish(msg)
@@ -220,10 +233,10 @@ class SupervisorNode(Node):
     def _call(self, target: str, service: str) -> None:
         """Fire an async Trigger call; result arrives as an event."""
         key = (target, service)
-        if key not in self._clients:
-            self._clients[key] = self.create_client(
+        if key not in self._trigger_clients:
+            self._trigger_clients[key] = self.create_client(
                 Trigger, f'{TARGET_NODES[target]}/{service}')
-        client = self._clients[key]
+        client = self._trigger_clients[key]
         if not client.service_is_ready():
             self._event('warn', f'{target}/{service} service not ready')
             return
@@ -261,16 +274,20 @@ class SupervisorNode(Node):
             return self._reply(False, 'RUNNING: stop or finish before loading')
         raw = str(self.get_parameter('load_request').value)
         runs_dir = Path(str(self.get_parameter('runs_dir').value)).expanduser()
+        force_sim = bool(self.get_parameter('force_sim').value)
         try:
             req = SupervisorLoadRequest.from_json(raw)
             clip = load_artifact(req.clip)
-            check_load_gates(
+            bypassed = check_load_gates(
                 req, clip.meta, str(self.get_parameter('arm_type').value),
-                load_run_history(runs_dir),
+                load_run_history(runs_dir), force_sim=force_sim,
             )
         except (GateError, ArtifactError, OSError) as exc:
             self._event('error', 'load refused', str(exc))
             return self._reply(False, str(exc))
+        if bypassed:
+            self._event('warn', 'force_sim: load gates BYPASSED (sim only, '
+                                'never with hardware attached)', bypassed)
 
         self.request = req
         self.clip_meta = clip.meta
@@ -355,17 +372,31 @@ class SupervisorNode(Node):
         return self._reply(True, 'parking')
 
     def _srv_release(self, request, response) -> Trigger.Response:
+        # Refuse until every in-scope device is parked (arm at its engage
+        # snapshot, hands holding after park), so the reply reflects what
+        # will actually happen instead of deferring the refusal to an
+        # async device error on /run/events.
+        snapshots = self._snapshots()
+        problems = release_gate_problems(self.scope, snapshots)
+        if problems:
+            msg = '; '.join(problems)
+            self._event('error', 'release refused', msg)
+            return self._reply(False, msg)
         actions = []
-        if self.scope.get('arms'):
+        g1 = (snapshots.get('g1') or {}).get('data') or {}
+        if self.scope.get('arms') and g1.get('fsm_state') != 'ready':
             actions.append(('g1', 'release'))
+        for side in self.scope.get('hands', []):
+            actions.append((f'{side}_hand', 'release'))
         self._execute(actions)
         self._event('info', 'release requested')
         # The run dir and bag close when the release COMPLETES (arm back
         # to ready, weight 0), observed in the tick -- closing here would
         # truncate the bag before the >= 2 s ramp and stop recording while
-        # the arm is still powered.
+        # the arm is still powered. Hands have no weight: their release is
+        # an immediate acknowledgment and never delays the close.
         self._release_pending = True
-        if not self.scope.get('arms'):
+        if not self.scope.get('arms') or g1.get('fsm_state') == 'ready':
             self._finish_release()
         return self._reply(True, 'releasing; bag closes when the arm is back to ready')
 
@@ -475,6 +506,7 @@ class SupervisorNode(Node):
             'run_dir': None if self._run_dir is None else str(self._run_dir),
             'devices': device_fields,
             'arm_seq': None if self.arm_seq is None else self.arm_seq.state.value,
+            'force_sim': bool(self.get_parameter('force_sim').value),
         }
         msg = String()
         msg.data = json.dumps(payload, sort_keys=True)
@@ -515,6 +547,7 @@ class SupervisorNode(Node):
             'image_digest': None,  # recorded by the operator until the
                                    # containers expose digests at runtime
             'arm_type': str(self.get_parameter('arm_type').value),
+            'force_sim': bool(self.get_parameter('force_sim').value),
             'threshold_profile': {
                 'liveness_timeout_s': float(self.get_parameter('liveness_timeout_s').value),
                 'temp_warn_c': float(self.get_parameter('temp_warn_c').value),

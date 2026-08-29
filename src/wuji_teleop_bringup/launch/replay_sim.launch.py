@@ -27,8 +27,9 @@ Then drive the run from a second teleop-container terminal:
 Launch arguments:
     viewer:=true|false        MuJoCo window (false = headless smoke)
     record_bag:=false|true    supervisor rosbag recording (sim default off)
-    force_sim:=false|true     publisher bypasses load gates (fault-injection
-                              drills only)
+    force_sim:=false|true     publisher AND supervisor bypass load gates
+                              (fault-injection drills only; never with
+                              hardware attached)
 """
 
 from pathlib import Path
@@ -96,7 +97,11 @@ def generate_launch_description():
             parameters=[{'record_bag': record_bag,
                          # sim: no wujihand driver, so Layer 3 must not
                          # demand hand_diagnostics liveness
-                         'expect_hand_diagnostics': False}],
+                         'expect_hand_diagnostics': False,
+                         # one launch arg arms BOTH bypasses: the publisher
+                         # gets --force-sim, the supervisor logs-and-bypasses
+                         # its load gates (drill 6d)
+                         'force_sim': force_sim}],
         ),
         ExecuteProcess(
             cmd=['python3', viz_script, '--mjcf', mjcf],

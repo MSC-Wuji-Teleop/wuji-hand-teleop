@@ -15,6 +15,7 @@ from replay.run_gates import (
     check_load_gates,
     fault_actions,
     load_run_history,
+    release_gate_problems,
     start_actions,
 )
 
@@ -94,6 +95,17 @@ class TestLoadGates:
             check_load_gates(req(), meta(hands_conditioned=False), 'G1_29', [])
         check_load_gates(req(hands=[]), meta(hands_conditioned=False), 'G1_29', [])
 
+    def test_force_sim_bypasses_and_reports(self):
+        # Sim-only drills (6d): problems come back instead of raising.
+        bypassed = check_load_gates(
+            req(speed_scale=1.0), meta(verdict='fail', max_allowed_speed_scale=0.5),
+            'G1_29', [], force_sim=True)
+        assert any('verdict' in p for p in bypassed)
+        assert any('max_allowed_speed_scale' in p for p in bypassed)
+
+    def test_force_sim_clean_load_reports_nothing(self):
+        assert check_load_gates(req(), meta(), 'G1_29', [], force_sim=True) == []
+
     def test_run_history_loader(self, tmp_path):
         run = tmp_path / '20260828T000000_03_GT_0.5_full'
         run.mkdir()
@@ -129,6 +141,66 @@ def healthy_snapshots(mode_machine=3):
         'left_hand_effort': {'age': 0.05, 'data': [0.2] * 20},
         'right_hand_effort': {'age': 0.05, 'data': [0.2] * 20},
     }
+
+
+class TestReleaseGate:
+    def parked(self):
+        return {
+            'g1': snap(fsm_state='approach', approach_target='snapshot',
+                       approach_done=True),
+            'left_hand': snap(fsm_state='hold'),
+            'right_hand': snap(fsm_state='hold'),
+        }
+
+    def test_all_parked_releases(self):
+        assert release_gate_problems(FULL_SCOPE, self.parked()) == []
+
+    def test_arm_ready_is_releasable(self):
+        # Never engaged / already released: nothing to ramp down.
+        snaps = self.parked()
+        snaps['g1'] = snap(fsm_state='ready')
+        assert release_gate_problems(FULL_SCOPE, snaps) == []
+
+    def test_arm_not_parked_refused(self):
+        for state in ('track', 'end_hold', 'engage'):
+            snaps = self.parked()
+            snaps['g1'] = snap(fsm_state=state)
+            problems = release_gate_problems(FULL_SCOPE, snaps)
+            assert problems and 'parked at its engage snapshot' in problems[0]
+
+    def test_arm_approach_not_done_refused(self):
+        snaps = self.parked()
+        snaps['g1'] = snap(fsm_state='approach', approach_target='snapshot',
+                           approach_done=False)
+        assert release_gate_problems(FULL_SCOPE, snaps)
+
+    def test_release_in_progress_refused(self):
+        snaps = self.parked()
+        snaps['g1'] = snap(fsm_state='release')
+        problems = release_gate_problems(FULL_SCOPE, snaps)
+        assert problems == ['release already in progress (weight ramping down)']
+
+    def test_hand_not_parked_refused(self):
+        snaps = self.parked()
+        snaps['left_hand'] = snap(fsm_state='track')
+        problems = release_gate_problems(FULL_SCOPE, snaps)
+        assert problems and 'left hand parked' in problems[0]
+
+    def test_hand_park_completing_this_tick_ok(self):
+        snaps = self.parked()
+        snaps['left_hand'] = snap(fsm_state='approach',
+                                  approach_target='neutral',
+                                  approach_done=True)
+        assert release_gate_problems(FULL_SCOPE, snaps) == []
+
+    def test_unseen_status_refused(self):
+        assert len(release_gate_problems(FULL_SCOPE, {})) == 3
+
+    def test_out_of_scope_devices_ignored(self):
+        # Hands-only run: the arm's absence gates nothing.
+        scope = {'arms': [], 'hands': ['left']}
+        snaps = {'left_hand': snap(fsm_state='hold')}
+        assert release_gate_problems(scope, snaps) == []
 
 
 class TestLayer3:

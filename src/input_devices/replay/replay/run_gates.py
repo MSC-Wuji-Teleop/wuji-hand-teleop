@@ -112,10 +112,16 @@ def check_load_gates(
     artifact_meta: dict,
     rig_arm_type: str,
     run_history: list,
-) -> None:
+    force_sim: bool = False,
+) -> list:
     """7D / 7F load preconditions. run_history is a list of dicts from
     prior runs' tracking_summary.json files:
-    {'sample', 'method', 'scope', 'speed_scale', 'pass'}."""
+    {'sample', 'method', 'scope', 'speed_scale', 'pass'}.
+
+    force_sim (sim-only fault-injection drills, mirrors the publisher's
+    --force-sim) collects the problems and returns them instead of raising,
+    so the caller can log the bypass loudly. Returns the bypassed problem
+    list (empty when every gate passed)."""
     problems = []
 
     if artifact_meta.get('verdict') != VERDICT_PASS:
@@ -166,8 +172,51 @@ def check_load_gates(
                 f'first or pass override_gt_gate'
             )
 
-    if problems:
+    if problems and not force_sim:
         raise GateError('; '.join(problems))
+    return problems
+
+
+def release_gate_problems(scope: dict, snapshots: dict) -> list:
+    """Release preconditions: every in-scope device must be parked.
+
+    The arm must be at its engage snapshot (approach(snapshot) with
+    approach_done) or already 'ready' (never engaged / already released);
+    a hand must be holding after park (park runs to completion and lands
+    in hold). Returns problem strings; empty = release may proceed.
+    """
+    problems = []
+    if scope.get('arms'):
+        g1 = (snapshots.get('g1') or {}).get('data') or {}
+        state = g1.get('fsm_state')
+        if state is None:
+            problems.append('release: /g1/status never seen')
+        elif state == 'release':
+            problems.append('release already in progress (weight ramping down)')
+        elif state != 'ready' and not (
+                state == 'approach'
+                and g1.get('approach_target') == 'snapshot'
+                and g1.get('approach_done')):
+            problems.append(
+                f'release requires the arm parked at its engage snapshot '
+                f'(approach(snapshot) complete) or ready; g1 is {state} '
+                f'(target {g1.get("approach_target")}, '
+                f'done {g1.get("approach_done")})'
+            )
+    for side in scope.get('hands', []):
+        hand = (snapshots.get(f'{side}_hand') or {}).get('data') or {}
+        state = hand.get('fsm_state')
+        if state is None:
+            problems.append(f'release: /{side}_hand/status never seen')
+        elif state != 'hold' and not (
+                state == 'approach'
+                and hand.get('approach_target') == 'neutral'
+                and hand.get('approach_done')):
+            problems.append(
+                f'release requires the {side} hand parked (hold after '
+                f'park); is {state}'
+            )
+    return problems
 
 
 def load_run_history(runs_dir: Path) -> list:

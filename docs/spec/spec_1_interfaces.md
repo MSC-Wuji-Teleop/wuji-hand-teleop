@@ -106,6 +106,7 @@ status/imu/joint_states and refuses every motion service.
 | service | `~/track` (Trigger) | approach->track; requires approach_done |
 | service | `~/end_hold` (Trigger) | track->end_hold |
 | service | `~/park` (Trigger) | alias: re-enters approach with target = neutral pose (spec: hands slew to neutral at clip end under approach limits) |
+| service | `~/release` (Trigger) | acknowledgment only: succeeds on a parked (holding) hand, refused otherwise; no weight, nothing ramps |
 | service | `~/fault` (Trigger) | force FAULT_HOLD |
 | service | `~/clear_fault` (Trigger) | operator-only |
 | pub | `/{hand}/status` | `{"fsm_state", "target_age_s", "state_age_s", "diagnostics_age_s", "approach_done": bool, "max_target_error_rad", "fault": null\|{...}, "handedness", "joints_online": int, "max_joint_temp_c"}` |
@@ -119,9 +120,11 @@ hand_interface path); a publish with != 20 elements is a bug, asserted.
 | surface | name | notes |
 |---|---|---|
 | param | `load_request` | forwarded to the publisher after the gates pass |
+| param | `force_sim` | sim-only drills: load-gate problems are logged (warn event) and bypassed instead of refused; mirrors the publisher's `--force-sim`, armed together by `replay_sim.launch.py force_sim:=true` |
 | service | `~/load`, `~/arm`, `~/start` (Trigger) | run FSM; `arm` sequence: publish_first -> per-device engage -> approach -> frame-0 barrier |
 | service | `~/stop` (Trigger) | operator stop = the fault path (spec: one stop path) |
-| service | `~/park`, `~/release` (Trigger) | post-run, fans out to devices |
+| service | `~/park` (Trigger) | post-run, fans out to devices |
+| service | `~/release` (Trigger) | refused until every in-scope device is parked (arm at approach(snapshot) done or ready, hands holding); then fans out to the arm and hands |
 | service | `~/clear_fault` (Trigger) | unlatches FAULT, allows the next load |
 | pub | `/run/status` | run state + per-device state fields (not mirrored FSMs) |
 | pub | `/run/events` | one JSON event per message, mirror of events.jsonl |
