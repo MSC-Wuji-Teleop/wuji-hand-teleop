@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 MuJoCo mirror of real teleop -- this is the "watch the sim instead of the
-physical robot" tool. Unlike sweep_and_visualize.py, it publishes nothing:
-it only subscribes to the joint-command topics real teleop already produces
-and mirrors them live in MuJoCo (g1_wuji2_description/g1_23_wuji2_fixed.xml).
+physical robot" tool. It publishes nothing: it only subscribes to the
+joint-command topics real teleop already produces and mirrors them live in
+MuJoCo (g1_wuji2_description/g1_23_wuji2_fixed.xml).
 
 Topics (all subscribe-only; each is independent -- whatever is or isn't
 publishing just determines what moves in the viewer):
@@ -14,9 +14,10 @@ publishing just determines what moves in the viewer):
 
 This is the sim side of the G1 hardware/sim toggle: run g1_world_output_node
 with --dry-run (no DDS/hardware) and this script together to exercise the
-full teleop pipeline -- real Wuji Glove/PICO input if you have it, or
-sweep_and_visualize.py's synthetic sweep if you don't -- without touching a
-physical G1. See g1_world_output/README.md "Sim mode vs. hardware mode".
+full teleop pipeline -- real Wuji Glove/PICO input if you have it, or the
+sweep-test replay sample (RobotSTAR_demos/sweep-test/) if you don't --
+without touching a physical G1. See g1_world_output/README.md "Sim mode vs.
+hardware mode".
 
     # terminal 1 -- sim mode, no DDS/hardware
     cd docker && docker compose run --rm g1_world_output \

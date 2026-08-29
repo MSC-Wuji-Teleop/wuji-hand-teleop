@@ -218,30 +218,17 @@ still freely orbitable once the viewer is open. This is independent of the
 G1 arm toggle above: run either, both, or neither — each topic pair only
 moves in the viewer if something is actually publishing it.
 
-### Testing without any input at all (sweep + MuJoCo visualization)
+### Testing without any input at all (the sweep-test sample)
 
-`scripts/sweep_and_visualize.py` is the same idea but also *generates* the
-input: it sweeps both Wuji Hands through their joint ranges and both arm
-target poses through a small Lissajous pattern, publishes them on the topics
-above, and mirrors the result live in MuJoCo — useful when you don't have a
-glove/tracker handy and just want to see the whole pipeline move.
+For a synthetic no-hardware motion test, use the sweep-test drop-in sample:
+a bundle-format clip that ramps every arm joint (then flexes the thumbs
+through the production retargeter) and funnels through the same
+conditioning + gates + replay pipeline as every RobotSTAR clip — see
+[RobotSTAR_demos/sweep-test/README.md](../../../RobotSTAR_demos/sweep-test/README.md).
+The old `scripts/sweep_and_visualize.py` publisher (Lissajous pose sweep on
+the pose-IK path, ungated) was retired in its favor.
 
-```bash
-# terminal 1 — real IK, no hardware/DDS required
-cd docker && docker compose run --rm g1_world_output \
-    ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true
-
-# terminal 2 — sweep + viewer (needs rclpy + mujoco, e.g. the main teleop container)
-python3 src/output_devices/g1_world_output/scripts/sweep_and_visualize.py
-```
-
-`--no-viewer` publishes only (headless topic smoke test); `--period`,
-`--pos-amplitude`, `--rot-amplitude-deg` tune the sweep. See the script's
-module docstring for the full topic contract it exercises. Both scripts
-share their MuJoCo plumbing via `scripts/_mujoco_common.py`.
-
-Two things make the cross-container round trip (either script) work out of
-the box:
+Two things make the cross-container round trip work out of the box:
 
 - `docker/cyclonedds.xml` (shared by both images) lists `127.0.0.1` as a
   static DDS peer. SPDP multicast discovery between two `network_mode: host`

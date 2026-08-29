@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Shared MuJoCo plumbing for the g1_world_output sim tooling (sweep_and_visualize.py,
-mujoco_visualizer.py): actuator lookups, MJCF loading, and the render loop. Neither
-script solves IK or drives real hardware -- see each script's own docstring.
+Shared MuJoCo plumbing for the g1_world_output sim tooling
+(mujoco_visualizer.py): actuator lookups, MJCF loading, and the render
+loop. The consumer never solves IK or drives real hardware -- see its own
+docstring.
 
 Import this before your own `import mujoco` so LIBGL_ALWAYS_SOFTWARE takes effect
 before MuJoCo touches OpenGL. On a host GPU newer than the container's Mesa build
@@ -53,9 +54,7 @@ ARM_JOINT_QOS = QoSProfile(
 # (RELIABLE) subscription is QoS-incompatible with that BEST_EFFORT publisher
 # -- rclpy silently drops every message with an "incompatible QoS" warning
 # instead of erroring, so this is easy to miss until real hardware is in the
-# loop. sweep_and_visualize.py's own (RELIABLE) hand publisher is compatible
-# with a BEST_EFFORT subscriber either way, so using this QoS everywhere
-# works for both the synthetic sweep and real teleop.
+# loop.
 HAND_JOINT_QOS = QoSProfile(
     reliability=QoSReliabilityPolicy.BEST_EFFORT,
     history=QoSHistoryPolicy.KEEP_LAST,
@@ -136,7 +135,7 @@ CAMERAS = {
 
 
 def run_viewer(node, model: mujoco.MjModel, data: mujoco.MjData, camera: str = "full") -> None:
-    """Generic render loop shared by sweep_and_visualize.py and mujoco_visualizer.py.
+    """Generic render loop (used by mujoco_visualizer.py).
 
     Each frame calls `node.snapshot()`, expected to return
     `(left_hand, right_hand, left_arm_q, right_arm_q)` where each element is

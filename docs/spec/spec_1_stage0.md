@@ -13,7 +13,7 @@ synthesizes measured := command, so nothing physical can disagree.
 
 ## Steps
 
-1. **CI smoke.** `.github/workflows/ci.yml` green (205 ROS-free tests on
+1. **CI smoke.** `.github/workflows/ci.yml` green (223 ROS-free tests on
    both container numpy majors), plus in-container
    `colcon test --packages-select replay g1_world_output wujihand_output
    controller`.
@@ -216,7 +216,8 @@ synthesizes measured := command, so nothing physical can disagree.
 
    ```bash
    # Load a FAIL-verdict spike clip deliberately, sim-only bypass:
-   #   T2 must be running the publisher with --force-sim for this drill:
+   #   T2 must be running with force_sim:=true for this drill (arms BOTH
+   #   bypasses: publisher --force-sim and the supervisor's load gates):
    #   ros2 launch wuji_teleop_bringup replay_sim.launch.py force_sim:=true
    ros2 run replay run_ctl load \
        ~/wuji_clips/02_<sample>_GT/conditioned_clip_v1.npz --speed 0.25

@@ -190,21 +190,32 @@ The hand and arm sim toggles are independent: run either, both, or neither.
 - **Arms**: `dry_run:=true` makes `g1_world_output` solve real IK from the
   target-pose topics and publish joint commands, without ever opening DDS.
 
-The one check that needs **no hardware at all** — it generates its own input
-and exercises the full cross-container round trip:
+The one check that needs **no hardware at all** — a synthetic joint-sweep
+sample that funnels through the same conditioning + gates + replay pipeline
+as every bundle clip (no standalone publisher script; the old
+`sweep_and_visualize.py` was retired in its favor):
 
 ```bash
-# terminal 1 — real IK, no DDS
-cd docker && docker compose run --rm g1_world_output \
-    ros2 launch g1_world_output g1_world_output.launch.py dry_run:=true
+# terminal 1 — arm node, no DDS
+cd docker && docker compose run --rm --name g1-world-output g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py \
+    dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
 
-# terminal 2 — sweeps both hands through their ranges and both arm targets
-# through a Lissajous pattern, then mirrors the result in MuJoCo
-docker exec -it wuji-hand-teleop python3 \
-    src/output_devices/g1_world_output/scripts/sweep_and_visualize.py
+# terminal 2 (teleop container) — publisher, hand controllers, supervisor, viewer
+ros2 launch wuji_teleop_bringup replay_sim.launch.py
+
+# terminal 3 (teleop container) — condition and replay the sweep sample
+ros2 run replay condition_clip \
+    --method-dir RobotSTAR_demos/sweep-test/samples/90_sweep_joints/GT \
+    --out-dir ~/wuji_clips
+ros2 run replay run_ctl load \
+    ~/wuji_clips/90_sweep_joints_GT/conditioned_clip_v1.npz \
+    --speed 1.0 --operator <name>
+ros2 run replay run_ctl arm && ros2 run replay run_ctl start
 ```
 
-Add `--no-viewer` for a headless topic-only smoke test.
+See [RobotSTAR_demos/sweep-test/README.md](RobotSTAR_demos/sweep-test/README.md)
+for the sample's contents, the collision audit, and per-joint hand sweeps.
 
 </details>
 

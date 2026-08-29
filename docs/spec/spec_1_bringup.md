@@ -43,7 +43,7 @@ cd docker && docker compose up -d && docker compose build g1_world_output
 colcon build --symlink-install && source install/setup.bash
 python3 -m pytest src/input_devices/replay/test \
     src/output_devices/g1_world_output/tests \
-    src/output_devices/wujihand_output/tests -q     # expect 206 passed
+    src/output_devices/wujihand_output/tests -q     # expect 223 passed
 ```
 
 ### 0.3 Stage 0 sanity on the rig host (15 min, no hardware)
