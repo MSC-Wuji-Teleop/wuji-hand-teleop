@@ -750,8 +750,16 @@ revalidation once the real mount transform is measured.
 
 ## Hard blockers
 
-1. **Mount adapter does not exist** (the vendor STL is a Hand v1 part).
-   Blocks combined stages and the §4 flange-transform measurement.
+1. **Mount adapter unconfirmed** (the vendor STL is a Hand v1 part). Since
+   2026-08-29 both composed models mount the hands through a
+   `{left,right}_hand_dock` link (`meshes/g1-hand-dock.stl`, hand mount 3.75 mm
+   beyond the flange, so no longer zero plate thickness), but whether that mesh
+   is a real adapter's CAD or a modelling placeholder is unrecorded, and no
+   dimension of it has been measured against a physical part. The blocker
+   stands on that answer: combined stages and the §4 flange-transform
+   measurement stay blocked until an adapter physically exists and its
+   transform is measured. Model details:
+   [hardware_spec.md](hardware_spec.md#mounting-adapter-modelled-cad-provenance-unconfirmed).
 2. **Hand 2 serials and firmware unconfirmed** (§2.2). Blocks hand hardware
    stages beyond A. No longer blocks the retarget model: Beta 1 and Beta 2 are
    kinematically identical, so the shipped Beta 2 URDF is correct either way

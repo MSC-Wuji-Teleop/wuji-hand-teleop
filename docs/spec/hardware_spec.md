@@ -81,17 +81,33 @@ wrist pitch/yaw) are real joints. On a 23-DoF robot they are absent, and
 | Connection | USB (VID:PID `0483:2000`); firmware v1.2.1+ recommended (upstream README) |
 | Milestone 1 | Sim-only; no physical hand in the loop |
 
-### Mounting adapter: does not exist yet
+### Mounting adapter: modelled, CAD provenance unconfirmed
 
 Measured 2026-08-22: the vendor's `unitree-g1-docking-adapter.stl` is a **Wuji
 Hand v1 part and does not fit Hand 2**. A Hand 2 adapter redesign is pending;
-printing is on hold. Until the CAD lands, `g1_wuji2_description` uses a
-provisional mount: hand at the ICP-located palm flange on the wrist-roll link
-(the 23's terminal arm link), wrist_roll + [0.1220, +-0.003, 0], zero plate
-thickness. The flange is per variant: the terminal arm link is `wrist_roll` on
-the 23-DoF arm and `wrist_yaw_link` on the 29-DoF arm (earlier mount there:
-x = 0.0415 m). A composed model for either variant needs its own mount
-transform.
+printing is on hold. Until 2026-08-29 the composed models carried no adapter at
+all: the hand sat directly on the terminal arm link's flange with zero plate
+thickness, at wrist_roll + [0.1220, +-0.003, 0] on the 23-DoF arm (the
+ICP-located palm flange) and wrist_yaw_link + [0.0415, 0, 0] on the 29-DoF arm.
+The flange is per variant, so a composed model for either variant needs its own
+mount transform.
+
+**2026-08-29:** both composed models now mount the hands through a dock link.
+`{left,right}_hand_dock` sits at the flange position above and carries
+`meshes/g1-hand-dock.stl`; the hand mount hangs 3.75 mm beyond the dock origin
+(29-DoF: 0.04525 m from wrist_yaw_link; 23-DoF: 0.12575 m from wrist_roll), so
+the plate is no longer zero thickness. Per side the dock link is 0.01136153 kg,
+which puts +22.7 g on each composed model. Verified on the checked-in models:
+both variants load, actuator counts are unchanged (69 and 63), and neither
+reports a contact at its `stand` keyframe. `g1-hand-dock.stl` is a new mesh in
+this repo, not the vendor file (10.6 cm3 against the vendor part's 18.4 cm3,
+similar 28 x 50 mm envelope).
+
+**Unconfirmed:** whether `g1-hand-dock.stl` is the CAD of a real Hand 2 adapter
+or a modelling placeholder. Nothing about the dock has been measured against a
+physical part, so the wrist-to-hand transform stays provisional, TUITION.md
+section 4's measured flange transform is still owed, and
+[spec_1.md](spec_1.md) hard blocker 1 stands until someone answers this.
 
 ### Input devices
 
@@ -139,6 +155,6 @@ the wrist fused with the rubber hand); the package carries both variants as of
 | `g1_world_output/config/g1_robot.yaml` | `arm_type: "G1_23"`. Also `chest_origin_in_pelvis` was derived from the 29-DoF body URDF ("waist_roll z + shoulder pitch xyz"); re-derivation against the 23-DoF description is still pending | Needs a `G1_29` value and the 7-DoF arm joint list. `chest_origin_in_pelvis` is already the 29-DoF derivation |
 | `g1_world_output/g1_world_output/robot_arm.py` | Unitree's unified 35-slot motor array with the 23-DoF gaps: arms at indices 15-19 / 22-26; waist roll/pitch (13, 14) and wrist pitch/yaw (20, 21, 27, 28) declared NotUsed; `rt/arm_sdk` weight flag at motor 29. DDS write loop at 250 Hz; per-joint kp/kd tiers (300/5 high, 140/3 low, 50/2 wrist); velocity clip fixed at 20 **rad**/s (a 20-to-30 rad/s ramp exists in code but is never invoked) | The six NotUsed slots become real joints: the arm index enum grows from 10 to 14 entries, `G1_23_ARM_DOF` stops being 10, and the wrist kp/kd tier covers 3 wrist joints per arm instead of 1 |
 | `g1_world_output/g1_world_output/robot_arm_ik.py` | Loads `g1_23_wuji2.urdf` (23-DoF composed model), then locks legs, waist, and fingers to the 10 arm DoF; the lock list filters by joint presence, so the absent wrist pitch/yaw entries are simply skipped. EE frames `L_ee`/`R_ee` sit on the wrist-roll links with a +0.20 m forward offset (xr_teleoperate convention); this shifts the achieved palm pose by a constant wrist-frame vector, fix planned alongside the adapter regeneration. Cost weights are xr_teleoperate's G1_23 set (rotation down-weighted) | Loads the 29-DoF URDF and solves 14 DoF instead of 10. The lock list filters by joint presence, so it already tolerates either joint set; the cost weights would need revisiting |
-| `src/g1_wuji2_description/` | Composed from `g1_23dof_rev_1_0` + 2x Wuji Hand 2 (2026-08-24, matches the 23-DoF units seen): floating nq 70 / nv 69 / nu 63, fixed-base 63. Fused wrist+rubber-hand link replaced with a derived bare wrist module; flange at wrist_roll + [0.1220, +-0.003, 0]. Generated files; do not hand-edit (see the package README) | Present since 2026-08-26: `g1_29_wuji2{,_fixed}.xml`, `g1_29_wuji2.urdf`, `scene_g1_29_wuji2.xml`; floating nq 76 / nv 75 / nu 69, fixed-base 69. Hand mounts on `wrist_yaw_link` + [0.0415, 0, 0]. `meshes/g1/` is shared by both variants |
+| `src/g1_wuji2_description/` | Composed from `g1_23dof_rev_1_0` + 2x Wuji Hand 2 (2026-08-24, matches the 23-DoF units seen): floating nq 70 / nv 69 / nu 63, fixed-base 63. Fused wrist+rubber-hand link replaced with a derived bare wrist module; flange at wrist_roll + [0.1220, +-0.003, 0], carrying `left_hand_dock`/`right_hand_dock` since 2026-08-29 with the hand mount 3.75 mm beyond it. Generated files; do not hand-edit (see the package README) | Present since 2026-08-26: `g1_29_wuji2{,_fixed}.xml`, `g1_29_wuji2.urdf`, `scene_g1_29_wuji2.xml`; floating nq 76 / nv 75 / nu 69, fixed-base 69. Flange (and, since 2026-08-29, the dock link) on `wrist_yaw_link` + [0.0415, 0, 0]; hand mount at + [0.04525, 0, 0]. `meshes/g1/` is shared by both variants |
 
 </details>

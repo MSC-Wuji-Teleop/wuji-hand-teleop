@@ -39,9 +39,17 @@ Facts:
   axis) and a cropped mesh. The Wuji hand mounts at the ICP-located palm
   flange, wrist_roll + [0.1220, +-0.003, 0]. The 29-DoF model mounts on
   `wrist_yaw_link` instead.
-- The wrist-to-hand transform is provisional in both variants: the physical
-  G1-to-Hand2 adapter is not designed yet (zero plate thickness). The models
-  regenerate when the adapter CAD exists.
+- Since 2026-08-29 each hand hangs off a `{left,right}_hand_dock` link
+  (`meshes/g1-hand-dock.stl`, 0.01136153 kg per side) placed at the flange
+  above, with the hand mount 3.75 mm beyond the dock origin: 0.12575 m from
+  wrist_roll on the 23-DoF model, 0.04525 m from `wrist_yaw_link` on the
+  29-DoF model. The URDF makes the dock the mount's parent link; the MJCF
+  keeps them siblings under the wrist body at the same composed offsets.
+- The wrist-to-hand transform is still provisional in both variants. Whether
+  `g1-hand-dock.stl` is a real G1-to-Hand2 adapter's CAD or a modelling
+  placeholder is unrecorded, and no dimension of it has been measured against
+  a physical part. The models regenerate when a measured adapter exists; see
+  [hardware_spec.md](../../docs/spec/hardware_spec.md#mounting-adapter-modelled-cad-provenance-unconfirmed).
 - Generated files. Do not hand-edit; regenerate from the composition build
   scripts.
 
