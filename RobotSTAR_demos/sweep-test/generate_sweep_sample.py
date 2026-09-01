@@ -231,6 +231,17 @@ def main() -> int:
     body_q = np.vstack(blocks)
     num_frames = body_q.shape[0]
 
+    # ---- hard invariant: legs and waist stay zero, permanently -----------
+    # Only arm columns may ever carry motion (the waist gate requires it).
+    # Zero every non-arm column outright and assert, so no future phase or
+    # edit can leak motion into legs or waist without tripping here.
+    arm_cols = {col[n] for n in body_actuators
+                if any(p in n for p in ('shoulder', 'elbow', 'wrist'))}
+    non_arm_cols = [i for i in range(ncols) if i not in arm_cols]
+    body_q[:, non_arm_cols] = 0.0
+    assert not np.any(body_q[:, non_arm_cols]), \
+        'legs/waist columns must be zero for every frame'
+
     # Keypoints: constant base pose everywhere; inside each side's window,
     # a raised-cosine blend base -> target -> base.
     kp_out = {}
