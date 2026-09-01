@@ -1,0 +1,20 @@
+{
+  "version": "signar_production_wrist_v1",
+  "input_npz": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/10_val_004_0pKzG0RRUz4_2-2-rgb_front/prepared/0pKzG0RRUz4_2-2-rgb_front_Ours_duration_aligned.npz",
+  "output_npz": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front/Ours/fused/Ours_mano_global_to_local_wrist_fused.npz",
+  "frames": 236,
+  "left_valid": 236,
+  "right_valid": 236,
+  "left_fallback": 0,
+  "right_fallback": 0,
+  "invalid_fallback_exact": true,
+  "valid_wrist_world_geodesic_rad_mean": 4.880058118285909e-16,
+  "valid_wrist_world_geodesic_rad_max": 1.4494270998623078e-15,
+  "contract": {
+    "left_wrist": "mirror_x(M R M) MANO global, then elbow-world-relative local wrist",
+    "right_wrist": "raw MANO global, then elbow-world-relative local wrist",
+    "left_fingers": "MANO local fingers transformed by mirror_x(M R M)",
+    "right_fingers": "raw MANO local fingers",
+    "invalid": "exact WHAC wrist and hand fallback"
+  }
+}

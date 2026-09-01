@@ -1,0 +1,1 @@
+SIMULATION ONLY. These hand_targets.csv files were generated for the legacy Wuji 20-DoF model and must not be sent to Wuji Hand 2. Recompute Hand 2 q from the MediaPipe-order 21-point keypoints in hand2_input using HandModel.WujiHand2.

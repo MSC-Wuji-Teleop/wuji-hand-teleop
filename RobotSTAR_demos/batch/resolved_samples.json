@@ -1,0 +1,92 @@
+[
+  {
+    "order": 1,
+    "label": "test_x-fZc293MpJk_2-1-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/01_test_x-fZc293MpJk_2-1-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/01_test_x-fZc293MpJk_2-1-rgb_front"
+  },
+  {
+    "order": 2,
+    "label": "test_G19uBylwQww_14-2-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/02_test_G19uBylwQww_14-2-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/02_test_G19uBylwQww_14-2-rgb_front"
+  },
+  {
+    "order": 3,
+    "label": "test_g0yUlOaqL6k_10-3-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/03_test_004_g0yUlOaqL6k_10-3-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/03_test_g0yUlOaqL6k_10-3-rgb_front"
+  },
+  {
+    "order": 4,
+    "label": "test_g1HXoDkax5A_27-3-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/04_test_011_g1HXoDkax5A_27-3-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/04_test_g1HXoDkax5A_27-3-rgb_front"
+  },
+  {
+    "order": 5,
+    "label": "test_G42xKICVj9U_5-5-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/05_test_015_G42xKICVj9U_5-5-rgb_frnt",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/05_test_G42xKICVj9U_5-5-rgb_front"
+  },
+  {
+    "order": 6,
+    "label": "test_G2Go6a76xd0_7-5-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/06_test_030_G2Go6a76xd0_7-5-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/06_test_G2Go6a76xd0_7-5-rgb_front"
+  },
+  {
+    "order": 7,
+    "label": "test_g0iNy-yPisM_11-8-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/07_test_033_g0iNy-yPisM_11-8-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/07_test_g0iNy-yPisM_11-8-rgb_front"
+  },
+  {
+    "order": 8,
+    "label": "train_CE23zzfUBDw_48-5-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/08_train_002_CE23zzfUBDw_48-5-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/08_train_CE23zzfUBDw_48-5-rgb_front"
+  },
+  {
+    "order": 9,
+    "label": "train_FTuTLRq7014_7-8-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/09_train_003_FTuTLRq7014_7-8-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/09_train_FTuTLRq7014_7-8-rgb_front"
+  },
+  {
+    "order": 10,
+    "label": "val_0pKzG0RRUz4_2-2-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/10_val_004_0pKzG0RRUz4_2-2-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front"
+  },
+  {
+    "order": 11,
+    "label": "val_a5yNwUSiYpA_9-3-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/11_val_015_a5yNwUSiYpA_9-3-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/11_val_a5yNwUSiYpA_9-3-rgb_front"
+  },
+  {
+    "order": 12,
+    "label": "val_eahjYz2685g_3-8-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/12_val_018_eahjYz2685g_3-8-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/12_val_eahjYz2685g_3-8-rgb_front"
+  },
+  {
+    "order": 13,
+    "label": "val_39FN42e41r0_0-1-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/13_val_023_39FN42e41r0_0-1-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/13_val_39FN42e41r0_0-1-rgb_front"
+  },
+  {
+    "order": 14,
+    "label": "val_D4NatJnEMBU_1-5-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/14_val_027_D4NatJnEMBU_1-5-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/14_val_D4NatJnEMBU_1-5-rgb_front"
+  },
+  {
+    "order": 15,
+    "label": "val_x-f1_kdl050s_10-1-rgb_front",
+    "source_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/15_val_030_x-f1_kdl050s_10-1-rgb_front",
+    "out_sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/15_val_x-f1_kdl050s_10-1-rgb_front"
+  }
+]

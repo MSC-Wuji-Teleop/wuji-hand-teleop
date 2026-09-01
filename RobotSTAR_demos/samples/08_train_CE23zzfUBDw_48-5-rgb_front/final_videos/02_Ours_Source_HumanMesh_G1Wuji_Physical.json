@@ -1,0 +1,27 @@
+{
+  "version": "signar_gt_ours_method_triptych_v7_2",
+  "method": "Ours",
+  "source_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/08_train_002_CE23zzfUBDw_48-5-rgb_front/source_aligned.mp4",
+  "smplx_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/08_train_CE23zzfUBDw_48-5-rgb_front/Ours/renders/Ours_smplx_handmdm_upperbody.mp4",
+  "robot_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/08_train_CE23zzfUBDw_48-5-rgb_front/Ours/renders/Ours_g1_wuji_physical_controller_v7_2.mp4",
+  "out_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/08_train_CE23zzfUBDw_48-5-rgb_front/Ours/final/Ours_Source_HumanMesh_G1Wuji_Physical.mp4",
+  "frames": 95,
+  "motion_frames": 85,
+  "hold_frames": 10,
+  "fps": 20.0,
+  "input_fps": {
+    "source": 20.0,
+    "smplx": 20.0,
+    "robot": 25.0
+  },
+  "layout": [
+    "source video",
+    "Ours fused SMPL-X+MANO",
+    "controller-driven physical G1+legacy Wuji"
+  ],
+  "controller": {
+    "integration": "mujoco.mj_step",
+    "kinematic_replay": false
+  },
+  "end_behavior": "source/mesh freeze while controller holds final target"
+}

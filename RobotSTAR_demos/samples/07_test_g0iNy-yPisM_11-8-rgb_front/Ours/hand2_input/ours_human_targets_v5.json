@@ -1,0 +1,16 @@
+{
+  "version": "signar_human_targets_v5_world_hand21_elbow_plane_continuity",
+  "frames": 104,
+  "device": "cuda:0",
+  "left_wrist_valid": 104,
+  "right_wrist_valid": 104,
+  "left_palm_basis_valid": 104,
+  "right_palm_basis_valid": 104,
+  "contact_frames": 18,
+  "near_contact_frames": 50,
+  "inter_palm_distance_median_m": 0.18201428651809692,
+  "left_elbow_flex_mean_deg": 106.32437133789062,
+  "right_elbow_flex_mean_deg": 107.4153060913086,
+  "hand21_contract": "MediaPipe ordering from official SMPL-X joints/tips",
+  "CUDA_VISIBLE_DEVICES": "0"
+}

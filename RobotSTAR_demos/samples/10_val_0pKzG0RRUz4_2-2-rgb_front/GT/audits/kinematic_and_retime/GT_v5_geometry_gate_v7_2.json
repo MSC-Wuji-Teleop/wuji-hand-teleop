@@ -1,0 +1,254 @@
+{
+  "version": "signar_v7_1_v5_geometry_gate",
+  "target_meta": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front/GT/targets_v5_geometry/target_meta.json",
+  "target_debug": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front/GT/targets_v5_geometry/target_debug.npz",
+  "contract_checks": {
+    "v5_geometry_lineage": true,
+    "expected_hand_model": true,
+    "no_posthoc_joint_bias": true,
+    "no_unconstrained_joint_smoothing": true,
+    "hold_last": true
+  },
+  "numeric_task_space_audit_available": true,
+  "allow_missing_task_space_audit": false,
+  "task_space_geometry_checks": [
+    {
+      "name": "left_palm_m_mean",
+      "value": 0.04074806897735086,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_palm_m_mean",
+      "value": 0.05550884711497484,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_distal_deg_mean",
+      "value": 4.675389379440553,
+      "maximum": 30.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_distal_deg_mean",
+      "value": 15.510627604791326,
+      "maximum": 30.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_normal_deg_mean",
+      "value": 10.737036278124581,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_normal_deg_mean",
+      "value": 29.26346075149904,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_elbow_plane_deg_mean",
+      "value": 3.2042526237010076,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_elbow_plane_deg_mean",
+      "value": 8.014814892881363,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "inter_palm_vector_error_mean_m",
+      "value": 0.03972260979388794,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "contact_pair_vector_error_mean_m",
+      "value": 0.1082406251778281,
+      "maximum": 0.16,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    }
+  ],
+  "solver_diagnostic_checks": [
+    {
+      "name": "solve_rmse_mean",
+      "value": 0.21087001384776954,
+      "maximum": 0.2,
+      "unit": "",
+      "available": true,
+      "pass": false
+    },
+    {
+      "name": "solve_rmse_max",
+      "value": 0.40926886225426923,
+      "maximum": 0.4,
+      "unit": "",
+      "available": true,
+      "pass": false
+    }
+  ],
+  "solver_diagnostic_gated": false,
+  "solver_diagnostic_pass": false,
+  "geometry_checks": [
+    {
+      "name": "left_palm_m_mean",
+      "value": 0.04074806897735086,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_palm_m_mean",
+      "value": 0.05550884711497484,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_distal_deg_mean",
+      "value": 4.675389379440553,
+      "maximum": 30.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_distal_deg_mean",
+      "value": 15.510627604791326,
+      "maximum": 30.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_normal_deg_mean",
+      "value": 10.737036278124581,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_normal_deg_mean",
+      "value": 29.26346075149904,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "left_elbow_plane_deg_mean",
+      "value": 3.2042526237010076,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "right_elbow_plane_deg_mean",
+      "value": 8.014814892881363,
+      "maximum": 35.0,
+      "unit": "deg",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "inter_palm_vector_error_mean_m",
+      "value": 0.03972260979388794,
+      "maximum": 0.08,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "contact_pair_vector_error_mean_m",
+      "value": 0.1082406251778281,
+      "maximum": 0.16,
+      "unit": "m",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "solve_rmse_mean",
+      "value": 0.21087001384776954,
+      "maximum": 0.2,
+      "unit": "",
+      "available": true,
+      "pass": false
+    },
+    {
+      "name": "solve_rmse_max",
+      "value": 0.40926886225426923,
+      "maximum": 0.4,
+      "unit": "",
+      "available": true,
+      "pass": false
+    }
+  ],
+  "continuity_checks": [
+    {
+      "name": "max_arm_frame_step_rad",
+      "value": 0.4645645022392273,
+      "maximum": 0.65,
+      "unit": "rad/frame",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "max_left_hand_frame_step_rad",
+      "value": 0.2552783489227295,
+      "maximum": 1.2,
+      "unit": "rad/frame",
+      "available": true,
+      "pass": true
+    },
+    {
+      "name": "max_right_hand_frame_step_rad",
+      "value": 0.3023364432156086,
+      "maximum": 1.2,
+      "unit": "rad/frame",
+      "available": true,
+      "pass": true
+    }
+  ],
+  "contract_pass": true,
+  "task_space_geometry_pass": true,
+  "geometry_pass": true,
+  "continuity_pass": true,
+  "pass": true,
+  "manual_preview_required": true,
+  "manual_preview_focus": [
+    "right elbow half-space and swivel continuity",
+    "left/right palm distal and normal orientation",
+    "inter-hand distance and accidental hand merging",
+    "finger closure and cross-hand penetration"
+  ],
+  "note": "solve_rmse is a mixed weighted optimizer residual, not a physical unit. It is warning-only unless --gate_solve_rmse is explicitly enabled.",
+  "real_robot_ready": false
+}

@@ -1,0 +1,19 @@
+{
+  "version": "signar_v7_1_retime_gate",
+  "retime_report": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/06_test_G2Go6a76xd0_7-5-rgb_front/Ours/targets_v7_retimed/retime_report_v7.json",
+  "path_checks": {
+    "simulation_reference_generated": true,
+    "no_disallowed_isolated_flip": true,
+    "original_waypoints_unmodified": true,
+    "no_fixed_rotation": true,
+    "no_joint_bias": true,
+    "ik_not_rerun": true,
+    "waypoint_error": true
+  },
+  "path_pass": true,
+  "rate_limits_pass": false,
+  "require_rate_limits": false,
+  "pass": true,
+  "manual_kinematic_preview_required": true,
+  "real_robot_ready": false
+}

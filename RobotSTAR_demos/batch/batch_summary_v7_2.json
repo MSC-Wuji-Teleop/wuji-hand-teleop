@@ -1,0 +1,12 @@
+{
+  "version": "signar_g1_wuji_physical_gt_ours15_v7_2_1_atomic_render_resume",
+  "requested_samples": 15,
+  "complete_samples": 15,
+  "incomplete_samples": 0,
+  "final_video_count": 45,
+  "expected_final_video_count": 45,
+  "all_outputs_complete": true,
+  "batch_manifest_jsonl": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/batch_manifest_v7_2.jsonl",
+  "batch_manifest_csv": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/batch_manifest_v7_2.csv",
+  "real_robot_ready": false
+}

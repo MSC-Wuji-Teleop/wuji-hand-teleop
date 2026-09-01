@@ -1,0 +1,145 @@
+{
+  "version": "signar_v7_1_target_peak_diagnosis",
+  "motor_target_csv": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front/Ours/targets_v7_retimed/motor_targets.csv",
+  "hand_target_csv": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/10_val_0pKzG0RRUz4_2-2-rgb_front/Ours/targets_v7_retimed/hand_targets.csv",
+  "target_fps": 50.0,
+  "frames": 590,
+  "duration_s": 11.78,
+  "groups": {
+    "arm14": {
+      "velocity_peak": {
+        "value": 24.618956037524043,
+        "abs_value": 24.618956037524043,
+        "frame": 369,
+        "time_s": 7.38,
+        "joint_index": 12,
+        "joint": "27_right_wrist_pitch",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          362,
+          369,
+          370
+        ],
+        "count_frames_at_or_above_80pct": 3,
+        "peak_is_temporally_sparse": true
+      },
+      "acceleration_peak": {
+        "value": -615.4739009381011,
+        "abs_value": 615.4739009381011,
+        "frame": 370,
+        "time_s": 7.4,
+        "joint_index": 12,
+        "joint": "27_right_wrist_pitch",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          368,
+          370,
+          371,
+          384
+        ],
+        "count_frames_at_or_above_80pct": 4,
+        "peak_is_temporally_sparse": false
+      }
+    },
+    "left_hand20": {
+      "velocity_peak": {
+        "value": 3.46937714426375,
+        "abs_value": 3.46937714426375,
+        "frame": 8,
+        "time_s": 0.16,
+        "joint_index": 12,
+        "joint": "Lq_12",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "count_frames_at_or_above_80pct": 6,
+        "peak_is_temporally_sparse": false
+      },
+      "acceleration_peak": {
+        "value": 31.57997624757478,
+        "abs_value": 31.57997624757478,
+        "frame": 3,
+        "time_s": 0.06,
+        "joint_index": 12,
+        "joint": "Lq_12",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          2,
+          3,
+          4,
+          5,
+          12,
+          13,
+          14
+        ],
+        "count_frames_at_or_above_80pct": 7,
+        "peak_is_temporally_sparse": false
+      }
+    },
+    "right_hand20": {
+      "velocity_peak": {
+        "value": 6.65572153223748,
+        "abs_value": 6.65572153223748,
+        "frame": 9,
+        "time_s": 0.18,
+        "joint_index": 18,
+        "joint": "Rq_18",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "count_frames_at_or_above_80pct": 6,
+        "peak_is_temporally_sparse": false
+      },
+      "acceleration_peak": {
+        "value": -58.16801777678307,
+        "abs_value": 58.16801777678307,
+        "frame": 13,
+        "time_s": 0.26,
+        "joint_index": 12,
+        "joint": "Rq_12",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          3,
+          4,
+          5,
+          12,
+          13,
+          14,
+          15,
+          500,
+          547
+        ],
+        "count_frames_at_or_above_80pct": 9,
+        "peak_is_temporally_sparse": false
+      }
+    }
+  },
+  "projected_half_speed": {
+    "arm14": {
+      "velocity_peak_abs_rad_s": 12.309478018762022,
+      "acceleration_peak_abs_rad_s2": 153.86847523452528
+    },
+    "left_hand20": {
+      "velocity_peak_abs_rad_s": 1.734688572131875,
+      "acceleration_peak_abs_rad_s2": 7.894994061893695
+    },
+    "right_hand20": {
+      "velocity_peak_abs_rad_s": 3.32786076611874,
+      "acceleration_peak_abs_rad_s2": 14.542004444195767
+    }
+  },
+  "note": "Half playback speed means twice the duration. For an unchanged path, velocity scales approximately by 1/2 and acceleration by 1/4. This does not repair wrong IK geometry or a branch flip.",
+  "read_only": true
+}

@@ -55,9 +55,7 @@ src/camera/config/camera_config.yaml
 *.log
 INTEGRATION_PLAN.md
 src/camera/config/udev/99-teleop-cameras.rules
-# offline reference bundle stays untracked, but the sweep-test
-# drop-in (generator + generated sample) is repo content
-RobotSTAR_demos/*
-!RobotSTAR_demos/sweep-test/
+# RobotSTAR_demos (reference bundle + sweep-test) is tracked repo content
+# as of 2026-09-01. ~500 MB of sample media — clone accordingly.
 wuji_clips/
 wuji_runs/

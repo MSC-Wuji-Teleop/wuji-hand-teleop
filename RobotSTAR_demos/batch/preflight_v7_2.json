@@ -1,0 +1,594 @@
+{
+  "version": "signar_gt_ours15_preflight_v7_2",
+  "requested": 15,
+  "passed": 15,
+  "failed": 0,
+  "pass": true,
+  "rows": [
+    {
+      "order": 1,
+      "label": "test_x-fZc293MpJk_2-1-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/01_test_x-fZc293MpJk_2-1-rgb_front",
+      "source_id": "-fZc293MpJk_2-1-rgb_front",
+      "split": "test",
+      "panel_frames": 328,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/01_test_x-fZc293MpJk_2-1-rgb_front/prepared/x-fZc293MpJk_2-1-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/-fZc293MpJk_2-1-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/-fZc293MpJk_2-1-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/-fZc293MpJk_2-1-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/-fZc293MpJk_2-1-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          330,
+          133
+        ],
+        "gt_raw365": [
+          330,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 2,
+      "label": "test_G19uBylwQww_14-2-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/02_test_G19uBylwQww_14-2-rgb_front",
+      "source_id": "G19uBylwQww_14-2-rgb_front",
+      "split": "test",
+      "panel_frames": 304,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/02_test_G19uBylwQww_14-2-rgb_front/prepared/G19uBylwQww_14-2-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G19uBylwQww_14-2-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G19uBylwQww_14-2-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/G19uBylwQww_14-2-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/G19uBylwQww_14-2-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          307,
+          133
+        ],
+        "gt_raw365": [
+          307,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 3,
+      "label": "test_g0yUlOaqL6k_10-3-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/03_test_004_g0yUlOaqL6k_10-3-rgb_front",
+      "source_id": "g0yUlOaqL6k_10-3-rgb_front",
+      "split": "test",
+      "panel_frames": 164,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/03_test_004_g0yUlOaqL6k_10-3-rgb_front/prepared/g0yUlOaqL6k_10-3-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g0yUlOaqL6k_10-3-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g0yUlOaqL6k_10-3-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/g0yUlOaqL6k_10-3-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/g0yUlOaqL6k_10-3-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          165,
+          133
+        ],
+        "gt_raw365": [
+          165,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 4,
+      "label": "test_g1HXoDkax5A_27-3-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/04_test_011_g1HXoDkax5A_27-3-rgb_front",
+      "source_id": "g1HXoDkax5A_27-3-rgb_front",
+      "split": "test",
+      "panel_frames": 60,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/04_test_011_g1HXoDkax5A_27-3-rgb_front/prepared/g1HXoDkax5A_27-3-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g1HXoDkax5A_27-3-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g1HXoDkax5A_27-3-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/g1HXoDkax5A_27-3-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/g1HXoDkax5A_27-3-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          60,
+          133
+        ],
+        "gt_raw365": [
+          60,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 5,
+      "label": "test_G42xKICVj9U_5-5-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/05_test_015_G42xKICVj9U_5-5-rgb_frnt",
+      "source_id": "G42xKICVj9U_5-5-rgb_front",
+      "split": "test",
+      "panel_frames": 104,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/05_test_015_G42xKICVj9U_5-5-rgb_frnt/prepared/G42xKICVj9U_5-5-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G42xKICVj9U_5-5-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G42xKICVj9U_5-5-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/G42xKICVj9U_5-5-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/G42xKICVj9U_5-5-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          104,
+          133
+        ],
+        "gt_raw365": [
+          104,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 6,
+      "label": "test_G2Go6a76xd0_7-5-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/06_test_030_G2Go6a76xd0_7-5-rgb_front",
+      "source_id": "G2Go6a76xd0_7-5-rgb_front",
+      "split": "test",
+      "panel_frames": 156,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/06_test_030_G2Go6a76xd0_7-5-rgb_front/prepared/G2Go6a76xd0_7-5-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G2Go6a76xd0_7-5-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/G2Go6a76xd0_7-5-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/G2Go6a76xd0_7-5-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/G2Go6a76xd0_7-5-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          158,
+          133
+        ],
+        "gt_raw365": [
+          158,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 7,
+      "label": "test_g0iNy-yPisM_11-8-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/07_test_033_g0iNy-yPisM_11-8-rgb_front",
+      "source_id": "g0iNy-yPisM_11-8-rgb_front",
+      "split": "test",
+      "panel_frames": 104,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/07_test_033_g0iNy-yPisM_11-8-rgb_front/prepared/g0iNy-yPisM_11-8-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g0iNy-yPisM_11-8-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/test/seqs/g0iNy-yPisM_11-8-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/test/seqs/g0iNy-yPisM_11-8-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/test/g0iNy-yPisM_11-8-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          104,
+          133
+        ],
+        "gt_raw365": [
+          104,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 8,
+      "label": "train_CE23zzfUBDw_48-5-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/08_train_002_CE23zzfUBDw_48-5-rgb_front",
+      "source_id": "CE23zzfUBDw_48-5-rgb_front",
+      "split": "train",
+      "panel_frames": 84,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/08_train_002_CE23zzfUBDw_48-5-rgb_front/prepared/CE23zzfUBDw_48-5-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/train/seqs/CE23zzfUBDw_48-5-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/train/seqs/CE23zzfUBDw_48-5-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/train/seqs/CE23zzfUBDw_48-5-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/train/CE23zzfUBDw_48-5-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          85,
+          133
+        ],
+        "gt_raw365": [
+          85,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 9,
+      "label": "train_FTuTLRq7014_7-8-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/09_train_003_FTuTLRq7014_7-8-rgb_front",
+      "source_id": "FTuTLRq7014_7-8-rgb_front",
+      "split": "train",
+      "panel_frames": 144,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/09_train_003_FTuTLRq7014_7-8-rgb_front/prepared/FTuTLRq7014_7-8-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/train/seqs/FTuTLRq7014_7-8-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/train/seqs/FTuTLRq7014_7-8-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/train/seqs/FTuTLRq7014_7-8-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/train/FTuTLRq7014_7-8-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          146,
+          133
+        ],
+        "gt_raw365": [
+          146,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 10,
+      "label": "val_0pKzG0RRUz4_2-2-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/10_val_004_0pKzG0RRUz4_2-2-rgb_front",
+      "source_id": "0pKzG0RRUz4_2-2-rgb_front",
+      "split": "val",
+      "panel_frames": 236,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/10_val_004_0pKzG0RRUz4_2-2-rgb_front/prepared/0pKzG0RRUz4_2-2-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/0pKzG0RRUz4_2-2-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/0pKzG0RRUz4_2-2-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/0pKzG0RRUz4_2-2-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/0pKzG0RRUz4_2-2-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          237,
+          133
+        ],
+        "gt_raw365": [
+          237,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 11,
+      "label": "val_a5yNwUSiYpA_9-3-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/11_val_015_a5yNwUSiYpA_9-3-rgb_front",
+      "source_id": "a5yNwUSiYpA_9-3-rgb_front",
+      "split": "val",
+      "panel_frames": 76,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/11_val_015_a5yNwUSiYpA_9-3-rgb_front/prepared/a5yNwUSiYpA_9-3-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/a5yNwUSiYpA_9-3-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/a5yNwUSiYpA_9-3-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/a5yNwUSiYpA_9-3-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/a5yNwUSiYpA_9-3-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          77,
+          133
+        ],
+        "gt_raw365": [
+          77,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 12,
+      "label": "val_eahjYz2685g_3-8-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/12_val_018_eahjYz2685g_3-8-rgb_front",
+      "source_id": "eahjYz2685g_3-8-rgb_front",
+      "split": "val",
+      "panel_frames": 140,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/12_val_018_eahjYz2685g_3-8-rgb_front/prepared/eahjYz2685g_3-8-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/eahjYz2685g_3-8-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/eahjYz2685g_3-8-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/eahjYz2685g_3-8-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/eahjYz2685g_3-8-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          142,
+          133
+        ],
+        "gt_raw365": [
+          142,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 13,
+      "label": "val_39FN42e41r0_0-1-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/13_val_023_39FN42e41r0_0-1-rgb_front",
+      "source_id": "39FN42e41r0_0-1-rgb_front",
+      "split": "val",
+      "panel_frames": 128,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/13_val_023_39FN42e41r0_0-1-rgb_front/prepared/39FN42e41r0_0-1-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/39FN42e41r0_0-1-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/39FN42e41r0_0-1-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/39FN42e41r0_0-1-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/39FN42e41r0_0-1-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          130,
+          133
+        ],
+        "gt_raw365": [
+          130,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 14,
+      "label": "val_D4NatJnEMBU_1-5-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/14_val_027_D4NatJnEMBU_1-5-rgb_front",
+      "source_id": "D4NatJnEMBU_1-5-rgb_front",
+      "split": "val",
+      "panel_frames": 372,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/14_val_027_D4NatJnEMBU_1-5-rgb_front/prepared/D4NatJnEMBU_1-5-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/D4NatJnEMBU_1-5-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/D4NatJnEMBU_1-5-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/D4NatJnEMBU_1-5-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/D4NatJnEMBU_1-5-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          374,
+          133
+        ],
+        "gt_raw365": [
+          374,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    },
+    {
+      "order": 15,
+      "label": "val_x-f1_kdl050s_10-1-rgb_front",
+      "pass": true,
+      "sample_dir": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/15_val_030_x-f1_kdl050s_10-1-rgb_front",
+      "source_id": "-f1_kdl050s_10-1-rgb_front",
+      "split": "val",
+      "panel_frames": 80,
+      "checks": {
+        "sample_meta": true,
+        "source_aligned": true,
+        "ours_prepared": true,
+        "gt_motion133": true,
+        "gt_raw365": true,
+        "template_npz": true,
+        "source_video": true,
+        "manifest_row": true
+      },
+      "ours_prepared": "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/samples/15_val_030_x-f1_kdl050s_10-1-rgb_front/prepared/x-f1_kdl050s_10-1-rgb_front_Ours_duration_aligned.npz",
+      "gt_motion133": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/-f1_kdl050s_10-1-rgb_front_soke133.npy",
+      "gt_raw365": "/data/yujiazeng/DexterousGPT/experiments/soke_exact365_prepared/how2sign/val/seqs/-f1_kdl050s_10-1-rgb_front_raw365.npy",
+      "template_npz": "/data/yujiazeng/DexterousGPT/experiments/how2sign_vq_data_hybrid365_s64_nooverlap_aslense_stats/val/seqs/-f1_kdl050s_10-1-rgb_front.npz",
+      "source_video": "/data/yujiazeng/DexterousGPT/dataset/how2sign_rgb_front_flat/val/-f1_kdl050s_10-1-rgb_front.mp4",
+      "shapes": {
+        "gt_motion133": [
+          83,
+          133
+        ],
+        "gt_raw365": [
+          83,
+          365
+        ]
+      },
+      "manifest_matches": [
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/selection/selection.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/ours_generation_manifest.jsonl",
+        "/data/yujiazeng/DexterousGPT/experiments/signar_ours15_wuji_physical_controller_v1/prepared_manifest.jsonl"
+      ]
+    }
+  ]
+}

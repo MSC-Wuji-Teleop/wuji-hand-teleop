@@ -9,3 +9,7 @@
 src/input_devices/pico_input/vendor/XRoboToolkit-PC-Service/RoboticsService/Redistributable/linux/ConsoleDemo filter=lfs diff=lfs merge=lfs -text
 src/input_devices/pico_input/vendor/XRoboToolkit-PC-Service/RoboticsService/Redistributable/linux/RobotDataRecorder filter=lfs diff=lfs merge=lfs -text
 src/input_devices/pico_input/vendor/XRoboToolkit-PC-Service/RoboticsService/Redistributable/linux/RobotDemoQt filter=lfs diff=lfs merge=lfs -text
+
+# RobotSTAR bundle media (large recordings + reference arrays)
+RobotSTAR_demos/samples/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+RobotSTAR_demos/samples/**/*.npz filter=lfs diff=lfs merge=lfs -text

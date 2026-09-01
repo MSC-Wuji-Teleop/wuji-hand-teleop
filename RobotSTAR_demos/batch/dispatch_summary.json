@@ -1,0 +1,13 @@
+{
+  "version": "signar_gt_ours15_dynamic_dispatch_v7_2",
+  "requested": 15,
+  "completed_records": 15,
+  "passed": 13,
+  "failed": 2,
+  "gpus": [
+    "0",
+    "2",
+    "3"
+  ],
+  "status_jsonl": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/dispatch_status.jsonl"
+}

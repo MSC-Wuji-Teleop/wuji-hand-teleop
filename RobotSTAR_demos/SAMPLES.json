@@ -1,0 +1,167 @@
+[
+  {
+    "order": 1,
+    "requested_label": "test_x-fZc293MpJk_2-1-rgb_front",
+    "sample_dir": "01_test_x-fZc293MpJk_2-1-rgb_front",
+    "source_id": "-fZc293MpJk_2-1-rgb_front",
+    "text": "The aileron is the control surface in the wing that is controlled by lateral movement right and left of the stick.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 2,
+    "requested_label": "test_G19uBylwQww_14-2-rgb_front",
+    "sample_dir": "02_test_G19uBylwQww_14-2-rgb_front",
+    "source_id": "G19uBylwQww_14-2-rgb_front",
+    "text": "Then fold it back in half again, give it another good swipe here to make sure everything's going to stay and also make sure our points not bent.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 3,
+    "requested_label": "test_g0yUlOaqL6k_10-3-rgb_front",
+    "sample_dir": "03_test_g0yUlOaqL6k_10-3-rgb_front",
+    "source_id": "g0yUlOaqL6k_10-3-rgb_front",
+    "text": "As far as cleaning goes the jungle earth bark type of thing I have in here is extremely easy to clean.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 4,
+    "requested_label": "test_g1HXoDkax5A_27-3-rgb_front",
+    "sample_dir": "04_test_g1HXoDkax5A_27-3-rgb_front",
+    "source_id": "g1HXoDkax5A_27-3-rgb_front",
+    "text": "And that's a great vital point technique for women's self defense.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 5,
+    "requested_label": "test_G42xKICVj9U_5-5-rgb_front",
+    "sample_dir": "05_test_G42xKICVj9U_5-5-rgb_front",
+    "source_id": "G42xKICVj9U_5-5-rgb_front",
+    "text": "You want your weight to be forward up the mountain and over your toes.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 6,
+    "requested_label": "test_G2Go6a76xd0_7-5-rgb_front",
+    "sample_dir": "06_test_G2Go6a76xd0_7-5-rgb_front",
+    "source_id": "G2Go6a76xd0_7-5-rgb_front",
+    "text": "Whether or not the horse has just come from a strenuous competition.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 7,
+    "requested_label": "test_g0iNy-yPisM_11-8-rgb_front",
+    "sample_dir": "07_test_g0iNy-yPisM_11-8-rgb_front",
+    "source_id": "g0iNy-yPisM_11-8-rgb_front",
+    "text": "But you can come in here, and you can edit all this information that you put in when you first set up your My Space page.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 8,
+    "requested_label": "train_CE23zzfUBDw_48-5-rgb_front",
+    "sample_dir": "08_train_CE23zzfUBDw_48-5-rgb_front",
+    "source_id": "CE23zzfUBDw_48-5-rgb_front",
+    "text": "There's no hernia and both of the testicles have come down.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 9,
+    "requested_label": "train_FTuTLRq7014_7-8-rgb_front",
+    "sample_dir": "09_train_FTuTLRq7014_7-8-rgb_front",
+    "source_id": "FTuTLRq7014_7-8-rgb_front",
+    "text": "I would always recommend that, until you start getting into jogging, running, tennis, anything that's high endurance and you're going to be moving around a lot more.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 10,
+    "requested_label": "val_0pKzG0RRUz4_2-2-rgb_front",
+    "sample_dir": "10_val_0pKzG0RRUz4_2-2-rgb_front",
+    "source_id": "0pKzG0RRUz4_2-2-rgb_front",
+    "text": "I like the lock extensions because it's not damaging to your hair at all, because you can add color without actually coloring your hair, you just wrap on a different color.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 11,
+    "requested_label": "val_a5yNwUSiYpA_9-3-rgb_front",
+    "sample_dir": "11_val_a5yNwUSiYpA_9-3-rgb_front",
+    "source_id": "a5yNwUSiYpA_9-3-rgb_front",
+    "text": "Again, just like the squat you want to push from the heels.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 12,
+    "requested_label": "val_eahjYz2685g_3-8-rgb_front",
+    "sample_dir": "12_val_eahjYz2685g_3-8-rgb_front",
+    "source_id": "eahjYz2685g_3-8-rgb_front",
+    "text": "I found that out many, many years ago as a college professor when I used to try to please all of my students.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 13,
+    "requested_label": "val_39FN42e41r0_0-1-rgb_front",
+    "sample_dir": "13_val_39FN42e41r0_0-1-rgb_front",
+    "source_id": "39FN42e41r0_0-1-rgb_front",
+    "text": "MICHAEL ROSENGART: Right now, I'm here with two personal trainers, Ryan Regensburg and Jonesy and we're doing some renegade rows.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 14,
+    "requested_label": "val_D4NatJnEMBU_1-5-rgb_front",
+    "sample_dir": "14_val_D4NatJnEMBU_1-5-rgb_front",
+    "source_id": "D4NatJnEMBU_1-5-rgb_front",
+    "text": "Okay sausage today we're going to do a creole shrimp sausage the thing about creole and cajun cooking or sausage making is that they stuff about anything.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  },
+  {
+    "order": 15,
+    "requested_label": "val_x-f1_kdl050s_10-1-rgb_front",
+    "sample_dir": "15_val_x-f1_kdl050s_10-1-rgb_front",
+    "source_id": "-f1_kdl050s_10-1-rgb_front",
+    "text": "You need to be very careful when cleaning their cages if these birds are flighted.",
+    "run_policy": "complete_visualization",
+    "speed_profile": "normal",
+    "diagnostic_only": true,
+    "real_robot_ready": false
+  }
+]

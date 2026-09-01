@@ -1,0 +1,140 @@
+{
+  "version": "signar_v7_1_target_peak_diagnosis",
+  "motor_target_csv": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/11_val_a5yNwUSiYpA_9-3-rgb_front/Ours/targets_v7_retimed/motor_targets.csv",
+  "hand_target_csv": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/11_val_a5yNwUSiYpA_9-3-rgb_front/Ours/targets_v7_retimed/hand_targets.csv",
+  "target_fps": 50.0,
+  "frames": 190,
+  "duration_s": 3.78,
+  "groups": {
+    "arm14": {
+      "velocity_peak": {
+        "value": 22.35656959626391,
+        "abs_value": 22.35656959626391,
+        "frame": 40,
+        "time_s": 0.8,
+        "joint_index": 11,
+        "joint": "26_right_wrist_roll",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          40
+        ],
+        "count_frames_at_or_above_80pct": 1,
+        "peak_is_temporally_sparse": true
+      },
+      "acceleration_peak": {
+        "value": 567.9327177404793,
+        "abs_value": 567.9327177404793,
+        "frame": 39,
+        "time_s": 0.78,
+        "joint_index": 11,
+        "joint": "26_right_wrist_roll",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          38,
+          39,
+          42
+        ],
+        "count_frames_at_or_above_80pct": 3,
+        "peak_is_temporally_sparse": true
+      }
+    },
+    "left_hand20": {
+      "velocity_peak": {
+        "value": 7.438725644697919,
+        "abs_value": 7.438725644697919,
+        "frame": 9,
+        "time_s": 0.18,
+        "joint_index": 18,
+        "joint": "Lq_18",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "count_frames_at_or_above_80pct": 6,
+        "peak_is_temporally_sparse": false
+      },
+      "acceleration_peak": {
+        "value": -76.20448715868199,
+        "abs_value": 76.20448715868199,
+        "frame": 13,
+        "time_s": 0.26,
+        "joint_index": 18,
+        "joint": "Lq_18",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          4,
+          5,
+          12,
+          13,
+          14,
+          15,
+          66
+        ],
+        "count_frames_at_or_above_80pct": 7,
+        "peak_is_temporally_sparse": false
+      }
+    },
+    "right_hand20": {
+      "velocity_peak": {
+        "value": 6.861261782501235,
+        "abs_value": 6.861261782501235,
+        "frame": 9,
+        "time_s": 0.18,
+        "joint_index": 18,
+        "joint": "Rq_18",
+        "unit": "rad/s",
+        "frames_at_or_above_80pct": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "count_frames_at_or_above_80pct": 6,
+        "peak_is_temporally_sparse": false
+      },
+      "acceleration_peak": {
+        "value": -60.37128938248524,
+        "abs_value": 60.37128938248524,
+        "frame": 13,
+        "time_s": 0.26,
+        "joint_index": 18,
+        "joint": "Rq_18",
+        "unit": "rad/s^2",
+        "frames_at_or_above_80pct": [
+          3,
+          4,
+          5,
+          12,
+          13,
+          14,
+          15
+        ],
+        "count_frames_at_or_above_80pct": 7,
+        "peak_is_temporally_sparse": false
+      }
+    }
+  },
+  "projected_half_speed": {
+    "arm14": {
+      "velocity_peak_abs_rad_s": 11.178284798131955,
+      "acceleration_peak_abs_rad_s2": 141.98317943511984
+    },
+    "left_hand20": {
+      "velocity_peak_abs_rad_s": 3.7193628223489594,
+      "acceleration_peak_abs_rad_s2": 19.051121789670496
+    },
+    "right_hand20": {
+      "velocity_peak_abs_rad_s": 3.4306308912506176,
+      "acceleration_peak_abs_rad_s2": 15.09282234562131
+    }
+  },
+  "note": "Half playback speed means twice the duration. For an unchanged path, velocity scales approximately by 1/2 and acceleration by 1/4. This does not repair wrong IK geometry or a branch flip.",
+  "read_only": true
+}

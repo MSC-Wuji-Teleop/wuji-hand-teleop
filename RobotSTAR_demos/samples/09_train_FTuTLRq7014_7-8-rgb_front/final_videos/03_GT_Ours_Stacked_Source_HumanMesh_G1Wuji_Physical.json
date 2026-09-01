@@ -1,0 +1,21 @@
+{
+  "version": "signar_gt_ours_stacked_triptych_v7_2",
+  "gt_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/09_train_FTuTLRq7014_7-8-rgb_front/final/01_GT_Source_HumanMesh_G1Wuji_Physical.mp4",
+  "ours_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/09_train_FTuTLRq7014_7-8-rgb_front/final/02_Ours_Source_HumanMesh_G1Wuji_Physical.mp4",
+  "out_mp4": "/data/yujiazeng/DexterousGPT/experiments/signar_gt_ours15_physical_v7_2_normal_complete_visualization_r1/samples/09_train_FTuTLRq7014_7-8-rgb_front/final/03_GT_Ours_Stacked_Source_HumanMesh_G1Wuji_Physical.mp4",
+  "frames": 155,
+  "fps": 20.0,
+  "input_frames": {
+    "GT": 155,
+    "Ours": 155
+  },
+  "input_fps": {
+    "GT": 20.0,
+    "Ours": 20.0
+  },
+  "layout": {
+    "top": "GT: source | fused human mesh | controller-driven physical robot",
+    "bottom": "Ours: source | fused human mesh | controller-driven physical robot"
+  },
+  "kinematic_replay": false
+}
