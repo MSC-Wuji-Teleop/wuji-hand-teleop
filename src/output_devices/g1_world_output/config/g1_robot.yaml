@@ -24,7 +24,7 @@ simulation_mode: false   # true -> ChannelFactoryInitialize(1)
 # graph: the Unitree SDK builds its own CycloneDDS config and ignores the
 # env var, so on a multi-NIC host this parameter is the only way to pin the
 # robot link. Empty = SDK default (first interface).
-network_interface: ""
+network_interface: "enx00051bc62afa"
 
 # Per-joint limits file for the replay safety chain and the always-on
 # 250 Hz DDS clip. Empty = g1_deploy_limits.yaml in this config directory.
