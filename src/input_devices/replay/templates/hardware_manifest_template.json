@@ -1,5 +1,5 @@
 {
-  "_purpose": "TUITION.md section 6 checklist as a form. Most fields are human observations (revision, serials, mount model, E-stop behavior), so the operator fills this in during Stage A; it is not a collector kept in sync by code. Copy to hardware_manifest.json, fill, and keep beside the run directories.",
+  "_purpose": "TUITION.md section 6 checklist as a form. Most fields are human observations (revision, serials, mount model, power-cut behavior), so the operator fills this in during Stage A; it is not a collector kept in sync by code. Copy to hardware_manifest.json, fill, and keep beside the run directories.",
   "_filled_by": null,
   "_filled_date": null,
   "g1": {
@@ -16,8 +16,8 @@
     "position_velocity_acceleration_torque_limits": "ceilings sourced in g1_deploy_limits.yaml (Unitree URDF); OFFICIAL DEPLOYMENT LIMITS still to record here (hard blocker 5)",
     "control_frequency": null,
     "watchdog_behavior": null,
-    "e_stop_behavior": null,
-    "e_stop_effect_on_lowstate_and_write_path": "Stage A deliverable: does lowstate stop, or continue with the robot depowered?",
+    "power_cut_behavior": null,
+    "power_cut_effect_on_lowstate_and_write_path": "Stage A deliverable: does lowstate stop, or continue with the robot depowered? (no dedicated e-stop on this rig; power cut = remote damp / main power)",
     "waist_hold_under_arm_sdk_confirmed": "Stage A deliverable: arms-only slot policy leaves waist slots unwritten; confirm the onboard controller holds the waist",
     "mode_machine_at_arm_time": null,
     "lowstate_identity": null
@@ -64,7 +64,7 @@
   },
   "stage_a": {
     "comm_soak_10min_clean": null,
-    "e_stop_physically_tested": null,
+    "power_cut_physically_tested": null,
     "watchdog_physically_tested": null,
     "sides_wiggle_test_left": null,
     "sides_wiggle_test_right": null,
