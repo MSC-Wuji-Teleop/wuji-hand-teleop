@@ -20,7 +20,8 @@ inline there.
 
 | Topic | Read |
 |---|---|
-| **Hardware spec**: G1 23-DoF and 29-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [spec/hardware_spec.md](spec/hardware_spec.md) |
+| **Hardware bring-up runbook**: per-stage operator commands for the real rig (read-only, single joints, full clips, speed ladder), campaign status, fault recovery. **Start here for any hardware session** | [spec/spec_1_bringup.md](spec/spec_1_bringup.md) |
+| **Hardware spec**: G1 29-DoF rig (23-DoF secondary), Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [spec/hardware_spec.md](spec/hardware_spec.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, SOT bundle replay, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, replay path, process/container model, config convention, invariants | [architecture.md](architecture.md) |
 | **SOT handoff bundle** (recorded GT/Ours motion samples): safety restrictions and file contracts, from the bundle's authors | [../RobotSTAR_demos/HANDOFF_README.md](../RobotSTAR_demos/HANDOFF_README.md), [TUITION.md](../RobotSTAR_demos/TUITION.md) |

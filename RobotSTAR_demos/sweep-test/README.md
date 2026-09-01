@@ -96,3 +96,19 @@ ros2 run replay run_ctl arm && ros2 run replay run_ctl start
 
 The sample is named `90_*` so it can never collide with the bundle's `01_`
 first-clip ban or be mistaken for shipped data.
+
+## Hardware replay
+
+The operator runbook — terminal layout, per-stage commands, the from-scratch
+sweep sequence at any ladder speed, fault recovery, and the stop path — lives
+in [docs/spec/spec_1_bringup.md](../../docs/spec/spec_1_bringup.md)
+("Stage C/E with the sweep clip"). This clip is the current hardware clip:
+the bundle samples are hardware no-gos as shipped.
+
+Known physical behavior: the standing robot counter-yaws its torso/hips
+~1-2 deg (at 0.25x) during the arm phases — the onboard balance controller
+absorbing same-handed yaw-joint momentum (shoulder-yaw and wrist joints get
+the same sign on both arms from `safe_amplitude`'s roomier-side rule, so
+their momentum adds instead of cancelling). IMU-verified 2026-09-01; scales
+with playback speed. Legs and waist columns in the clip itself are enforced
+zero by the generator (hard assert).

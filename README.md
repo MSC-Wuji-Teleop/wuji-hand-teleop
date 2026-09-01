@@ -1,6 +1,6 @@
 # wuji-hand-teleop
 
-ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **two
+ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (29-DoF)** with **two
 Wuji Hand 2** end effectors, driven by **Wuji Gloves** for the hands and a
 **PICO 4** headset with 4 Motion Trackers for the arms. Docker on Ubuntu 22.04
 x86_64 is the only supported runtime, and the hardware is fixed: this is a
@@ -314,7 +314,9 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
 <details id="known-gaps">
 <summary><strong>Known gaps</strong></summary>
 
-- **PICO -> G1 is unverified end to end.** Needs the rig.
+- **PICO -> G1 is unverified end to end.** Needs the rig. (The replay path
+  IS verified on the rig: arm-track Stages A-C passed 2026-09-01, see
+  [docs/spec/spec_1_bringup.md](docs/spec/spec_1_bringup.md).)
 - **Incremental-control anchors are still Tianji-derived.** `init_pos` /
   `init_rot` / `arm_init_*` in `pico_input/config/robot_frames.yaml` are FK of
   the old Tianji 7-DoF arm and set where the arms sit at session start. Not
@@ -328,9 +330,9 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
   pose by a constant wrist-frame vector.
 - **Hand 2 mounting adapter does not exist yet.** The vendor STL is a Hand v1
   part. `g1_wuji2_description` uses a provisional flange.
-- **The 29-DoF control path is sim-only.** `arm_type:=G1_29` exists for SOT
-  bundle replay in MuJoCo, but there is no 29-DoF DDS controller or IK;
-  `g1_world_output` refuses to open DDS with it (the rig's robot is 23-DoF).
+- **The 29-DoF pose-IK path does not exist.** `arm_type:=G1_29` drives all
+  14 arm joints over DDS in `joint_replay` mode (validated on the rig
+  2026-09-01, Stages A-C arm track); pose mode (IK) remains G1_23-only.
 - **Monitor cannot start the G1**, and the **joint panel still shows 7 arm
   columns** (Tianji's DoF count; the G1_23 has 5 per side).
 

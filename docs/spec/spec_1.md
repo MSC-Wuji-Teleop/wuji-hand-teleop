@@ -385,7 +385,7 @@ loop. The 250 Hz DDS-thread clip becomes per-joint, parametric from the same
 limits file, and **always on, simulation_mode included**. There is no
 separate software-stop topic: `run_ctl stop` calls the supervisor's fault
 Trigger, supervisor death is already covered by the staleness hold, and
-force relief is the physical e-stop (Layer 4). One operator stop path, not
+force relief is the operator power cut (Layer 4). One operator stop path, not
 three.
 
 **Device state machine** (§8):
@@ -410,14 +410,14 @@ is still settling, would be wrong for the entire run. About five lines, and it
 removes a silent single point of failure from the two states that touch the
 robot hardest.
 
-**Losing power or lowstate resets the machine.** An e-stop event, or any
+**Losing power or lowstate resets the machine.** A power-cut event, or any
 lowstate gap beyond the staleness bound while in a powered state, forces the
 node back to `ready`: discard the snapshot, treat the weight as unknown,
 require a fresh engage from measured. Without this rule a node that comes back
 believing weight is 1 with a stale target snaps a drooped arm to that target,
 which is the discontinuity §8 forbids arriving by a path nothing else in the
-design covers. What the e-stop actually does to the write path and to lowstate
-is a named Stage A deliverable, recorded beside §6's "E-stop behavior" field.
+design covers. What a power cut actually does to the write path and to lowstate
+is a named Stage A deliverable, recorded beside §6's "power-cut behavior" field.
 
 Release happens at the snapshot because that is the pose the onboard
 controller was itself maintaining at engage; it minimizes the takeover jump.
@@ -545,7 +545,7 @@ measured) and load through the same `load`/`start` path as a real clip, so
 the supervisor grows no second motion interface and Stage B validates the
 path Stage C depends on. And `hardware_manifest.json` ships as a template
 with §6's checklist as empty fields: most of its items (revision, serials,
-mount model, E-stop behavior) are human observations, so it is a form the
+mount model, power-cut behavior) are human observations, so it is a form the
 operator fills in Stage A, not a collector to build and keep in sync.
 
 ## Run state machine
@@ -568,7 +568,7 @@ IDLE -> ARMED -> RUNNING -> IDLE
 - **`arm` preconditions** (§7A preflight): lowstate fresh, mode_machine
   recorded (MotionSwitcher CheckMode), 20+20 hand joints online, zero error
   codes, sides physically confirmed (see below), hand name-order assert
-  passed, comm soak clean, e-stop and watchdog physically exercised. Operator
+  passed, comm soak clean, power-cut and watchdog behavior exercised. Operator
   signs the checklist. `arm` then runs each device's engage and approach.
 - **`start`** waits on one condition, not a state: every in-scope device
   reporting frame-0 hold. Operator-issued. The only automatic exits from
@@ -590,7 +590,9 @@ last part catches a mounting error, and it is thirty seconds of Stage A.
 
 Every motion-initiating transition is an operator service call. Every stop is
 automatic or operator. Solo operation: one launch terminal, one `run_ctl`
-terminal, one hand on the physical e-stop.
+terminal, the power-cut path (remote damp / main power) within reach. This rig
+has no dedicated hardware e-stop; the robot's remote damp command and main
+power switch are the physical stop layer.
 
 ## Safety envelope: where it lives
 
@@ -620,7 +622,7 @@ graph LR
 
     SUP["Layer 3 - supervisor<br/>cross-device liveness, barrier timeout,<br/>joint offline, error codes,<br/>effort saturation, temperature,<br/>mode_machine change"]
 
-    OP(["Layer 4 - operator<br/>physical e-stop"]):::phys
+    OP(["Layer 4 - operator<br/>power cut (remote damp / main power)"]):::phys
 
     CC --> SOT
     SOT --> G1O
@@ -673,7 +675,9 @@ until a human intervenes.
   detection is not a detector here at all, because effort saturation and
   divergence each already trip independently and a real collision trips both.
   Collision defense is §7 stage ordering and the operator's eyes.
-- **Layer 4, physical**: the operator e-stop. It is **the designed force-relief
+- **Layer 4, physical**: the operator power cut — the robot's remote damp
+  command or main power switch (no dedicated e-stop exists on this rig). It is
+  **the designed force-relief
   path for collision and effort-saturation faults**, because the software
   response is a position hold by design (§8 forbids zeroing commands). A
   retarget-to-measured relief is a possible later addition, not in the first
@@ -730,7 +734,7 @@ and the **hand track** (both hands benchtop on the rig host). Combined runs
 | Stage | Gate in | Work | Gate out |
 |---|---|---|---|
 | 0: all-sim (runnable now) | none | `replay_sim.launch.py` collapses the manual terminals; conditioning over all 30 clips (verdict table); full state-machine traversal; fault drills (kill publisher mid-run, inject stale input and a frame jump); **the hand q20 branch drives the MuJoCo hand model** via its joint_commands; assert arm commands piecewise-linear; §3.3 visual comparison against the bundle reference videos | CI smoke green; artifacts generate and validate |
-| A: read-only (§7A) | rig host wired; physical e-stop present | arm `--read-only`; hand track per the §7A limitation below; fill `hardware_manifest.json` from the template; 10 min comm soak; e-stop and watchdog physically tested, with their software-side effect recorded | signed §7A checklist; `hardware_manifest.json`, `joint_mapping.json` |
+| A: read-only (§7A) | rig host wired; power-cut path (remote damp / main power) identified | arm `--read-only`; hand track per the §7A limitation below; fill `hardware_manifest.json` from the template; 10 min comm soak; power cut and watchdog physically tested, with their software-side effect recorded | signed §7A checklist; `hardware_manifest.json`, `joint_mapping.json` |
 | B: single joint, supported (§7B) | A passed; G1 suspended or supported | single-joint artifacts through the normal load path: all 20+20 hand joints, then each arm joint; verify index, sign, zero, feedback agreement, current, temperature; verify the arm_sdk slot policy (legs and waist unaffected); gain tuning | `stage_b_report.json` per device |
 | C: separate (§7C) | B passed on that track; first clip from `choose_first_clip.py` (01 excluded) | order: hands-left, hands-right, arms-left, arms-right, arms-both; step 6 combined is blocked on the adapter | scoped `tracking_summary.json` in bounds, zero faults, operator sign-off |
 | D: GT before Ours (§7D) | C scoped passes | enforced by the load gate, per track before the adapter, combined after | GT passing before any Ours, per sample |

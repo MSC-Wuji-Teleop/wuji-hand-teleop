@@ -1,17 +1,49 @@
 # Spec 1 hardware bring-up runbook
 
-The operator guide for the first hardware campaign: exact commands per
+The operator guide for the hardware campaign: exact commands per
 stage, what each stage proves, what to record and where. Requirements:
 [spec_1.md](spec_1.md) and [TUITION.md](../../RobotSTAR_demos/TUITION.md)
 (sections 6-9 bind every step). Runtime contracts:
 [spec_1_interfaces.md](spec_1_interfaces.md). Sim gate:
 [spec_1_stage0.md](spec_1_stage0.md).
 
+## Campaign status (2026-09-01, arm track)
+
+| Stage | Result | Evidence (`~/wuji_runs/`) |
+|---|---|---|
+| A read-only | PASS — 10-min comm soak clean (lowstate age max 9.2 ms, tick 1000 Hz, `mode_machine` 5); power-cut + watchdog tests skipped by operator decision | `stage_a_soak.json`, `hardware_manifest.json` |
+| B single joints | PASS — all 14 arm joints, worst RMSE 0.027 rad (gate 0.15) | `stage_b_report.json`, `stage_b_run_map.txt` |
+| C full clip | PASS — sweep clip, arms-left / arms-right / arms-both at 0.25x | `stage_c_run_map.txt`, per-run `tracking_summary.json` |
+| E ladder | not run (next: 0.5x, [commands below](#stage-ce-with-the-sweep-clip-the-current-hardware-path)) | — |
+
+Hand track: not run. Combined stages: blocked on the mount adapter.
+Bundle clips: hardware no-gos as shipped (`real_robot_ready: false`, wrist
+steps — usage.md Stage E); the sweep clip is the current hardware clip.
+
+Operational facts this campaign established, binding on future sessions:
+
+- **No dedicated e-stop on this rig.** The physical stop is the robot's
+  remote damp command or main power, within reach during any powered run.
+- **Never run `make_artifacts`** (or anything CPU-heavy on the host)
+  during a live run: a >1 s host stall trips the Layer-3 liveness fault
+  (measured: killed a Stage B run mid-arm).
+- **Always scope `run_ctl load` explicitly** (`--arms ... --hands ''` for
+  arm-only): both flags default to `left,right`, and unscoped hands with no
+  hand nodes running fault at ARMED on hand liveness.
+- **Run compose from THIS checkout's `docker/`.** A same-named container
+  from another checkout mounts that checkout's stale source (found the
+  hard way: a container from `~/Projects/test` shadowed this repo).
+- The known torso/hip yaw during arm sweeps is the onboard balance
+  controller compensating same-handed yaw-joint momentum (IMU-measured
+  ~1-2 deg at 0.25x; scales with speed). Not a mapping error — see the
+  sweep README.
+
 Two independent tracks until the mount adapter exists: the **arm track**
 (G1 on the rig) and the **hand track** (both hands benchtop on the rig
 host). Combined runs are blocked (hard blocker 1). Solo operation: one
-launch terminal per container, one `run_ctl` terminal, one hand on the
-physical e-stop, always.
+launch terminal per container, one `run_ctl` terminal, the power-cut path
+(remote damp / main power — this rig has no dedicated e-stop) within reach,
+always.
 
 Realistic one-day target: Stage A both tracks, Stage B hands and at least
 a few arm joints, first Stage C scoped runs at 0.25x. The stages are
@@ -85,9 +117,14 @@ picks from these.
 | T1 | host, `docker/` | the G1 arm node in its own container (per-stage command below) |
 | T2 | teleop container | `ros2 launch wuji_teleop_bringup replay_hw.launch.py` (drivers + q20 controllers + publisher + supervisor) |
 | T3 | teleop container | `run_ctl`, topic echoes, `condition_clip` |
-| — | your hand | the physical e-stop |
+| — | within reach | the power cut (remote damp / main power) |
 
 `run_ctl status -w` in a spare pane is worth having the whole day.
+
+First time driving `run_ctl`, read the operator-view state machine in the
+[replay package README](../../src/input_devices/replay/README.md#the-run-state-machine-operator-view)
+— which commands are asynchronous, what the refusals mean, and why a
+finished run can never be re-armed.
 
 ---
 
@@ -95,7 +132,7 @@ picks from these.
 
 No motion command is sent by anything. Connect, observe both devices,
 fill the hardware manifest, soak the comms for 10 minutes, and physically
-exercise the e-stop and watchdog while only reading.
+exercise the power cut and watchdog while only reading.
 
 ### A.1 Arm track
 
@@ -126,11 +163,12 @@ Unitree app or robot label filled in the same pass.
 stay at ~0.002-0.01 s with no excursions past 0.1 s. Any sustained gap is
 a network problem to fix now, not during a powered run.
 
-**E-stop test (read-only):** press the e-stop. Watch `/g1/status`: does
+**Power-cut test (read-only):** cut robot power (remote damp command or the
+main power switch). Watch `/g1/status`: does
 `lowstate_age_s` grow (lowstate stops) or do values freeze with the tick
-still advancing (robot depowered, DDS alive)? Release, watch recovery.
+still advancing (robot depowered, DDS alive)? Restore power, watch recovery.
 Record the observed behavior verbatim in
-`e_stop_effect_on_lowstate_and_write_path`. This single observation
+`power_cut_effect_on_lowstate_and_write_path`. This single observation
 decides how the lowstate-loss reset behaves for the rest of the campaign.
 
 ### A.2 Hand track (benchtop)
@@ -159,7 +197,7 @@ manifest hand blocks; the joint tables are already in
 `joint_mapping_{side}.json`.
 
 **Gate out:** manifest g1+hand blocks filled, 10-min soak clean on both
-tracks, e-stop and watchdog rows signed in the `stage_a` block.
+tracks, power-cut and watchdog rows signed in the `stage_a` block.
 
 <details>
 <summary>Debug: no lowstate / arm node exits</summary>
@@ -247,8 +285,9 @@ ros2 run replay run_ctl arm
 #   engage: weight ramps 0 -> 1 over 2 s at the measured pose. WATCH THE
 #   WHOLE ROBOT during the first engage: legs and waist must not stiffen,
 #   twitch, or fight the onboard controller (the slot-policy check --
-#   their slots are never written). Any waist/leg reaction: e-stop,
-#   record, stop the campaign (spec: one-line exception with a reason).
+#   their slots are never written). Any waist/leg reaction: cut power
+#   (remote damp), record, stop the campaign (spec: one-line exception
+#   with a reason).
 ros2 run replay run_ctl start
 ros2 run replay run_ctl park && ros2 run replay run_ctl release
 #   release: weight 1 -> 0 over 2 s at the engage snapshot; the arm must
@@ -301,7 +340,7 @@ Common causes, in order:
   `run_ctl clear-fault`, then reload from the start.
 - `write_fault` non-null in `/g1/status`: the write thread hit a bad tick
   (e.g. NaN lowstate) and is holding the previous frame. Treat as a
-  comms/firmware anomaly; e-stop, record, investigate.
+  comms/firmware anomaly; cut power, record, investigate.
 - Layer-3 liveness fault the moment ARMED is reached, naming a device
   you did not scope: check the load's `--arms`/`--hands` matched what is
   actually running.
@@ -346,6 +385,46 @@ faults, arm RMSE <= 0.15 rad, max <= 0.35 rad, hand RMSE <= 0.15 rad —
 proposed criteria, note deviations rather than silently accepting), and
 your eyes agreed with the motion. Compare against the sample's reference
 video (TUITION 3.3 checklist) and note it.
+
+### Stage C/E with the sweep clip (the current hardware path)
+
+Bundle clips are hardware no-gos as shipped, so Stage C ran — and the
+Stage E ladder runs — on the audited synthetic sweep sample
+([sweep README](../../RobotSTAR_demos/sweep-test/README.md): what it does,
+safety construction). From scratch, arms only, 0.5x shown:
+
+```bash
+# 0. containers up (host, THIS repo's docker/); rebuild ws if code changed (§0.2)
+cd docker && docker compose up -d teleop
+
+# 1. after ANY generator edit: regenerate (HOST, repo root), recondition +
+#    re-audit (teleop container). Deterministic; overwrites the artifact.
+python3 RobotSTAR_demos/sweep-test/generate_sweep_sample.py
+ros2 run replay condition_clip \
+    --method-dir RobotSTAR_demos/sweep-test/samples/90_sweep_joints/GT \
+    --out-dir ~/wuji_clips
+python3 RobotSTAR_demos/sweep-test/check_collisions.py \
+    ~/wuji_clips/90_sweep_joints_GT/conditioned_clip_v1.npz
+
+# 2. T1 + T2 as in the terminal layout above; T2 arm-only:
+#    ros2 launch wuji_teleop_bringup replay_hw.launch.py \
+#        hands:=false enable_hand_driver:=false
+
+# 3. T3, per scope in Stage C order (left; right; left,right).
+#    Ladder rule: 0.5x needs the 0.25x pass at the same scope in
+#    ~/wuji_runs; 1.0x needs 0.5x. Capped by max_allowed_speed_scale (1.0).
+ros2 run replay run_ctl load \
+    ~/wuji_clips/90_sweep_joints_GT/conditioned_clip_v1.npz \
+    --arms left --hands '' --speed 0.5 --operator <name>
+ros2 run replay run_ctl arm && ros2 run replay run_ctl start
+# ... clip ends automatically (devices end_hold) ...
+ros2 run replay run_ctl park && ros2 run replay run_ctl release
+ros2 run replay make_artifacts --run-dir ~/wuji_runs/<run_dir>   # pass gate
+```
+
+Expect more visible torso/hip counter-yaw as speed rises (status block
+above); smooth counter-lean is the onboard controller working, a lurch or
+corrective step is a stop-and-record.
 
 ---
 

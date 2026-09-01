@@ -353,8 +353,9 @@ What replaces what, relative to the sim diagram:
 
 The arm side is identical in both diagrams: `joint_replay` already
 interpolates named targets and `G1ArmController` owns DDS behind the writer
-lock. The pending arm-side work is the safety envelope listed above, not
-topology.
+lock. The arm-side safety envelope is built and was validated on the rig
+2026-09-01 (arm-track Stages A-C,
+[spec/spec_1_bringup.md](spec/spec_1_bringup.md)).
 
 ## Input devices
 
