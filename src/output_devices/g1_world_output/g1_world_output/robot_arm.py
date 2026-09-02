@@ -162,10 +162,9 @@ G1_23_ARM_JOINT_NAMES = [
 ]
 
 # G1_29: 7 DoF per arm (adds wrist pitch/yaw; unified-motor-array indices
-# 20/21 and 27/28, which the 23-DoF enum above marks NotUsed). The 29 DDS
-# controller is NOT reinstated yet -- these names currently serve the
-# joint_replay/sim path (name-matched topics, g1_29_wuji2 description);
-# G1CartesianController refuses to open DDS with arm_type=G1_29.
+# 20/21 and 27/28, which the 23-DoF enum above marks NotUsed). G1ArmController
+# drives DDS for this variant too (ARM_INDICES_BY_TYPE, WRIST_MOTORS_BY_TYPE
+# below); only the pose IK path in g1_controller.py is G1_23-only.
 G1_29_ARM_JOINT_NAMES = [
     'left_shoulder_pitch',
     'left_shoulder_roll',

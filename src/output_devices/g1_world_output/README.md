@@ -17,7 +17,7 @@ runtime:
 | mode | input | how it's driven |
 |---|---|---|
 | `pose` (default) | `/left_arm_target_pose`, `/right_arm_target_pose` | chest->pelvis remap -> `G1_23_ArmIK.solve_ik` -> DDS |
-| `joint_replay` | `/left_arm/joint_targets`, `/right_arm/joint_targets` | no IK -- joints matched by name, linearly interpolated between the two most recently received samples, sent straight to DDS |
+| `joint_replay` | `/left_arm/joint_targets`, `/right_arm/joint_targets` | no IK -- joints matched by name, linearly interpolated one publish period behind between the two newest samples ([Interpolation](#interpolation)), sent straight to DDS |
 | `idle` | (none) | holds the arms at their current measured position |
 
 A message arriving on a topic that doesn't match the active mode is
@@ -26,11 +26,11 @@ the next command from the arm's current measured position first (bumpless
 transfer) so the switch itself can't produce a step.
 
 Orthogonal to `mode`, the `arm_type` parameter selects the joint-name
-layout: `G1_23` (default -- the real rig, 5 DoF/arm, full pose-IK + DDS) or
-`G1_29` (7 DoF/arm, matching the SOT bundle's native layout). `G1_29` is
-**sim-only**: no 29-DoF DDS controller or IK exists, so the node refuses
-`mode=pose` and refuses to connect DDS with it -- it works under `dry_run`
-in `joint_replay`/`idle` only.
+layout: `G1_29` (the config default; 7 DoF/arm, the rig's robot) or
+`G1_23` (5 DoF/arm). Both drive DDS through `G1ArmController`
+(`robot_arm.py`); `g1_controller.py` selects the motor slots and wrist
+gains per variant. The pose IK is `G1_23`-only, so the node refuses
+`mode=pose` with `G1_29`. `joint_replay` and `idle` work with either.
 
 ```
 pico_input                                    (mode=pose)
@@ -45,10 +45,26 @@ replay_publisher (or any joint source)    (mode=joint_replay)
   -> /left_arm/joint_targets  (JointState, named)
   -> /right_arm/joint_targets (JointState, named)
   -> g1_world_output
-       match by name against joint_names(side), interpolate by arrival time
+       match by name against joint_names(side); SideBuffer interpolates one publish period behind
        G1CartesianController.move_to_joints_direct  (no IK)
        G1ArmController        (robot_arm.py -> rt/lowcmd or rt/arm_sdk)
 ```
+
+### Interpolation
+
+Frames arrive at the publish rate (50 Hz times the replay speed) and the
+control loop runs at `control_rate` (250 Hz on the rig). Each side has a
+`SideBuffer` (`g1_world_output/side_buffer.py`, pure Python, no ROS). It
+holds the newest sample until two real samples exist, then commands
+`q_prev + alpha * (q_next - q_prev)` with
+`alpha = (now - t_next) / (t_next - t_prev)` clamped to `[0, 1]`: linear
+between the two newest samples, one publish period behind, where `t` is
+arrival time. The first frame is a step from the measured pose (the seed
+written at a mode switch is not a sample), and every later frame is
+continuous, one publish period late, at any speed. The rule before
+2026-09-02 measured `alpha` from `t_prev`, which is at or past 1 at every
+poll, so it was a zero-order hold at the publish rate. Tests:
+`tests/test_side_buffer.py`.
 
 ### Replaying a SOT bundle sample (`joint_replay` mode)
 
@@ -229,7 +245,7 @@ the box:
 
 `config/g1_robot.yaml`:
 
-- `arm_type: G1_23`
+- `arm_type: G1_29`; `G1_23` (5 DoF/arm) stays supported
 - `urdf_package_dir: ""` — blank resolves via `get_package_share_directory('g1_wuji2_description')` (requires that package built and `install/setup.bash` sourced); set an absolute path only to override
 - `urdf_filename: g1_23_wuji2.urdf`
 - `motion_mode` / `simulation_mode` — DDS channel selection (`rt/arm_sdk` vs `rt/lowcmd`, DDS domain 0 vs 1). `motion_mode` defaults to `true` (`rt/arm_sdk`): the G1's onboard controller keeps the legs. Set `false` (`rt/lowcmd`, full low-level bus) only with the robot hanging on a stand. Both assume *some* DDS peer answers `rt/lowstate` — neither is a "no hardware needed" switch; that's `--dry-run` (see [Sim mode vs. hardware mode](#sim-mode-vs-hardware-mode))
