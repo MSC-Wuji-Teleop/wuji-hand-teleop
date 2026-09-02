@@ -9,24 +9,19 @@ commits below. Two milestones are finished and tested, two are partial.
 
 ## Committed
 
-| commit | what |
-|---|---|
-| `2a76a4f` | wrist roll/yaw contact exclude in both `g1_29_wuji2` models (cherry-picked) |
-| `b2c18ec` | unitree CRC shared libraries in the G1 image (cherry-picked; the DDS write path dlopens them and the image dropped them) |
-| `ba05eb9` | `clips/{safe,rejected,candidate}` layout, gitignore rules, compose mounts for `../clips` (rw) and `../tools` (ro) |
+| commit | what | test |
+|---|---|---|
+| `2a76a4f` | wrist roll/yaw contact exclude in both `g1_29_wuji2` models (cherry-picked) | model loads, exclude present |
+| `b2c18ec` | unitree CRC shared libraries in the G1 image (cherry-picked; the DDS write path dlopens them and the image dropped them) | needs an image rebuild |
+| `ba05eb9` | `clips/{safe,rejected,candidate}` layout, gitignore rules, compose mounts for `../clips` (rw) and `../tools` (ro) | |
+| `f35c600` | spec1, replay runbook, usage, architecture, README, CLAUDE.md rewritten for the clip-directory path, and this note | grep clean for stale terms |
+| `5e24e4a` | `side_buffer.py` with tests; the node uses it; stale G1_29 DDS comments corrected | `pytest tests/test_side_buffer.py` 12 passed |
+| `ec39b11` | `src/starport_wuji_hand/` vendored and pruned; the two out-of-repo tests re-pointed at `wujihand_urdf` and the composed MJCF | `pytest --noconftest test/{test_joint_map,test_safety,test_limits_match_mjcf}.py` 84 passed, 0 skipped |
+
+Milestones M0, M1, M2, and the documentation pass are done. M3 and M4/M5 are
+partial and left in the working tree.
 
 ## Working tree, not committed
-
-**Finished and passing.**
-
-| piece | state | test |
-|---|---|---|
-| `g1_world_output/side_buffer.py` + `tests/test_side_buffer.py` | done. Holds the newest sample until two real samples exist, then interpolates one publish period behind | `pytest tests/test_side_buffer.py` 12 passed |
-| `g1_world_output_node.py`, `robot_arm.py`, package README | done. Node uses `SideBuffer`; the stale "G1_29 refuses DDS" comments corrected | `py_compile` clean |
-| `src/starport_wuji_hand/` | vendored and pruned (rviz view, `description.py`, Beta 1 URDFs, udev, the three monorepo bench scripts). The two out-of-repo tests re-pointed at `wujihand_urdf` and the composed MJCF | `pytest --noconftest test/test_joint_map.py test/test_safety.py test/test_limits_match_mjcf.py` 84 passed, 0 skipped |
-| docs | spec1, replay runbook, usage, architecture, README, CLAUDE.md all rewritten for the clip-directory path | grep clean for stale terms |
-
-**Partial.**
 
 | piece | state | what is missing |
 |---|---|---|
