@@ -646,6 +646,8 @@
   </worldbody>
 
   <contact>
+    <exclude body1="left_wrist_roll_link" body2="left_wrist_yaw_link"/>
+    <exclude body1="right_wrist_roll_link" body2="right_wrist_yaw_link"/>
     <exclude body1="left_wuji_l_wrist" body2="left_wuji_l_thumb_proximal"/>
     <exclude body1="left_wuji_l_wrist" body2="left_wuji_l_thumb_proximal_abd"/>
     <exclude body1="left_wuji_l_wrist" body2="left_wuji_l_index_finger_proximal"/>
