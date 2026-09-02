@@ -170,7 +170,8 @@ too.
 That hand side has its own hardware/sim split, independent of G1: the Wuji
 Glove → retargeting → `/left_hand/joint_commands` publish
 (`wujihand_controller`, in `src/controller/`) never touches the physical
-Wuji Hand SDK itself — only the separate `wujihand_driver` process does.
+Wuji Hand SDK itself; only the separate hand driver process does
+(`starport_wuji_hand` `hand_node`, Ethernet; see `docs/spec/spec1.md`).
 So real glove input can drive `mujoco_visualizer.py` with no Wuji Hand
 plugged in at all:
 

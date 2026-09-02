@@ -33,7 +33,7 @@ Data flow: input device, standard topic/TF interface, output controller, hardwar
 ## Rules and invariants
 
 - No launch file in the `teleop` container can start the G1 arms: `g1_world_output` is a separate image (Pinocchio + CasADi need NumPy 1.x). It is always a second terminal, and the Monitor GUI cannot reach it.
-- The hand controller never opens hand USB; only the separate `wujihand_driver` process does. Hand sim mode: `enable_hand_driver:=false`. G1 sim mode: `dry_run:=true` (real IK, no DDS).
+- The hand controller never opens the hand link; only the separate hand driver process does. The hand driver is `starport_wuji_hand` `hand_node`, one per side at `/{side}/wuji_hand`, over Ethernet via `wuji_sdk` ([docs/spec/spec1.md](docs/spec/spec1.md)). The USB driver (`wujihand_driver`, `wujihandros2` submodule) is still in the tree and is what the teleop launch files spawn until the swap lands. Hand sim mode: `enable_hand_driver:=false`. G1 sim mode: `dry_run:=true` (real IK, no DDS).
 - Configs are `.yaml.template` in git; `docker/entrypoint.sh` seeds the real gitignored `.yaml` so serials/IPs never land in the repo. New template: rerun `colcon build --symlink-install`.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own licenses. Do not modify it as first-party.
 - For any coordinate-frame bug on the PICO path, read `src/input_devices/pico_input/ARCHITECTURE.md` before touching code.

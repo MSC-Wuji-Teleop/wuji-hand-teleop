@@ -96,7 +96,8 @@ cd ~/ros2_ws/src/wuji-hand-teleop
 Skip either and `docker compose build` fails:
 
 ```bash
-# 3a. Submodules. Without this the build dies at
+# 3a. Submodules: wuji-retargeting, unitree_sdk2_python, and the USB hand
+#     driver (wujihandros2) until it is removed. Without this the build dies at
 #     COPY src/wujihandros2/external/wuji-description/...
 git submodule update --init --recursive
 
@@ -137,7 +138,11 @@ repo and a pull never conflicts with local values.
 Finding the serials:
 
 ```bash
-# Wuji Hands
+# Wuji Hands, Ethernet driver: scan the hands' subnet; prints serial, IP, side.
+# (path valid once starport_wuji_hand is vendored into src/)
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+
+# Wuji Hands, USB driver (current tree)
 lsusb -v -d 0483:2000 | grep iSerial
 
 # Wuji Gloves — printed on the device, and shown in Wuji Studio
@@ -184,8 +189,8 @@ shortcut.
 
 The hand and arm sim toggles are independent: run either, both, or neither.
 
-- **Hands**: `enable_hand_driver:=false` skips `wujihand_driver`, the only
-  process that opens hand USB. The controller still runs off real glove input
+- **Hands**: `enable_hand_driver:=false` skips the hand driver, the only
+  process that opens the hand link. The controller still runs off real glove input
   and publishes `/left_hand/joint_commands` unchanged.
 - **Arms**: `dry_run:=true` makes `g1_world_output` solve real IK from the
   target-pose topics and publish joint commands, without ever opening DDS.
@@ -273,8 +278,10 @@ Hand output contract, ~120 Hz:
 
 **Invariants**
 
-- The hand controller never opens hand USB. Only the separate
-  `wujihand_driver` process does.
+- The hand controller never opens the hand link. Only the separate hand
+  driver process does: `starport_wuji_hand` `hand_node` over Ethernet
+  ([docs/spec/spec1.md](docs/spec/spec1.md)); the USB `wujihand_driver`
+  until the swap lands.
 - No launch file in the `teleop` container can start the G1 arms.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own
   licenses. Do not modify it as first-party.

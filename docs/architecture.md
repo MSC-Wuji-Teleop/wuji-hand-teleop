@@ -42,7 +42,7 @@ graph LR
     SOT --> JT["/left_arm/joint_targets<br/>/right_arm/joint_targets"]
     SOT -- "/left_hand/keypoints21<br/>/right_hand/keypoints21" --> HC
 
-    HC -- "/left_hand/joint_commands<br/>/right_hand/joint_commands" --> DRV["wujihand_driver<br/>(C++, USB)"]
+    HC -- "/left_hand/joint_commands<br/>/right_hand/joint_commands" --> DRV["hand_node x2<br/>(starport_wuji_hand, Ethernet)"]
     DRV --> HAND["2x Wuji Hand 2"]
 
     TP -.->|"cross-container DDS<br/>(mode=pose)"| G1O["g1_world_output<br/>(own container)"]
@@ -131,7 +131,8 @@ steps 4–9 are identical, so replay exercises the production retargeting path.
 
 Because the message carries no joint names, index order is an unchecked
 convention shared across three codebases: the retargeter's output order, the
-`wujihandros2` driver's index parsing, and `HAND_CODES` in the viewer.
+hand driver's hardware order (`joint_map.py` in `starport_wuji_hand`; the USB
+driver's `JOINT_NAMES` today), and `HAND_CODES` in the viewer.
 
 ### Arm chain: PICO to MuJoCo
 
@@ -337,8 +338,12 @@ Key properties:
 - **Never touches hand hardware**: it always publishes
   `/left_hand/joint_commands` and `/right_hand/joint_commands`
   (`sensor_msgs/JointState`, ~120 Hz) regardless of whether a physical hand is
-  attached. Only the separate `wujihand_driver` process (from the
-  `wujihandros2` submodule, C++) opens the real USB connection.
+  attached. Only the separate hand driver process opens the real hand link:
+  `starport_wuji_hand` `hand_node`, one per side, over Ethernet via `wuji_sdk`
+  ([spec1.md](spec/spec1.md)). The USB driver (`wujihand_driver` from the
+  `wujihandros2` submodule) is what the teleop launch files spawn until the
+  swap lands; the controller's command topic then moves to the driver's
+  `/{side}/wuji_hand/joint_command`.
 - **Sim mode**: `wuji_teleop_hand.launch.py enable_hand_driver:=false` skips
   the driver process (real glove input, no physical hand). Pair with
   `g1_world_output/scripts/mujoco_visualizer.py --focus hands`.
@@ -396,7 +401,8 @@ Two containers, one ROS2 graph (host networking, same `ROS_DOMAIN_ID`):
   over ROS2/DDS.
 
 Within `teleop`, the hand pipeline is per-side processes end to end: two
-controller processes, plus the driver process that owns USB.
+controller processes, plus one hand driver process per side that owns the
+hand link.
 
 ## Configuration convention
 
@@ -410,8 +416,9 @@ symlink picks it up. The full config list is in
 
 ## Invariants
 
-- **Controller/driver split**: only `wujihand_driver` opens the hand USB
-  connection. The hand controller stays hardware-agnostic and always publishes
+- **Controller/driver split**: only the hand driver (`starport_wuji_hand`
+  `hand_node`; the USB `wujihand_driver` until the swap) opens the hand
+  link. The hand controller stays hardware-agnostic and always publishes
   joint-command topics.
 - **Vendored code is pinned**: `src/input_devices/pico_input/vendor/` is
   upstream XRoboToolkit source under its own licenses. Treat it as an external

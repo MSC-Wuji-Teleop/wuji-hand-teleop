@@ -111,7 +111,7 @@ ros2 launch wuji_teleop_bringup pico_teleop.launch.py
 Sim modes (no physical robot):
 
 ```bash
-# Hands: real glove input, no physical Wuji Hand (skips wujihand_driver)
+# Hands: real glove input, no physical Wuji Hand (skips the hand driver)
 ros2 launch wuji_teleop_bringup wuji_teleop_hand.launch.py enable_hand_driver:=false
 python3 src/output_devices/g1_world_output/scripts/mujoco_visualizer.py --focus hands
 
@@ -219,7 +219,7 @@ ros2 topic echo /left_arm/joint_commands --once   # 7 names under arm_type G1_29
 | Python code, launch files, existing YAML | Nothing beyond the initial `colcon build --symlink-install`; edits are live via the bind-mount and symlinks. Restart the running node to pick them up. |
 | New files, new packages, or a new `.yaml.template` | `colcon build --symlink-install` inside the container, so `install/share/` symlinks pick them up |
 | `docker/Dockerfile` or anything in `docker/prebuilt/` | `cd docker && docker compose build` on the host |
-| `src/wujihandros2` or `src/unitree_sdk2_python` pointer | `git submodule update --init --recursive` on the host, then `colcon build --symlink-install` inside |
+| `src/unitree_sdk2_python` pointer (and `src/wujihandros2` while the USB hand driver is still in the tree) | `git submodule update --init --recursive` on the host, then `colcon build --symlink-install` inside |
 | `src/wuji-retargeting` pointer | `git submodule update --init --recursive`, then **`cd docker && docker compose build`** on the host. It carries a `COLCON_IGNORE`, so colcon never builds it: the container imports the copy pip-installed into the image at image-build time. `colcon build` alone silently leaves the old retargeting code running. |
 
 Config files are tracked as `.yaml.template` only; `docker/entrypoint.sh`

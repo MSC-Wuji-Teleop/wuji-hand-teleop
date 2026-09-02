@@ -68,7 +68,8 @@ joint axis in the root frame: the joint at position 0 is parallel to the PIP and
 DIP axes, and the joint at position 1 is perpendicular to them. Hand 1 uses the
 same convention (`finger{i}_joint1` is flexion, `joint2` is abduction), so the
 flat 20-element order is unchanged by the Hand 1 to Hand 2 switch. That order
-also matches `wujihand_driver`'s `JOINT_NAMES` and the `HAND_CODES` actuator
+also matches the hand driver's hardware order (`starport_wuji_hand`
+`joint_map.py`; the USB driver's `JOINT_NAMES`) and the `HAND_CODES` actuator
 mapping in `output_devices/g1_world_output/scripts/_mujoco_common.py`
 (`THJ0..THJ3, FFJ0..FFJ3, ...`).
 
