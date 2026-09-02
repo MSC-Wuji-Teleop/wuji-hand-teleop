@@ -78,8 +78,7 @@ the legacy 20-DoF hand model, not the real Wuji Hand 2, and must never be
 sent to it directly (`legacy_wuji_sim_only/`, marked `DO_NOT_COMMAND_HAND2.txt`
 in every sample). Hand replay goes through `replay`'s keypoint topics
 into `wujihand_controller` (`input_source: "keypoints_topic"`), which
-regenerates Hand 2 joints live from each sample's 21-point keypoints -- see
-`RobotSTAR_demos/TUITION.md` Sec. 3.1.
+regenerates Hand 2 joints live from each sample's 21-point keypoints.
 
 ## Topics (the standard arm-output contract)
 

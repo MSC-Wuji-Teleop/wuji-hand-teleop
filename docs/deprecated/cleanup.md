@@ -42,7 +42,7 @@ The `backup_8_24` branch also points at that commit.
 
 | File | What it does | Hardware it assumes | Why removed |
 |---|---|---|---|
-| `src/controller/controller/tianji_arm_node.py` | The HTC-path arm controller, entry point `tianji_arm_controller`. Ran an enable/disable state machine and published `/tianji_arm/lifecycle_state`, which the Monitor gated its Stop button on | Tianji arm | Tianji only. Its sibling `wujihand_node.py`, the hand controller, stays |
+| `src/controller/controller/tianji_arm_node.py` | The HTC-path arm controller, entry point `tianji_arm_controller`. Ran enable/disable mode switching and published `/tianji_arm/lifecycle_state`, which the Monitor gated its Stop button on | Tianji arm | Tianji only. Its sibling `wujihand_node.py`, the hand controller, stays |
 | `src/wuji_teleop_bringup/launch/wuji_teleop.launch.py` | `wuji_teleop_bringup` is the launch-file package: one file per rig preset, wiring input + controller + output together. This file was the **HTC preset**: `openvr_input` -> TF -> `tianji_output`, plus the hand stack | Vive Trackers + Tianji arm | Both gone. `wuji_teleop_hand.launch.py` (hand-only) and `pico_teleop.launch.py` (PICO) stay |
 | `src/wuji_teleop_bringup/wuji_teleop_bringup/tf_utils.py` | Built `static_transform_publisher` nodes for the chest and wrist-to-arm frames | Tianji arm geometry | Dead: `wuji_teleop.launch.py` was its only caller |
 | `src/wuji_teleop_bringup/config/static_transforms.yaml` | The `wrist_to_tianji` offsets those TF nodes read | Tianji arm geometry | Dead: `tf_utils.py` was its only reader |

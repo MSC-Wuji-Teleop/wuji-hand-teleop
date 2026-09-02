@@ -256,20 +256,16 @@ grep -rn "create_publisher\|create_subscription\|create_timer" \
 
 ## SOT bundle replay
 
-`RobotSTAR_demos/` (repo root) is a handoff bundle of recorded
+`RobotSTAR_demos/` (repo root, gitignored) is a handoff bundle of recorded
 sign-language motion samples: 29-DoF G1 joint trajectories plus 21-point human
-hand keypoints per sample. Its own docs are the authority on what may touch
-hardware — read
-[HANDOFF_README.md](../RobotSTAR_demos/HANDOFF_README.md) and
-[TUITION.md](../RobotSTAR_demos/TUITION.md). Two of their
-constraints shaped the pipeline:
+hand keypoints per sample. Its `HANDOFF_README.md` describes the file layout.
+Two facts about the data shaped the pipeline:
 
-- **The bundle's precomputed hand joints target the legacy hand model and must
-  never reach a real Hand 2.** So replay never touches them: the hands are
-  driven from the sample's `hand2_input/*_human_targets_v5.npz` keypoints,
-  retargeted live by the production hand controllers
-  (`input_source: "keypoints_topic"`).
-- **A 50 FPS reference must not become 50 Hz step commands.** So
+- **The bundle's precomputed hand joints target the legacy hand model, not
+  Hand 2.** Replay never publishes them. The hands are driven from the
+  sample's `hand2_input/*_human_targets_v5.npz` keypoints, retargeted live by
+  the production hand controllers (`input_source: "keypoints_topic"`).
+- **A 50 FPS reference is not a 50 Hz step command.**
   `g1_world_output_node`'s `joint_replay` mode linearly interpolates between
   the two most recently received samples at its own `control_rate`
   ([g1_world_output_node.py:73](../src/output_devices/g1_world_output/g1_world_output/g1_world_output_node.py#L73) buffer, [:99](../src/output_devices/g1_world_output/g1_world_output/g1_world_output_node.py#L99) interpolate).
@@ -292,69 +288,20 @@ graph LR
     G1O -->|"/left,right_arm/joint_commands"| VIZ
 ```
 
-Joints cross every hop **by name**, per the bundle's own instruction ("map
-joints by joint name, do not map only by array index"): the publisher selects
-arm columns by name from `target_meta.json`, the consumer matches them against
+Joints cross every hop **by name**: the publisher selects arm columns by name
+from `target_meta.json`, the consumer matches them against
 `joint_names(side)` and warns on extras, and the viewer resolves each name to
-a `{name}_joint` actuator. That is what lets the same publisher drive today's
-5-DoF-arm G1_23 controller and the 29-DoF sim without changes.
+a `{name}_joint` actuator. That is what lets the same publisher drive the
+5-DoF-arm `G1_23` controller and the 29-DoF rig without changes.
 
-The rig's robot is 29-DoF. As of 2026-08-27 `G1ArmController` drives either
-variant over DDS (`arm_type` selects the arm slot set; `G1_29` is the config
-default) and pose-IK teleop stays `G1_23`-only. What keeps replay sim-only
-today is the missing safety envelope, not the controller: TUITION's
-requirements on feedback gating (§5), bounded startup and termination (§8),
-stop conditions (§9), and run logging (§10) are not implemented yet.
-Runbook with the exact commands:
-[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim). Checklist and
-staged bring-up for the eventual hardware runs:
+On hardware the graph is the same minus `dry_run` and the viewer:
+`G1ArmController` opens DDS (`arm_type` selects the arm slot set; `G1_29` is
+the config default) and the hand controllers publish to the hand drivers.
+Nothing sits between the publisher and the device nodes. The publisher plays
+the clip once at the bundle's rate and holds the last frame; clip quality is
+decided offline, before a run. Runbook:
+[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim) and
 [Hardware replay](usage.md#hardware-replay).
-
-### Hardware replay design (planned)
-
-Design target, not implemented. The sim topology above carries over with two
-changes, both inside existing processes. No new nodes.
-
-A "mode" here is a parameter on a device node, not a separate process.
-`g1_world_output` already has `mode` (`pose` | `joint_replay` | `idle`), and
-the hand node already has `input_source` (`wuji_glove` | `keypoints_topic`).
-The planned branch adds one more `input_source` value, `q20_topic`. Each
-device node keeps sole ownership of its command topic in every mode; the
-parameter only selects which input branch its control timer runs, so a
-second writer is structurally impossible. That is the same property the DDS
-writer lockfile enforces on the arm side.
-
-```mermaid
-graph LR
-    CC["condition_clip (planned, offline)<br/>keypoints to q20 retarget<br/>+ velocity audit, per-clip verdict"]
-    ART[("conditioned clip<br/>artifact")]
-    SOT["replay_publisher<br/>one timer"]
-    HC["wujihand_controller x2<br/>input_source=q20_topic (planned)<br/>interp + clamp + watchdog inside"]
-    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29"]
-    DRV["wujihand_driver<br/>unchanged"]
-    DDS["Unitree G1<br/>DDS rt/arm_sdk"]
-
-    CC --> ART --> SOT
-    SOT -->|"/left,right_hand/joint_targets<br/>named q20 (planned topic)"| HC
-    SOT -->|"/left,right_arm/joint_targets<br/>unchanged"| G1O
-    HC -->|"/left,right_hand/joint_commands"| DRV
-    G1O --> DDS
-```
-
-What replaces what, relative to the sim diagram:
-
-| Sim path (today) | Hardware path (planned) |
-|---|---|
-| `/left,right_hand/keypoints21`, 63 floats | `/left,right_hand/joint_targets`, named q20 |
-| NLopt retarget at runtime, inside the hand node | retarget offline in `condition_clip`, audited before any run (TUITION §3.1: `reset()` per clip, retarget metadata recorded) |
-| latest-wins keypoint consumption, no interpolation | interpolation between q20 samples in the same timer loop (TUITION §5) |
-| no clamps or feedback gating on the hand side | joint-limit clamp plus `joint_states`/`hand_diagnostics` watchdog in the same branch (TUITION §5) |
-| viewer consumes the command topics | `wujihand_driver` (USB) and DDS consume them |
-
-The arm side is identical in both diagrams: `joint_replay` already
-interpolates named targets and `G1ArmController` owns DDS behind the writer
-lock. The pending arm-side work is the safety envelope listed above, not
-topology.
 
 ## Input devices
 

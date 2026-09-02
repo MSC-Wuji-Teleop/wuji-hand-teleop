@@ -17,9 +17,7 @@ name against G1CartesianController.joint_names() and ignores/warns on
 unrecognized extras), so this script keeps working unchanged whether the
 consumer is the current 23-DoF controller (5/arm) or a future 29-DoF one
 (7/arm). Leg and waist joints are never published (not per-arm; out of
-scope for this topic). Per TUITION.md Sec. 3.2: "Map joints by joint name.
-Do not map only by array index." -- selection here is by name for the same
-reason.
+scope for this topic). Selection here is by name, never by array index.
 
 Deliberately imports only rclpy/numpy/sensor_msgs so this can run in the
 plain teleop container (NumPy 2, no Pinocchio): it never talks to DDS and
@@ -31,9 +29,8 @@ Usage:
         --meta .../GT/g1_reference/target_meta.json \\
         [--rate HZ] [--loop] [--side {left,right,both}]
 
-Per HANDOFF_README.md/TUITION.md: run one low-contact, low-motion sample
-first, and start g1_world_output_node with --dry-run before ever pointing
-this at real DDS.
+Start g1_world_output_node with --dry-run to check a clip in sim before
+pointing this at real DDS.
 """
 
 from __future__ import annotations
@@ -118,8 +115,7 @@ class JointReplayPublisher(Node):
             if self._loop:
                 self._idx = 0
             else:
-                # Hold the final frame -- never snap to neutral (TUITION.md Sec 8:
-                # "hold the final target ... never abruptly zero the command").
+                # Hold the final frame; never snap to neutral.
                 self._idx = self._num_frames - 1
 
         stamp = self.get_clock().now().to_msg()
@@ -140,8 +136,7 @@ def main():
     parser.add_argument(
         '--rate', type=float, default=0.0,
         help='Publish rate in Hz. Default: source_fps/time_scale from the npz '
-             '(redistributes time, same as TUITION.md Sec 7 Stage E playback-speed '
-             'guidance -- never scales joint amplitude).',
+             '(redistributes time, never scales joint amplitude).',
     )
     parser.add_argument('--loop', action='store_true', help='Loop back to frame 0 at the end')
     parser.add_argument('--side', choices=['left', 'right', 'both'], default='both')

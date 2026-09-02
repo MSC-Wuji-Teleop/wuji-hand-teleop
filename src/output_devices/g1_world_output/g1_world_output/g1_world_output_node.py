@@ -17,9 +17,9 @@ Three modes, switchable at runtime via the 'mode' ROS parameter:
                               -> /right_arm/joint_targets (sensor_msgs/JointState)
               -> g1_world_output (interpolate by arrival time) -> DDS LowCmd
     For sources that ship joint angles directly (e.g. a replayed reference
-    trajectory) rather than end-effector poses -- no IK involved. See
-    TUITION.md/HANDOFF_README.md: a 50 FPS offline reference must not be
-    treated as 50 Hz step commands, so this mode interpolates between the
+    trajectory) rather than end-effector poses -- no IK involved. A 50 FPS
+    offline reference must not be treated as 50 Hz step commands, so this
+    mode interpolates between the
     two most recently received samples rather than holding/jumping.
 
   idle

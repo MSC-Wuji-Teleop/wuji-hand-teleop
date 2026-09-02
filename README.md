@@ -1,6 +1,6 @@
 # wuji-hand-teleop
 
-ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **two
+ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (29-DoF)** with **two
 Wuji Hand 2** end effectors, driven by **Wuji Gloves** for the hands and a
 **PICO 4** headset with 4 Motion Trackers for the arms. Docker on Ubuntu 22.04
 x86_64 is the only supported runtime, and the hardware is fixed: this is a
@@ -69,9 +69,9 @@ Replays one sample from the `RobotSTAR_demos/` handoff bundle
 through the same output controllers teleop uses: arms as named joint targets
 into `g1_world_output` (`mode:=joint_replay`, no IK), hands as 21-point
 keypoints retargeted live by the hand controllers
-(`input_source: "keypoints_topic"`). Validated in MuJoCo on the 29-DoF model;
-sending replay to the real robot is **not** wired up yet (deliberately — see
-the bundle's own [TUITION.md](RobotSTAR_demos/TUITION.md)).
+(`input_source: "keypoints_topic"`). Validated in MuJoCo on the 29-DoF model.
+On hardware, drop `dry_run` and the viewer:
+[Hardware replay](docs/usage.md#hardware-replay).
 Commands and details: [SOT bundle replay](docs/usage.md#sot-bundle-replay-sim)
 in usage.md.
 
@@ -317,9 +317,9 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
   pose by a constant wrist-frame vector.
 - **Hand 2 mounting adapter does not exist yet.** The vendor STL is a Hand v1
   part. `g1_wuji2_description` uses a provisional flange.
-- **The 29-DoF control path is sim-only.** `arm_type:=G1_29` exists for SOT
-  bundle replay in MuJoCo, but there is no 29-DoF DDS controller or IK;
-  `g1_world_output` refuses to open DDS with it (the rig's robot is 23-DoF).
+- **Hardware replay is unverified from this branch.** `arm_type:=G1_29` drives
+  DDS through `G1ArmController` and pose-mode IK stays `G1_23`-only; the
+  replay graph has not been run on the rig from `main`.
 - **Monitor cannot start the G1**, and the **joint panel still shows 7 arm
   columns** (Tianji's DoF count; the G1_23 has 5 per side).
 

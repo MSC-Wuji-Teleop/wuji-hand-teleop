@@ -10,9 +10,8 @@ and publishes, on a single timer so arms and hands stay time-aligned:
 | `/left_arm/joint_targets`, `/right_arm/joint_targets` | `sensor_msgs/JointState` | Arm joints from `g1_reference/controller_reference_v7.npz` `body_q`, **named** per `target_meta.json` (7/side for the bundle's 29-DoF layout). Consumed by `g1_world_output` in `mode:=joint_replay` |
 | `/left_hand/keypoints21`, `/right_hand/keypoints21` | `std_msgs/Float64MultiArray` (63 floats) | 21-point MediaPipe hand keypoints in meters from `hand2_input/*_human_targets_v5.npz`. Consumed by `wujihand_controller` with `input_source: "keypoints_topic"`, which retargets them live |
 
-The bundle's precomputed hand joint columns are **never** published — per the
-bundle's TUITION.md they target the legacy hand model and must not reach a
-real Hand 2. Hands are always regenerated from the keypoints downstream.
+The bundle's precomputed hand joint columns are **never** published: they
+target the legacy hand model and must not reach a real Hand 2. Hands are always regenerated from the keypoints downstream.
 
 Pure `rclpy` + `numpy`: runs in the main teleop container, never touches DDS
 or any device SDK. Holds the final frame at clip end (the bundle's

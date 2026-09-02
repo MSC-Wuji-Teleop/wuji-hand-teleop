@@ -22,10 +22,10 @@ timer so arms and hands stay time-aligned:
            These are the HUMAN keypoints, not joint angles: retargeting to
            Hand 2's 20 DoF happens live in wujihand_controller
            (input_source: "keypoints_topic"), i.e. through the exact same
-           production path glove teleop uses. This is deliberate -- per
-           TUITION.md Sec 3.1 / HANDOFF_README.md, the bundle's precomputed
-           hand joint columns target the legacy hand model and must never
-           be used; hand joints must be regenerated from these keypoints.
+           production path glove teleop uses. This is deliberate: the
+           bundle's precomputed hand joint columns target the legacy hand
+           model and must never be used; hand joints are regenerated from
+           these keypoints.
 
 Timeline: body_q is the retimed reference (frames @ target_fps); the hand
 keypoints are on the source timeline (source_frames @ source_fps) spanning
@@ -167,8 +167,7 @@ class ReplayPublisher(Node):
             if self._loop:
                 self._idx = 0
             else:
-                # Hold the final frame -- bundle end behavior is hold_last_target
-                # (TUITION.md Sec 8: never abruptly zero or jump to neutral).
+                # Hold the final frame (bundle end behavior: hold_last_target).
                 self._idx = self._num_frames - 1
 
         stamp = self.get_clock().now().to_msg()
@@ -199,8 +198,7 @@ def main(argv=None) -> None:
     parser.add_argument(
         '--rate', type=float, default=0.0,
         help='Publish rate in Hz. Default: target_fps/time_scale from the bundle '
-             '(slower playback redistributes time, never scales amplitude -- '
-             'TUITION.md Stage E).',
+             '(slower playback redistributes time, never scales amplitude).',
     )
     parser.add_argument('--loop', action='store_true', help='Loop back to frame 0 at clip end')
     parser.add_argument('--no-arms', action='store_true', help='Skip arm joint targets')

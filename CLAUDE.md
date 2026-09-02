@@ -2,11 +2,11 @@
 
 ## Overview
 
-ROS2 (Humble) teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **2x Wuji Hand 2**, driven by **Wuji Gloves** for the hands and a **PICO 4** headset with 4 Motion Trackers for the arms. The repo lives inside a colcon workspace (`~/ros2_ws/src/wuji-hand-teleop`); its `src/` bind-mounts into the `wuji-hand-teleop` Docker container as the workspace package source.
+ROS2 (Humble) teleoperation stack for one rig: a **Unitree G1 (29-DoF)** with **2x Wuji Hand 2**, driven by **Wuji Gloves** for the hands and a **PICO 4** headset with 4 Motion Trackers for the arms. The repo lives inside a colcon workspace (`~/ros2_ws/src/wuji-hand-teleop`); its `src/` bind-mounts into the `wuji-hand-teleop` Docker container as the workspace package source.
 
 **Docker is the only supported runtime.** `docker/Dockerfile` is the source of truth for the environment (apt/pip versions, SDKs). One exception to the single-container picture: `g1_world_output` runs as its own image/container because its Pinocchio+CasADi build needs NumPy 1.x while the rest of the stack needs 2.x.
 
-The hardware source of truth is [docs/spec/hardware_spec.md](docs/spec/hardware_spec.md): the physical G1 is the **23-DoF** variant; `g1_wuji2_description` carries both the matching `g1_23_wuji2*` files and, since 2026-08-27, `g1_29_wuji2*` (29-DoF, used for SOT bundle replay in sim only). The upstream Tianji arm, HTC/SteamVR, and MANUS code was removed on 2026-08-25; what went and why is in [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md). `src/camera/` is kept but unwired, pending the G1 head cameras.
+The hardware source of truth is [docs/spec/hardware_spec.md](docs/spec/hardware_spec.md): the physical G1 is the **29-DoF** variant (decided 2026-08-27); `g1_wuji2_description` carries `g1_29_wuji2*` and the `g1_23_wuji2*` secondary. The upstream Tianji arm, HTC/SteamVR, and MANUS code was removed on 2026-08-25; what went and why is in [docs/deprecated/cleanup.md](docs/deprecated/cleanup.md). `src/camera/` is kept but unwired, pending the G1 head cameras.
 
 ## Commands
 
@@ -27,7 +27,7 @@ Data flow: input device, standard topic/TF interface, output controller, hardwar
 
 - `src/input_devices/`: `wuji_glove` (in-process `wuji_sdk` UDP, no topic hop), `pico_input` (chest-frame `PoseStamped` topics; also owns the PICO frame math in `transform_utils.py` + `config_loader.py`), `replay` (replays a SOT bundle sample: named arm joint targets + hand keypoints on one timer).
 - `src/controller/`: `wujihand_controller` runs as two independent processes (left/right), each with its own GIL, retargeting, and IK. Input selected by `wujihand_ik.yaml::input_source` (`wuji_glove` or `keypoints_topic`); dispatch in `controller/wujihand_node.py`, controller class in `src/output_devices/wujihand_output/wujihand_controller.py`.
-- `src/output_devices/`: `wujihand_output` (hand IK), `g1_world_output` (G1 arms, own container; `mode` parameter selects `pose` — target-pose topics through IK — or `joint_replay` — named `/left_arm/joint_targets` + `/right_arm/joint_targets`, interpolated, no IK; `arm_type` selects `G1_23` (real rig) or `G1_29` (replay sim only, refuses DDS)).
+- `src/output_devices/`: `wujihand_output` (hand IK), `g1_world_output` (G1 arms, own container; `mode` parameter selects `pose` — target-pose topics through IK — or `joint_replay` — named `/left_arm/joint_targets` + `/right_arm/joint_targets`, interpolated, no IK; `arm_type` selects `G1_29` (the rig, default) or `G1_23` (secondary); pose mode is `G1_23`-only).
 - `src/wuji_teleop_bringup/`: launch files per preset (`wuji_teleop_hand.launch.py`, `pico_teleop.launch.py`). `src/wuji_teleop_monitor/`: Qt5 GUI, single `monitor` entry point, the reference for preset-to-launch mapping.
 
 ## Rules and invariants
@@ -41,9 +41,9 @@ Data flow: input device, standard topic/TF interface, output controller, hardwar
 
 ## RobotSTAR SOT handoff bundle
 
-`RobotSTAR_demos/` is offline reference data (GT/Ours motion samples, hand keypoints, 29-DoF G1 joint trajectories, audits/videos). Its `HANDOFF_README.md` and `TUITION.md` are the authority on what may touch hardware. A sim replay pipeline exists and is validated in MuJoCo (runbook: [docs/usage.md](docs/usage.md#sot-bundle-replay-sim); design: [docs/architecture.md](docs/architecture.md#sot-bundle-replay)):
+`RobotSTAR_demos/` (gitignored) is offline reference data: GT/Ours motion samples, hand keypoints, 29-DoF G1 joint trajectories, audits and videos. Its `HANDOFF_README.md` describes the file layout. Replay runbook: [docs/usage.md](docs/usage.md#sot-bundle-replay-sim); design: [docs/architecture.md](docs/architecture.md#sot-bundle-replay).
 
 - `replay` publishes a sample's arm joints (named `JointState`, by-name matching end to end) and hand keypoints on one timer; `g1_world_output` `mode:=joint_replay arm_type:=G1_29` interpolates the arms; the hand controllers (`input_source: "keypoints_topic"`) retarget the keypoints live through the production path.
-- **Never** use the bundle's precomputed hand joints (`controller_reference_v7.npz` `left_q`/`right_q`, `legacy_wuji_sim_only/hand_targets.csv`) on a real Hand 2 — they target the legacy hand model (`DO_NOT_COMMAND_HAND2.txt` in every sample). Hand joints are always regenerated from `hand2_input/*_human_targets_v5.npz` keypoints.
-- **Hardware replay**: the rig's robot is 29-DoF, and `arm_type=G1_29` (the default) drives DDS through the same `G1ArmController`; pose-IK stays G1_23-only. The safety envelope TUITION.md requires (§5 feedback gating, §8 ramps, §9 aborts, §10 logging) is NOT built yet — MVP wiring only. The Hand 2 mount adapter still doesn't exist (vendor STL is a Hand v1 part), which blocks the measured flange→wrist transform TUITION.md §4 requires.
-- Before any first hardware run, follow TUITION.md's staged test sequence and pick the sample from the batch audits — at least one sample failed its deployment audit (§7 names it) and several ship with `safe_timing_at_requested_scale: false`.
+- **Never** send the bundle's precomputed hand joints (`controller_reference_v7.npz` `left_q`/`right_q`, `legacy_wuji_sim_only/hand_targets.csv`) to a real Hand 2: they target the legacy hand model (`DO_NOT_COMMAND_HAND2.txt` in every sample). Hand joints are always regenerated from `hand2_input/*_human_targets_v5.npz` keypoints.
+- The replay path is the publisher and the two device nodes, nothing else, by decision. Do not add runtime checks, modes, or trip conditions to it. Clip quality is decided offline before a run; the runtime plays the clip once and holds the last frame.
+- Hardware replay: `arm_type=G1_29` (the default) drives DDS through `G1ArmController`; pose-IK stays `G1_23`-only. The Hand 2 mount adapter is still unconfirmed (the vendor STL is a Hand v1 part).

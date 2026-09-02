@@ -70,11 +70,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Added `mujoco==3.12.0` to the main `teleop` image's pip dependencies, needed by
   the new G1 sim-mode scripts.
-- Rewrote `docs/spec/spec_1.md` from a question list into the proposed hardware
-  replay design (29-DoF G1 primary, 23-DoF secondary): conditioning artifacts,
-  LowCmd slot policy, run/device state machines, safety envelope layers, and a
-  bring-up staged against TUITION §7. hardware_spec.md records the variant
-  decision (2026-08-27).
+- Removed the staged hardware-replay design document from `docs/spec/` and
+  every reference to the bundle's handoff guide (2026-09-02). Hardware replay is the
+  sim graph minus `dry_run`, with nothing added between the publisher and the
+  device nodes: [docs/usage.md](docs/usage.md#hardware-replay),
+  [docs/architecture.md](docs/architecture.md#sot-bundle-replay).
+  hardware_spec.md records the 29-DoF variant decision (2026-08-27).
 
 ## [2026.6.13]
 
@@ -97,7 +98,7 @@ Open-sourcing the four Wuji-owned pillars (Wuji Glove + Wuji Hand + `wujihandcpp
 ### Removed
 
 - Removed multi-machine lifecycle gating, including the Monitor's matching subscriptions and arm-manager service clients.
-- Removed the multi-process state machine from the Tianji arm path: INFERENCE mode, `switch_mode` / `get_mode` services, and the `default_mode` launch param.
+- Removed the multi-process mode switching from the Tianji arm path: INFERENCE mode, `switch_mode` / `get_mode` services, and the `default_mode` launch param.
 - **Breaking**: removed the `hand_input` launch param and the legacy `wuji_teleop_{arm,camera,single}.launch.py` and `pico_teleop_minimal.launch.py` files. Input source is now read from `wujihand_ik.yaml::input_source`, and `wuji_teleop.launch.py` covers all paths via params.
 - Removed the unused `common_input` package, 43 MB `pico_input/record/` data dump, 200 KB `trackingData_sample.txt`, and the cross-process clock-sync dependency no longer needed for single-machine deployment.
 
