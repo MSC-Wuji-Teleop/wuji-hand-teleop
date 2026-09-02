@@ -1,0 +1,34 @@
+{
+  "serial_number": "WH2KA01260810003",
+  "handedness": "right",
+  "method": "bidirectional triangle from home, (effort_up - effort_down)/2 binned by angle",
+  "survey": {
+    "rate_hz": 100.0,
+    "speed_rad_s": 0.3,
+    "amplitude_rad": 0.35,
+    "kp": 10.0,
+    "kd": 0.2
+  },
+  "friction_a": {
+    "r_thumb_cmc_flex": 0.1315,
+    "r_thumb_cmc_abd": 0.0926,
+    "r_thumb_mcp": 0.0844,
+    "r_thumb_ip": 0.1691,
+    "r_index_finger_mcp_flex": 0.0856,
+    "r_index_finger_mcp_abd": 0.1434,
+    "r_index_finger_pip": 0.0196,
+    "r_index_finger_dip": 0.0407,
+    "r_middle_finger_mcp_flex": 0.1166,
+    "r_middle_finger_mcp_abd": 0.1147,
+    "r_middle_finger_pip": 0.048,
+    "r_middle_finger_dip": 0.0645,
+    "r_ring_finger_mcp_flex": 0.1482,
+    "r_ring_finger_mcp_abd": 0.1219,
+    "r_ring_finger_pip": 0.1292,
+    "r_ring_finger_dip": 0.0315,
+    "r_pinky_mcp_flex": 0.0559,
+    "r_pinky_mcp_abd": 0.0906,
+    "r_pinky_pip": 0.1565,
+    "r_pinky_dip": 0.141
+  }
+}

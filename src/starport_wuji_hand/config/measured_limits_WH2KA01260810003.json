@@ -1,0 +1,201 @@
+{
+  "serial_number": "WH2KA01260810003",
+  "handedness": "right",
+  "hw_version": "HwVersion(major=0, minor=2, patch=0)",
+  "sweep": {
+    "effort_limit": 1.5,
+    "kp": 10.0,
+    "kd": 0.2,
+    "speed": 0.4,
+    "overshoot": 0.05,
+    "stall_error": 0.08,
+    "stall_time": 0.3,
+    "reach_tol": 0.05
+  },
+  "joints": [
+    {
+      "joint": "r_index_finger_mcp_flex",
+      "index": 4,
+      "direction": "lower",
+      "mjcf_bound": -1.047,
+      "commanded_stop": -1.097,
+      "measured_stop": -1.0222,
+      "effort_at_stop": -0.2373,
+      "stop_reason": "cap",
+      "bound_reached": true,
+      "conclusive": true,
+      "ticks": 3144,
+      "peak_effort": 0.4763,
+      "mean_error": 0.02,
+      "max_error": 0.0748,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.054,
+        "p50": 0.998,
+        "p99": 1.22,
+        "max": 2.301
+      }
+    },
+    {
+      "joint": "r_index_finger_mcp_flex",
+      "index": 4,
+      "direction": "upper",
+      "mjcf_bound": 1.57,
+      "commanded_stop": 1.62,
+      "measured_stop": 1.4837,
+      "effort_at_stop": 1.486,
+      "stop_reason": "cap",
+      "bound_reached": false,
+      "conclusive": true,
+      "ticks": 3650,
+      "peak_effort": 1.5401,
+      "mean_error": 0.0276,
+      "max_error": 0.1362,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.237,
+        "p50": 0.998,
+        "p99": 1.232,
+        "max": 1.641
+      }
+    },
+    {
+      "joint": "r_index_finger_mcp_abd",
+      "index": 5,
+      "direction": "lower",
+      "mjcf_bound": -0.698,
+      "commanded_stop": -0.748,
+      "measured_stop": -0.6443,
+      "effort_at_stop": -0.5567,
+      "stop_reason": "cap",
+      "bound_reached": false,
+      "conclusive": true,
+      "ticks": 2102,
+      "peak_effort": 0.57,
+      "mean_error": 0.0246,
+      "max_error": 0.1037,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.164,
+        "p50": 0.999,
+        "p99": 1.25,
+        "max": 1.888
+      }
+    },
+    {
+      "joint": "r_index_finger_mcp_abd",
+      "index": 5,
+      "direction": "upper",
+      "mjcf_bound": 0.698,
+      "commanded_stop": 0.748,
+      "measured_stop": 0.5851,
+      "effort_at_stop": 1.4819,
+      "stop_reason": "cap",
+      "bound_reached": false,
+      "conclusive": true,
+      "ticks": 1639,
+      "peak_effort": 1.5302,
+      "mean_error": 0.0372,
+      "max_error": 0.1627,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.424,
+        "p50": 0.998,
+        "p99": 1.248,
+        "max": 1.637
+      }
+    },
+    {
+      "joint": "r_index_finger_pip",
+      "index": 6,
+      "direction": "lower",
+      "mjcf_bound": -1.047,
+      "commanded_stop": -1.097,
+      "measured_stop": -1.0272,
+      "effort_at_stop": -0.1094,
+      "stop_reason": "cap",
+      "bound_reached": true,
+      "conclusive": true,
+      "ticks": 2754,
+      "peak_effort": 0.2478,
+      "mean_error": 0.0164,
+      "max_error": 0.0696,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.331,
+        "p50": 0.998,
+        "p99": 1.179,
+        "max": 2.067
+      }
+    },
+    {
+      "joint": "r_index_finger_pip",
+      "index": 6,
+      "direction": "upper",
+      "mjcf_bound": 2.094,
+      "commanded_stop": 2.0273,
+      "measured_stop": 1.8405,
+      "effort_at_stop": 1.5137,
+      "stop_reason": "stalled",
+      "bound_reached": false,
+      "conclusive": false,
+      "ticks": 5058,
+      "peak_effort": 1.5442,
+      "mean_error": 0.0272,
+      "max_error": 0.1867,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.024,
+        "p50": 0.998,
+        "p99": 1.193,
+        "max": 2.05
+      }
+    },
+    {
+      "joint": "r_index_finger_dip",
+      "index": 7,
+      "direction": "lower",
+      "mjcf_bound": -1.047,
+      "commanded_stop": -1.097,
+      "measured_stop": -0.9975,
+      "effort_at_stop": -0.2558,
+      "stop_reason": "cap",
+      "bound_reached": true,
+      "conclusive": true,
+      "ticks": 3031,
+      "peak_effort": 0.3495,
+      "mean_error": 0.0199,
+      "max_error": 0.0991,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.029,
+        "p50": 0.998,
+        "p99": 1.202,
+        "max": 2.024
+      }
+    },
+    {
+      "joint": "r_index_finger_dip",
+      "index": 7,
+      "direction": "upper",
+      "mjcf_bound": 1.57,
+      "commanded_stop": 1.62,
+      "measured_stop": 1.5456,
+      "effort_at_stop": 0.634,
+      "stop_reason": "cap",
+      "bound_reached": true,
+      "conclusive": true,
+      "ticks": 3762,
+      "peak_effort": 0.6662,
+      "mean_error": 0.0176,
+      "max_error": 0.0742,
+      "tick_ms": {
+        "mean": 1.0,
+        "min": 0.218,
+        "p50": 0.998,
+        "p99": 1.21,
+        "max": 2.174
+      }
+    }
+  ]
+}
