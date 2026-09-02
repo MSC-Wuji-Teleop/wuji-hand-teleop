@@ -19,6 +19,10 @@ stage, what each stage proves, what to record and where. Requirements:
 Hand track: not run. Combined stages: blocked on the mount adapter.
 Bundle clips: hardware no-gos as shipped (`real_robot_ready: false`, wrist
 steps — usage.md Stage E); the sweep clip is the current hardware clip.
+Update 2026-09-01: four bundle trajectories are sanitized into Stage C/D
+candidates in [sanitized_clips/](../../sanitized_clips/README.md) (arm
+smoothing + rate clamp; run order, gates, and the 7D deviation are in that
+README). Same rig procedure as the sweep clip.
 
 Operational facts this campaign established, binding on future sessions:
 

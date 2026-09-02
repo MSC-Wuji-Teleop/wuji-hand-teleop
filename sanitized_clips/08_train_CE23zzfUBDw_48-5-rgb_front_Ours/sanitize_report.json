@@ -1,0 +1,19 @@
+{
+ "source": "RobotSTAR_demos/samples/08_train_CE23zzfUBDw_48-5-rgb_front/Ours",
+ "frames": 210,
+ "trim_start": 0,
+ "cutoff_hz": 6.0,
+ "max_step_deg": 15.0,
+ "before": {
+  "max_step_deg": 23.678763210816804,
+  "peak_vel_rad_s": 20.232896506786346,
+  "peak_acc_rad_s2": 366.04052409529686
+ },
+ "after": {
+  "max_step_deg": 14.999999999999998,
+  "peak_vel_rad_s": 13.08996938995747,
+  "peak_acc_rad_s2": 370.42579945092956
+ },
+ "arm_rmse_rad": 0.024318050529977802,
+ "tool": "sanitize_robotstar_clip/1"
+}

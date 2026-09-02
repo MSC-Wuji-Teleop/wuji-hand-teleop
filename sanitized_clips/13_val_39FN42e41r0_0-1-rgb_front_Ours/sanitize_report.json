@@ -1,0 +1,19 @@
+{
+ "source": "RobotSTAR_demos/samples/13_val_39FN42e41r0_0-1-rgb_front/Ours",
+ "frames": 290,
+ "trim_start": 30,
+ "cutoff_hz": 6.0,
+ "max_step_deg": 15.0,
+ "before": {
+  "max_step_deg": 23.510455396836644,
+  "peak_vel_rad_s": 17.331138253211975,
+  "peak_acc_rad_s2": 329.35144379734993
+ },
+ "after": {
+  "max_step_deg": 14.999999999999996,
+  "peak_vel_rad_s": 13.089969389957467,
+  "peak_acc_rad_s2": 213.80112741206779
+ },
+ "arm_rmse_rad": 0.013035399142753321,
+ "tool": "sanitize_robotstar_clip/1"
+}

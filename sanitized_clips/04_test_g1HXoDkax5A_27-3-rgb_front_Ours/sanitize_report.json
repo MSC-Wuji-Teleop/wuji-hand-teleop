@@ -1,0 +1,19 @@
+{
+ "source": "RobotSTAR_demos/samples/04_test_g1HXoDkax5A_27-3-rgb_front/Ours",
+ "frames": 150,
+ "trim_start": 0,
+ "cutoff_hz": 6.0,
+ "max_step_deg": 15.0,
+ "before": {
+  "max_step_deg": 17.35749485095629,
+  "peak_vel_rad_s": 13.76265287399292,
+  "peak_acc_rad_s2": 242.29501839727163
+ },
+ "after": {
+  "max_step_deg": 13.306779984448056,
+  "peak_vel_rad_s": 11.490742261885694,
+  "peak_acc_rad_s2": 157.3705283180366
+ },
+ "arm_rmse_rad": 0.013371610035947277,
+ "tool": "sanitize_robotstar_clip/1"
+}
