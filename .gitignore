@@ -56,3 +56,8 @@ src/camera/config/camera_config.yaml
 INTEGRATION_PLAN.md
 src/camera/config/udev/99-teleop-cameras.rules
 RobotSTAR_demos/
+
+# Clip directories (docs/spec/spec1.md). clips/safe/ is tracked; the
+# scratch and rejected trees are not.
+clips/candidate/
+clips/rejected/
