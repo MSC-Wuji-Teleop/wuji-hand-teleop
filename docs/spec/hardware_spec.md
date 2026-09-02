@@ -78,7 +78,7 @@ wrist pitch/yaw) are real joints. On a 23-DoF robot they are absent, and
 | Property | Value |
 |---|---|
 | Model | Wuji Hand 2, 20 actuated DoF per hand |
-| Connection | USB (VID:PID `0483:2000`); firmware v1.2.1+ recommended (upstream README) |
+| Connection | **Ethernet** (decided 2026-09-02): each hand has a static IP on its own subnet, is discovered by UDP broadcast, and is selected by serial number; driver `starport_wuji_hand` over `wuji_sdk` ([spec1.md](spec1.md)). The tree still runs the USB driver (`wujihandros2`, VID:PID `0483:2000`) until the swap lands. IPs, subnet, and firmware versions: unrecorded |
 | Milestone 1 | Sim-only; no physical hand in the loop |
 
 ### Mounting adapter: does not exist yet
