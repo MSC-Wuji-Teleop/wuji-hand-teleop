@@ -41,7 +41,7 @@ Data flow: input device, standard topic/TF interface, output controller, hardwar
 
 ## RobotSTAR SOT handoff bundle
 
-`RobotSTAR_demos/` (gitignored) is offline reference data: GT/Ours motion samples, hand keypoints, 29-DoF G1 joint trajectories, audits and videos. Its `HANDOFF_README.md` describes the file layout. Replay runbook: [docs/usage.md](docs/usage.md#sot-bundle-replay-sim); design: [docs/architecture.md](docs/architecture.md#sot-bundle-replay).
+`RobotSTAR_demos/` (gitignored) is offline reference data: GT/Ours motion samples, hand keypoints, 29-DoF G1 joint trajectories, audits and videos. Its `HANDOFF_README.md` describes the file layout. Sim runbook: [docs/usage.md](docs/usage.md#sot-bundle-replay-sim); hardware runbook: [docs/replay.md](docs/replay.md); design: [docs/spec/spec1.md](docs/spec/spec1.md) and [docs/architecture.md](docs/architecture.md#sot-bundle-replay).
 
 - `replay` publishes a sample's arm joints (named `JointState`, by-name matching end to end) and hand keypoints on one timer; `g1_world_output` `mode:=joint_replay arm_type:=G1_29` interpolates the arms; the hand controllers (`input_source: "keypoints_topic"`) retarget the keypoints live through the production path.
 - **Never** send the bundle's precomputed hand joints (`controller_reference_v7.npz` `left_q`/`right_q`, `legacy_wuji_sim_only/hand_targets.csv`) to a real Hand 2: they target the legacy hand model (`DO_NOT_COMMAND_HAND2.txt` in every sample). Hand joints are always regenerated from `hand2_input/*_human_targets_v5.npz` keypoints.

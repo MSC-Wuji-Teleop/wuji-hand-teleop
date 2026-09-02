@@ -299,9 +299,9 @@ On hardware the graph is the same minus `dry_run` and the viewer:
 the config default) and the hand controllers publish to the hand drivers.
 Nothing sits between the publisher and the device nodes. The publisher plays
 the clip once at the bundle's rate and holds the last frame; clip quality is
-decided offline, before a run. Runbook:
-[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim) and
-[Hardware replay](usage.md#hardware-replay).
+decided offline, before a run. Design: [spec/spec1.md](spec/spec1.md).
+Runbooks: [SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim) and
+[replay.md](replay.md).
 
 ## Input devices
 

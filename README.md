@@ -70,8 +70,8 @@ through the same output controllers teleop uses: arms as named joint targets
 into `g1_world_output` (`mode:=joint_replay`, no IK), hands as 21-point
 keypoints retargeted live by the hand controllers
 (`input_source: "keypoints_topic"`). Validated in MuJoCo on the 29-DoF model.
-On hardware, drop `dry_run` and the viewer:
-[Hardware replay](docs/usage.md#hardware-replay).
+On hardware: [replay runbook](docs/replay.md); design:
+[spec1.md](docs/spec/spec1.md).
 Commands and details: [SOT bundle replay](docs/usage.md#sot-bundle-replay-sim)
 in usage.md.
 

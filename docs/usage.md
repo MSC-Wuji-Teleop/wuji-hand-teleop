@@ -13,7 +13,7 @@ trackers), see the [guides index](README.md).
 - [Build and test](#build-and-test): colcon and pytest inside the container.
 - [Launch](#launch): Monitor GUI, raw launch files, sim modes.
 - [SOT bundle replay (sim)](#sot-bundle-replay-sim): replaying a recorded sample in MuJoCo.
-- [Hardware replay](#hardware-replay): the same graph on the real rig.
+- [Hardware replay](#hardware-replay): pointer to the operator runbook, [replay.md](replay.md).
 - [Verify](#verify): the topic rates that prove the pipeline is up.
 - [Which change needs which rebuild](#which-change-needs-which-rebuild): edit-to-action map.
 
@@ -185,26 +185,11 @@ live from the 21-point keypoints (that is the entire point of the
 
 ## Hardware replay
 
-The same graph as the sim section, minus `dry_run` and the viewer.
-`g1_world_output` opens DDS with `arm_type:=G1_29` (the config default) and
-drives the arms through `G1ArmController`; the hand controllers publish to
-the hand drivers instead of the viewer. Nothing sits between the publisher
-and the device nodes: `replay_publisher` starts publishing as soon as it is
-up, plays the clip once at the bundle's rate, and holds the last frame. Clip
-quality is decided offline, before a run, not at runtime.
-
-```bash
-# terminal 1 — G1 node on the real robot (host, from docker/). No dry_run.
-docker compose run --rm --name g1-world-output g1_world_output \
-    ros2 launch g1_world_output g1_world_output.launch.py \
-    mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
-```
-
-The hand side is being moved to an Ethernet hand driver, and a single launch
-file for drivers + hand controllers + `replay_publisher` comes with it. Until
-then the hand track on hardware is not exercised from this branch; the sim
-commands above are the reference for the topic graph. Serial numbers,
-network, and revision facts live in [hardware_spec.md](spec/hardware_spec.md).
+Operator runbook: [replay.md](replay.md). It covers preparing a clip
+offline, checking the G1 and both hand connections, single-device replays
+(left arm, right arm, left hand, right hand), and the full run, in as few
+terminals as the two-container layout allows. Design and build status:
+[spec/spec1.md](spec/spec1.md).
 
 ## Verify
 
