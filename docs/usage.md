@@ -125,63 +125,56 @@ all: [Simulation](../README.md#simulation).
 
 ## SOT bundle replay (sim)
 
-Replays one `RobotSTAR_demos/` sample through the production
-output controllers, mirrored in MuJoCo on the 29-DoF model. No input hardware,
-no robot. Four processes.
-
-The five terminals below form this graph. Each box shows the mode parameter
-that selects its replay branch; the modes are node parameters, not separate
-processes ([architecture](architecture.md#sot-bundle-replay)):
+Plays a prepared clip in MuJoCo on the 29-DoF model. No input hardware, no
+robot, no hand driver. Clips come from `tools/prepare_clip.py`, which reads
+the `RobotSTAR_demos/` bundle, smooths the arms, retargets the hands to
+Hand 2, audits the result dynamically, and files it under `clips/safe/` or
+`clips/rejected/` ([replay.md, section 1](replay.md#1-prepare-clips-offline-no-hardware)).
 
 ```mermaid
 graph LR
-    SOT["replay_publisher<br/>(terminal 5)"]
-    HC["wujihand_controller x2<br/>input_source=keypoints_topic<br/>(terminals 2 and 3)"]
-    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29,<br/>dry_run (terminal 1)"]
-    VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml<br/>(terminal 4)"]
+    CLIP[("clips/safe/&lt;clip&gt;/")]
+    PUB["replay_publisher<br/>one timer at rate_hz * speed"]
+    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29,<br/>dry_run (own container)"]
+    VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml"]
 
-    SOT -->|"/left,right_hand/keypoints21"| HC
-    SOT -->|"/left,right_arm/joint_targets"| G1O
-    HC -->|"/left,right_hand/joint_commands"| VIZ
+    CLIP --> PUB
+    PUB -->|"/left,right_arm/joint_targets"| G1O
+    PUB -->|"/left,right/wuji_hand/joint_command"| VIZ
     G1O -->|"/left,right_arm/joint_commands"| VIZ
 ```
 
+One host command does all of it:
+
 ```bash
-# terminal 1 — G1 node in joint-replay mode (host, from docker/).
-# arm_type G1_29 = the bundle's native 7-DoF-arm joint names (also the
-# launch default). dry_run:=true is what keeps this sim-only — without it
-# the node opens real DDS. control_rate 250 Hz interpolates the 50 FPS
-# reference.
+# host, repo root
+scripts/replay.sh clips/safe/<clip> --sim
+```
+
+The two-terminal form, when the G1 log should have its own window:
+
+```bash
+# terminal 1: G1 node in joint-replay mode (host, from docker/). dry_run:=true
+# is what keeps this sim-only; without it the node opens real DDS.
 docker compose run --rm --name g1-world-output g1_world_output \
     ros2 launch g1_world_output g1_world_output.launch.py \
     dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
 
-# terminal 2 + 3 — hand controllers on the keypoints topic (teleop container).
-# wujihand_ik_replay.yaml is tracked in the repo (input_source: keypoints_topic)
-ros2 run controller wujihand_controller --side left \
-    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
-ros2 run controller wujihand_controller --side right \
-    -c src/output_devices/wujihand_output/config/wujihand_ik_replay.yaml
-
-# terminal 4 — viewer on the 29-DoF model (teleop container)
-python3 src/output_devices/g1_world_output/scripts/mujoco_visualizer.py \
-    --mjcf src/g1_wuji2_description/g1_29_wuji2_fixed.xml
-
-# terminal 5 — the replay source (teleop container). --loop to repeat.
-ros2 run replay replay_publisher -- \
-    --method-dir RobotSTAR_demos/samples/<sample>/GT --loop
+# terminal 2: publisher + viewer (teleop container)
+docker exec -it wuji-hand-teleop bash
+ros2 launch wuji_teleop_bringup replay.launch.py clip:=clips/safe/<clip> sim:=true
 ```
 
-The bundle is bind-mounted read-only into the teleop container at
-`/home/wuji/ros2_ws/RobotSTAR_demos` (docker-compose.yml), so the
-relative path above works from the container's default workdir. A container
-created before that mount was added needs `docker compose up -d teleop` to
-recreate it (then rebuild the workspace inside — the build lives in the
-container). Pick the first sample from the batch audits, not by eye: the
-bundle flags at least one sample as failing its deployment audit. Never feed
-`legacy_wuji_sim_only/hand_targets.csv` anywhere — hand joints are regenerated
-live from the 21-point keypoints (that is the entire point of the
-`keypoints_topic` path).
+The viewer subscribes the G1 node's `/left_arm/joint_commands` and
+`/right_arm/joint_commands` and the publisher's hand command topics, and
+maps every joint by name, so it also mirrors glove teleop when run on its
+own (`--focus hands`). `clips/`, `tools/`, and `RobotSTAR_demos/` are
+bind-mounted into the teleop container under `~/ros2_ws` (docker-compose.yml);
+a container created before those mounts were added needs
+`docker compose up -d teleop` to recreate it, and a rebuild inside, since
+the build lives in the container. The hand controllers'
+`keypoints_topic` input and `wujihand_ik_replay.yaml` are not on this path
+any more; they remain as a topic-fed input for the controller.
 
 ## Hardware replay
 
@@ -194,7 +187,7 @@ terminals as the two-container layout allows. Design and build status:
 ## Verify
 
 ```bash
-ros2 topic hz /left_hand/joint_commands    # teleop: ~120 Hz; replay: ~45-50 Hz
+ros2 topic hz /left_hand/joint_commands    # teleop: ~120 Hz
 ros2 topic hz /right_hand/joint_commands
 ```
 
@@ -202,12 +195,16 @@ The Wuji Glove connects in-process via `wuji_sdk` UDP, so there is no glove
 topic to check; these two command topics are the observable output of the hand
 pipeline.
 
-Replay adds the arm side:
+Replay publishes different topics:
 
 ```bash
-ros2 topic hz /left_arm/joint_commands     # ~250 Hz (interpolated), named joints
+ros2 topic hz /left/wuji_hand/joint_command   # rate_hz * speed: 50 Hz at --speed 1
+ros2 topic hz /left_arm/joint_commands        # ~250 Hz (interpolated), named joints
 ros2 topic echo /left_arm/joint_commands --once   # 7 names under arm_type G1_29
 ```
+
+`scripts/replay.sh --check` prints the state rates of the G1 node and the
+hand drivers without playing anything ([replay.md](replay.md#2-check-hardware-connections)).
 
 ## Which change needs which rebuild
 

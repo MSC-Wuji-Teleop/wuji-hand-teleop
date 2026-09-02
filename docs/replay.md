@@ -1,9 +1,8 @@
 # Replay runbook
 
 Exact commands for preparing and playing clips on the rig. Design, clip
-format, and build status: [spec/spec1.md](spec/spec1.md). A command marked
-*(planned)* refers to a piece that is not built yet; see the spec's build
-status table.
+format, and build status: [spec/spec1.md](spec/spec1.md). Everything below
+is built; the online half has not yet run in the container or on the rig.
 
 Where things run. Every code block below starts with the line that gets
 you to the right place:
@@ -36,14 +35,14 @@ One trajectory:
 docker exec -it wuji-hand-teleop bash
 python3 tools/prepare_clip.py \
     --method-dir RobotSTAR_demos/samples/<sample>/Ours \
-    --out clips                                       # (planned)
+    --out clips
 ```
 
 Every trajectory in the bundle (15 samples x GT and Ours):
 
 ```bash
 # teleop container (same shell as above)
-python3 tools/prepare_clip.py --all RobotSTAR_demos/samples --out clips    # (planned)
+python3 tools/prepare_clip.py --all RobotSTAR_demos/samples --out clips
 cat clips/summary.md      # one row per trajectory: verdict, safe speeds, peak force and pair, torque ratio
 ```
 
@@ -70,11 +69,13 @@ up -d` done.
 
 ```bash
 # host, repo root
-scripts/replay.sh --check                              # (planned)
+scripts/replay.sh --check
 ```
 
-Starts the G1 node and both hand drivers with no publisher, waits for state
-from each, prints the rates, exits:
+Starts the G1 node and the hand drivers with no publisher, waits up to 20 s
+for state from each, prints the rates, and exits 0 when every source
+reported, 1 otherwise. `--arms` and `--hands` narrow what is started and
+checked:
 
 ```
 /left_arm/joint_states        ~250 Hz    G1 node writing, arms holding measured pose
@@ -99,7 +100,7 @@ the last frame. Nothing else is started: with `--arms none` the G1
 container does not run, with `--hands none` no hand driver runs.
 
 ```bash
-# host, repo root                                                  (planned)
+# host, repo root
 scripts/replay.sh clips/safe/<clip> --arms left  --hands none
 scripts/replay.sh clips/safe/<clip> --arms right --hands none
 scripts/replay.sh clips/safe/<clip> --arms none  --hands left
@@ -115,8 +116,9 @@ scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower
 ```
 
 Ctrl-C stops the publisher and the hand drivers, then the G1 container. The
-arms stay where last commanded (the G1 node's hold). The hands go limp after
-the driver's idle timeout (5 s without commands).
+G1 node releases the `arm_sdk` weight on shutdown, so the onboard controller
+takes the arms back. The hands go limp after the driver's idle timeout (5 s
+without commands).
 
 ## Flags
 
@@ -125,7 +127,6 @@ the driver's idle timeout (5 s without commands).
 | `--arms` | `none` `left` `right` `both` (default `both`) | which arm topics the publisher writes; `none` also skips starting the G1 container |
 | `--hands` | `none` `left` `right` `both` (default `both`) | which hand driver topics the publisher writes; `none` skips the hand drivers |
 | `--speed S` | `0 < S <= 1`; default: fastest value in the clip's `safe_speeds` | same frames published slower. Amplitudes do not change; peak velocity scales by `S`, acceleration by `S^2`. A speed above the clip's fastest safe speed is refused |
-| `--loop` | | restart at frame 0 instead of holding |
 | `--check` | | connection check only (section 2) |
 | `--sim` | | G1 node with `dry_run:=true`, no hand drivers, MuJoCo viewer on the composed model instead |
 
@@ -146,7 +147,7 @@ docker compose run --rm --name g1-world-output g1_world_output \
 # sides + the publisher.
 docker exec -it wuji-hand-teleop bash
 ros2 launch wuji_teleop_bringup replay.launch.py \
-    clip:=clips/safe/<clip> arms:=both hands:=both speed:=0.5    # (planned)
+    clip:=clips/safe/<clip> arms:=both hands:=both speed:=0.5
 ```
 
 Stop order: Ctrl-C in T2 first (publisher and hand drivers), then T1 (the
@@ -156,9 +157,10 @@ G1 node releases the `arm_sdk` weight on shutdown).
 
 ```bash
 # host, repo root
-scripts/replay.sh clips/safe/<clip> --sim              # (planned)
+scripts/replay.sh clips/safe/<clip> --sim
 ```
 
-Until the clip-directory publisher exists, the sim commands in
-[usage.md](usage.md#sot-bundle-replay-sim) play a bundle sample directly
-through the keypoint path and are the working reference.
+The G1 node runs with `dry_run:=true`, no hand driver starts, and
+`mujoco_visualizer.py` opens on `g1_29_wuji2_fixed.xml`, mirroring the G1
+node's arm commands and the publisher's hand commands. Details:
+[usage.md](usage.md#sot-bundle-replay-sim).

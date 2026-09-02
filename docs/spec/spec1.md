@@ -1,7 +1,9 @@
 # Spec 1: clip replay on the G1 and two Wuji Hand 2
 
-**Status:** design, 2026-09-02. What exists and what does not is in
-[build status](#build-status). Operator commands: [replay.md](../replay.md).
+**Status:** built 2026-09-02. The offline half is verified on one clip
+outside the container; the online half is written but has not run in the
+container or on the rig. Per-piece state: [build status](#build-status).
+Operator commands: [replay.md](../replay.md).
 
 Play every recorded clip in the handoff bundle on the real 29-DoF G1 arms
 and both Wuji Hand 2 units. Two halves, one file boundary between them:
@@ -29,7 +31,8 @@ clips/
 
 `clips/safe/` is tracked in git (a clip is about 300 KB). `rejected/` and
 `candidate/` are gitignored. The whole `clips/` tree is bind-mounted into
-the teleop container at the same relative path (`docker-compose.yml`).
+the teleop container at the same relative path, and `tools/` is mounted
+read-only next to it (`docker-compose.yml`).
 
 | file | contents |
 |---|---|
@@ -41,24 +44,29 @@ the teleop container at the same relative path (`docker-compose.yml`).
 
 ```json
 {
+  "tool": "prepare_clip/1",
   "source": {"sample": "11_val_a5yNwUSiYpA_9-3-rgb_front", "method": "Ours", "bundle_manifest_sha256": "..."},
   "frames": 190, "rate_hz": 50.0,
-  "arm_joint_names": {"left": ["left_shoulder_pitch_joint", "..."], "right": ["..."]},
+  "arm_joint_names": {"left": ["left_shoulder_pitch", "..."], "right": ["..."]},
   "hand_joint_names": {"left": ["l_thumb_cmc_flex", "..."], "right": ["r_thumb_cmc_flex", "..."]},
   "sanitize": {"cutoff_hz": 6.0, "max_step_deg": 15.0, "trim_start": 0, "trim_end": 0, "allow_flips": false,
-               "before": {"max_step_deg": 26.0, "peak_vel_rad_s": 13.7}, "after": {"...": "..."}, "arm_rmse_rad": 0.013},
+               "auto_trim": false, "min_seconds": 3.0,
+               "before": {"max_step_deg": 26.0, "peak_vel_rad_s": 13.7, "peak_acc_rad_s2": 900.0}, "after": {"...": "..."},
+               "arm_rmse_rad": 0.013},
   "hand_retarget": {"config": "retarget_keypoints_topic_{side}.yaml", "config_sha256": {"left": "...", "right": "..."},
                     "clipped_fraction": {"left": 0.0, "right": 0.01}},
   "audit": {
-    "model": "g1_29_wuji2_fixed.xml", "model_sha256": "...",
+    "model": "g1_29_wuji2_fixed.xml", "model_sha256": "...", "mujoco_version": "3.12.0", "timestep": 0.002,
     "arm_gains": {"kp": 140.0, "kd": 3.0, "kp_wrist": 50.0, "kd_wrist": 2.0},
     "hand_command_slew_rad_s": 2.0,
     "thresholds": {"max_arm_torque_ratio": 0.8, "max_contact_force_n": 80.0},
+    "speeds": [1.0, 0.5, 0.25], "note": "",
     "per_speed": {
       "1.0":  {"pass": false, "peak_arm_torque_ratio": 0.93, "peak_contact_force_n": 142.0,
                "peak_contact_pair": ["right_shoulder_yaw_link", "torso_link"], "contact_frame_fraction": 0.31,
                "arm_saturation_fraction": 0.04, "hand_saturation_fraction": 0.12,
-               "tracking_rmse_rad": {"arms": 0.09, "hands": 0.11}, "top_contact_pairs": ["..."]},
+               "tracking_rmse_rad": {"arms": 0.09, "hands": 0.11},
+               "top_contact_pairs": [["right_shoulder_yaw_link", "torso_link", 142.0], "..."]},
       "0.5":  {"pass": true,  "...": "..."},
       "0.25": {"pass": true,  "...": "..."}
     }
@@ -68,18 +76,23 @@ the teleop container at the same relative path (`docker-compose.yml`).
 }
 ```
 
-`verdict` is `safe` when at least one audited speed passes; `safe_speeds` is
-the list that did. Every number the audit used to decide is in the file, so
-a clip can be re-judged with different thresholds without rerunning the
-simulation, and the operator can read what the arms will be asked for
-before the first run.
+Arm joint names carry no `_joint` suffix: they are the names the G1 node
+matches on (`G1_29_ARM_JOINT_NAMES` in `robot_arm.py`); the MJCF joints and
+actuators are `<name>_joint`. `verdict` is `safe` when at least one audited
+speed passes; `safe_speeds` is the list that did. Every number the audit
+used to decide is in the file, so a clip can be re-judged with different
+thresholds without rerunning the simulation, and the operator can read what
+the arms will be asked for before the first run.
 
 ## Offline: `tools/prepare_clip.py`
 
 Runs inside the teleop container: it needs `numpy`, `scipy`, `mujoco`, the
 retargeter (`wuji_retargeting`), the Hand 2 URDF (`wujihand_urdf`), and the
-composed model (`g1_wuji2_description`), all of which the image has except
-`scipy` (add to the Dockerfile).
+composed model (`g1_wuji2_description`), all of which the image has. It
+also runs on any machine with those Python packages and the bundle; the
+model is loaded from `src/` relative to the repo root. The MuJoCo audit
+lives in `tools/clip_audit.py`, which also re-audits an existing clip
+directory on its own.
 
 ```bash
 python3 tools/prepare_clip.py --method-dir RobotSTAR_demos/samples/<sample>/Ours --out clips
@@ -101,14 +114,13 @@ graph LR
     JUDGE -->|none| REJ
 ```
 
-**1. Sanitize arms.** The existing algorithm (on the archived branch as
-`tools/sanitize_robotstar_clip.py`): zero-phase second-order Butterworth at
-`--cutoff-hz` (6) on the 14 arm columns, then a forward and backward
-per-frame step clamp at `--max-step-deg` (15). `--trim-start N` and
-`--trim-end N` drop frames. A single-frame step of 90 deg or more is an
-estimator orientation flip; smoothing it produces a slow sweep through the
-same wrong path, so the tool refuses unless `--allow-flips` is given, and
-records that it was. Legs and waist columns are read but not written to the
+**1. Sanitize arms.** The algorithm from the earlier sanitizer: zero-phase
+second-order Butterworth at `--cutoff-hz` (6) on the 14 arm columns, then a
+forward and backward per-frame step clamp at `--max-step-deg` (15).
+`--trim-start N` and `--trim-end N` drop frames first. A single-frame step
+of 90 deg or more in what remains is an estimator orientation flip;
+smoothing it produces a slow sweep through the same wrong path, so the tool
+refuses unless `--allow-flips` is given, and records that it was. Legs and waist columns are read but not written to the
 clip: `g1_world_output` commands arm joints only, and the waist stays under
 the robot's onboard controller. The audit holds the waist at zero for the
 same reason.
@@ -128,12 +140,18 @@ never runs the retargeter.
 the stand keyframe):
 
 - Arm actuators are re-gained to what `g1_world_output` sends: kp 140 / kd 3
-  on shoulder and elbow joints, kp 50 / kd 2 on the three wrist joints, torque
-  clamped at the model's `actuatorfrcrange` (25 Nm arm joints, 5 Nm wrist
-  pitch and yaw). The model's own menagerie gains (kp 500) are not used.
+  on shoulder and elbow joints, kp 50 / kd 2 on the three wrist joints. The
+  composed model ships the menagerie servo (kp 500, critically damped),
+  which is a stand-alone sim setting and not the robot; the audit overwrites
+  the gain and bias terms of the 14 arm actuators with the values
+  `G1ArmController` writes into every DDS command (`robot_arm.py`). The
+  joint-level `actuatorfrcrange` stays (25 Nm arm joints, 5 Nm wrist pitch
+  and yaw): MuJoCo clamps `qfrc_actuator` with it, so that array is what the
+  torque ratio reads. All of these constants sit at the top of
+  `tools/clip_audit.py` with the same justification.
 - Arm targets advance one clip frame every `1 / (rate_hz * speed)` seconds
-  and are linearly interpolated between frames, which is what the fixed G1
-  node does (see [build status](#build-status)).
+  and are linearly interpolated one publish period behind, which is what the
+  fixed G1 node does (see [Arms](#online-play-a-clip)).
 - Hands are **actuated**, on the vendor's force-limited position servos as
   the model ships them, with the hand driver's behaviour modelled on the
   command stream: targets slew-limited at 2 rad/s and clamped to the joint
@@ -146,8 +164,13 @@ the stand keyframe):
 Recorded per speed: peak contact force and its body pair, the five largest
 pairs, fraction of frames with any contact, peak arm joint torque as a
 fraction of its clamp and the fraction of frames any arm joint sits at the
-clamp, hand servo saturation fraction, arm and hand tracking RMSE. Sign
-convention and units follow `mj_contactForce`.
+clamp, hand servo saturation fraction, arm and hand tracking RMSE.
+Definitions: contact force is the norm of the 3D force part of
+`mj_contactForce` per contact, in newtons; a frame counts toward a fraction
+when any physics step inside its period met the condition; saturation means
+at or above 0.999 of the clamp; arm RMSE is against the interpolated target,
+hand RMSE against the clip's q20 for the frame, so the driver's slew counts
+as plant lag.
 
 **4. Judge.** A speed passes when `peak_arm_torque_ratio <=
 --max-arm-torque-ratio` (default 0.8) and `peak_contact_force_n <=
@@ -170,7 +193,10 @@ frozen at neutral. The ladder, cheapest first, each an option `clip.json`
 records: run slower (`--speeds` down to 0.1); trim (`--trim-start`,
 `--trim-end`, or `--auto-trim` for the longest passing window of at least
 `--min-seconds` 3); raise a threshold with a reason written in
-`--note`. Nudging contacting frames with a local IK and re-solving the arm
+`--note`. `--auto-trim` audits the full clip once, takes the fastest
+audited speed that has a passing window of that length, trims to the
+longest such window, and audits the trimmed clip again at every speed;
+the second audit is what the file records. Nudging contacting frames with a local IK and re-solving the arm
 retarget against this model are real fixes for presses and flips
 respectively, and are separate work items, not part of this tool.
 
@@ -200,11 +226,10 @@ retargeter) is not on this path.
 
 | flag | values | meaning |
 |---|---|---|
-| `--clip DIR` | a directory under `clips/safe/` | refuses any directory whose `clip.json` `verdict` is not `safe` |
+| `--clip DIR` | a directory under `clips/safe/` | refuses a directory that is not under `clips/safe/` or whose `clip.json` `verdict` is not `safe` |
 | `--arms` | `none`, `left`, `right`, `both` (default `both`) | which arm topics are published. `none` publishes nothing to the G1 node |
 | `--hands` | `none`, `left`, `right`, `both` (default `both`) | which hand driver topics are published |
 | `--speed S` | `0 < S <= 1`; default: the largest value in `safe_speeds` | timer period is `1 / (rate_hz * S)`. Same frames, published slower. Amplitudes unchanged, peak velocity scales by `S`, acceleration by `S^2`. A value larger than the largest `safe_speeds` entry is refused |
-| `--loop` | | restart at frame 0 instead of holding the last frame |
 
 Behaviour: one timer; at each tick publish frame `i` for every selected
 side, with joint names on every message; at the end hold the last frame
@@ -216,15 +241,17 @@ written by `prepare_clip.py`.
 
 **Arms.** `g1_world_output` in `joint_replay` mode, `arm_type=G1_29` (the
 config default), own container. It matches joints by name and writes DDS
-through `G1ArmController` at `control_rate` 250 Hz. It is meant to
-interpolate between the two newest samples; today it does not (build
-status): the interpolation parameter is `(now - t_prev) / (t_next - t_prev)`
-with `t_next` the newest sample's arrival time, so at every tick it is at or
-past 1 and the output is a zero-order hold at the publish rate. At
-`--speed 0.25` that is a 12.5 Hz staircase into a stiff PD. Fix: interpolate
-one publish period behind, `alpha = (now - t_next) / (t_next - t_prev)`
-between `q_prev` and `q_next`, clamped. One frame of latency, continuous
-command at any speed.
+through `G1ArmController` at `control_rate` 250 Hz. Before 2026-09-02 its
+interpolation parameter was `(now - t_prev) / (t_next - t_prev)` with
+`t_next` the newest sample's arrival time, so at every tick it was at or
+past 1 and the output was a zero-order hold at the publish rate; at
+`--speed 0.25` that is a 12.5 Hz staircase into a stiff PD. The buffer
+(`side_buffer.py`) now interpolates one publish period behind:
+`alpha = (now - t_next) / (t_next - t_prev)` between `q_prev` and `q_next`,
+clamped to `[0, 1]`. One frame of latency, continuous command at any speed.
+Until two real samples have arrived it holds the newest one, so the first
+frame is the step described above and not a ramp over however long the node
+sat idle before the publisher started.
 
 **Hands.** One `starport_wuji_hand` `hand_node` per side, namespaced
 `/left/wuji_hand` and `/right/wuji_hand`. The driver finds its hand by UDP
@@ -248,13 +275,21 @@ nothing to it and mirrors the slew in the offline audit.
 | `/left/wuji_hand/connected`, `/right/wuji_hand/connected` | `std_msgs/Bool` | `hand_node` | connection check |
 
 **Launch and the single terminal.** `replay.launch.py` (teleop container)
-starts the hand drivers for the sides in `hands` and the publisher. The G1
-node cannot be in that file (other container). `scripts/replay.sh` on the
-host does both: starts the G1 container detached unless `--arms none`, runs
-the teleop launch in the foreground, stops the G1 container on exit. Its
-flags are the publisher's plus `--check` (drivers and G1 node only, print
-state rates, exit) and `--sim` (G1 node with `dry_run`, no hand drivers,
-MuJoCo viewer instead). Exact commands: [replay.md](../replay.md).
+starts the hand drivers for the sides in `hands` and the publisher; its
+arguments are `clip`, `arms`, `hands`, `speed` (empty means the clip's
+default), `check`, and `sim`. The G1 node cannot be in that file (other
+container). `scripts/replay.sh` on the host does both: starts the G1
+container detached unless `--arms none`, runs the teleop launch in the
+foreground, stops the G1 container on exit. Its flags are the publisher's
+plus `--check` and `--sim`. `--check` starts the drivers and the G1 node
+with no publisher and runs `replay_check` in place of it: it waits up to
+20 s for state from every selected source (the driver gives up on an absent
+hand after ten connect attempts at 2 s), prints the topic rates, and exits 0
+when all reported, 1 otherwise; `--arms` and `--hands` narrow what is
+started and checked. `--sim` runs the G1 node with `dry_run`, starts no hand
+driver, and opens `mujoco_visualizer.py` on the composed model, which
+mirrors the G1 node's arm commands and the publisher's hand commands. Exact
+commands: [replay.md](../replay.md).
 
 ## Out of scope, by decision
 
@@ -265,16 +300,19 @@ approach ramp. Teleop (glove, PICO) is untouched and shares only
 
 ## Build status
 
-| piece | state | work |
+| piece | state | remaining |
 |---|---|---|
-| `tools/prepare_clip.py` | not built | new. Sanitizer exists on the archived branch (`alex_dev_debt_backup`, `tools/sanitize_robotstar_clip.py`); add retarget, dynamic audit, judge, filing, `--all` with `clips/summary.md` |
-| `scipy` in the teleop image | check | add to `docker/Dockerfile` if absent |
-| `clips/` | not built | `docker-compose.yml` bind-mount `../clips`; `.gitignore` `clips/candidate/` and `clips/rejected/` |
-| `replay_publisher` | built for the bundle layout and keypoint topics | read the clip directory; publish `hand_q20` on the driver topics with names; `--clip`, `--arms`, `--hands`, `--speed` as above; refuse non-safe |
-| `g1_world_output` `joint_replay` | built; interpolation is a zero-order hold (reproduced 2026-09-02 with the buffer class in isolation) | interpolate one publish period behind, as above |
-| `starport_wuji_hand` driver | source in hand, not in this repo | vendor into `src/`; rewrite its README (it describes the USB version); drop the two tests that read files outside this repo; confirm the pinned `wuji-sdk` exposes the Hand 2 API; check Humble `launch_ros` accepts its `list[float]` parameter typing |
-| `replay.launch.py` | not built | drivers for `hands` sides + publisher; args `clip`, `arms`, `hands`, `speed` |
-| `scripts/replay.sh` | not built | host wrapper, `--check`, `--sim` |
-| model fix | on the archived branch (`6c08acd`) | cherry-pick the wrist roll/yaw contact-exclude in `g1_29_wuji2*.xml` |
-| `wujihandros2` (USB driver) | present | remove the submodule and the `wujihandcpp` deb once the Ethernet driver runs |
+| `tools/prepare_clip.py`, `tools/clip_audit.py` | built; run on one clip outside the container with MuJoCo 3.12.0 (the image's pin) and the retargeter | run `--all` in the container; compare its `summary.md` with the outside run |
+| `scipy` in the teleop image | present (`scipy==1.14.1`, Dockerfile section 5) | none |
+| `clips/`, `tools/` mounts | built | none |
+| `replay_publisher`, `replay_check` | built against the clip directory; pure rules in `replay/clip.py` with tests | run in the container |
+| `g1_world_output` `joint_replay` | fixed: `side_buffer.py`, interpolates one publish period behind, tests | run in the container |
+| `starport_wuji_hand` driver | vendored into `src/`, pruned (rviz view, Beta 1 URDFs, udev, monorepo bench scripts), README rewritten, the two out-of-repo tests re-pointed at `wujihand_urdf` and the composed MJCF | in the container: `python3 -c "import wuji_sdk; wuji_sdk.DeviceType.WujiHand2; wuji_sdk.JointCommand"`; `colcon build --symlink-install`; `colcon test` |
+| Humble `launch_ros` and `list[float]` | accepted: `is_typing_list` checks `__origin__ in (list, List)` | none |
+| `replay.launch.py` | built | run in the container |
+| `scripts/replay.sh` | built | run on the host |
+| model fix | cherry-picked (`2a76a4f`) | none |
+| G1 image CRC libraries | cherry-picked (`b2c18ec`) | rebuild the G1 image |
+| `wujihandros2` (USB driver) | present; teleop launches still use it | remove the submodule and the `wujihandcpp` deb once the Ethernet driver runs on the rig |
 | `wujihand_controller` | built, teleop only | none |
+| `mujoco_visualizer.py` | subscribes the driver command topics as well, for `--sim` | none |
