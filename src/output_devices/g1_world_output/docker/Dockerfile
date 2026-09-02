@@ -108,6 +108,11 @@ COPY src/unitree_sdk2_python /tmp/unitree_sdk2_python
 RUN pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} cyclonedds==0.10.2 \
     && pip3 install --no-cache-dir --no-deps /tmp/unitree_sdk2_python \
     && rm -rf /tmp/unitree_sdk2_python
+# Upstream setup.py has no package_data, so the wheel build drops the CRC
+# shared libraries (utils/lib/crc_*.so) that the LowCmd write path dlopens;
+# upstream's own instructions assume `pip install -e .`, which keeps them.
+COPY src/unitree_sdk2_python/unitree_sdk2py/utils/lib \
+    /usr/local/lib/python3.10/dist-packages/unitree_sdk2py/utils/lib
 
 # -------------------------------------------
 # 5. User setup (non-root, matches main wuji-hand-teleop container's UID)
