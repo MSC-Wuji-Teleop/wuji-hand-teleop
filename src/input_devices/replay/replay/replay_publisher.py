@@ -1,215 +1,178 @@
 #!/usr/bin/env python3
-"""
-SOT bundle replay publisher -- an "input device" that replays one sample.
+"""Replay publisher: plays one clip directory to the G1 node and the hand drivers.
 
-Reads a sample method directory (GT/ or Ours/) from the
-RobotSTAR_demos handoff bundle and publishes, on one shared
-timer so arms and hands stay time-aligned:
+Reads ``clips/safe/<clip>/`` (see replay/clip.py for the format and the
+refusals) and publishes it on one timer, so arms and hands stay time-aligned:
 
-  arms  -> /left_arm/joint_targets, /right_arm/joint_targets
-           (sensor_msgs/JointState, named)
-           from g1_reference/controller_reference_v7.npz body_q, using
-           joint names from target_meta.json. Every {side}_shoulder*/elbow/
-           wrist* joint present in the bundle is published (7/arm for the
-           native 29-DoF layout); the consumer (g1_world_output_node in
-           mode:=joint_replay) matches by name and ignores joints its rig
-           lacks, so this works for both the current 23-DoF controller and
-           a future 29-DoF one.
+    arms  -> /left_arm/joint_targets, /right_arm/joint_targets
+             sensor_msgs/JointState, 7 named joints per side, radians.
+             Consumed by g1_world_output in mode:=joint_replay, which matches
+             joints by name.
+    hands -> /left/wuji_hand/joint_command, /right/wuji_hand/joint_command
+             sensor_msgs/JointState, 20 named joints per side, radians.
+             Consumed by the starport_wuji_hand driver (one node per side),
+             which matches by name and refuses names of the other hand.
 
-  hands -> /left_hand/keypoints21, /right_hand/keypoints21
-           (std_msgs/Float64MultiArray, 63 = 21x3 floats, meters,
-           MediaPipe order) from hand2_input/*_human_targets_v5.npz.
-           These are the HUMAN keypoints, not joint angles: retargeting to
-           Hand 2's 20 DoF happens live in wujihand_controller
-           (input_source: "keypoints_topic"), i.e. through the exact same
-           production path glove teleop uses. This is deliberate: the
-           bundle's precomputed hand joint columns target the legacy hand
-           model and must never be used; hand joints are regenerated from
-           these keypoints.
+All four publishers are RELIABLE, KEEP_LAST, depth 10: both consumers
+subscribe with that profile, and a BEST_EFFORT publisher never matches a
+RELIABLE subscriber.
 
-Timeline: body_q is the retimed reference (frames @ target_fps); the hand
-keypoints are on the source timeline (source_frames @ source_fps) spanning
-the same wall-clock duration (all 15 bundle samples are a uniform resample;
-asserted at load). Each body tick i maps to hand frame
-round(i * (T_hand-1)/(T_body-1)). At clip end the last frame is held
-(bundle semantics: hold_last_target), unless --loop.
-
-Pure rclpy + numpy: runs in the main teleop container, next to the hand
-controllers it feeds. Never touches DDS or hand/arm SDKs.
+Behaviour: one timer with period ``1 / (rate_hz * speed)``. Each tick
+publishes frame ``i`` for every selected side. When the last frame is
+reached the node keeps publishing it until killed (the driver's idle release
+and the G1 node's hold are the consumers' own business). Nothing else runs
+here: no approach ramp, no run-time checks, no loop. Clip quality is decided
+offline by tools/prepare_clip.py; this node refuses a directory that is not
+under ``safe/`` with a safe verdict, and a speed the audit did not pass.
 
 Usage:
-    ros2 run replay replay_publisher -- \
-        --method-dir <sample>/GT [--rate HZ] [--loop] [--no-arms] [--no-hands]
+
+    ros2 run replay replay_publisher -- --clip clips/safe/<clip> \\
+        [--arms none|left|right|both] [--hands none|left|right|both] [--speed S]
+
+Defaults: arms both, hands both, speed = the fastest entry in safe_speeds.
+Refused: arms none together with hands none; speed <= 0, > 1, or above the
+fastest safe speed.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 
-import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.utilities import remove_ros_args
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
 
-_ARM_KEYWORDS = ("shoulder", "elbow", "wrist")
+from replay.clip import (
+    SIDE_CHOICES,
+    Clip,
+    ClipError,
+    check_speed,
+    default_speed,
+    duration_s,
+    frame_period,
+    load_clip,
+    parse_sides,
+)
+
+# Depth 10: the G1 node subscribes /{side}_arm/joint_targets with depth 10
+# and the hand driver subscribes ~/joint_command with depth 10. Matching the
+# consumer's depth keeps a short burst from being dropped on either side.
+COMMAND_QOS_DEPTH = 10
+
+# RELIABLE because both consumers subscribe RELIABLE (the rclpy default).
+# A BEST_EFFORT publisher would never match them and every message would be
+# dropped with only a QoS warning in the log.
+COMMAND_QOS = QoSProfile(
+    reliability=QoSReliabilityPolicy.RELIABLE,
+    history=QoSHistoryPolicy.KEEP_LAST,
+    depth=COMMAND_QOS_DEPTH,
+)
+
+# Topic patterns. The arm pattern is g1_world_output's joint_replay input;
+# the hand pattern follows starport hand.launch.py, which names each driver
+# node wuji_hand in the /{side} namespace.
+ARM_TOPIC = "/{side}_arm/joint_targets"
+HAND_TOPIC = "/{side}/wuji_hand/joint_command"
+
+# Exit status for a refused clip or speed. 2 is argparse's own status for a
+# bad argument; a clip that may not be played is the same class of error.
+EXIT_REFUSED = 2
 
 
-def _arm_joint_names(actuator_order: list, side: str) -> list:
-    """All of one side's arm joint names, in the bundle's own order."""
-    prefix = f"{side}_"
-    return [
-        n for n in actuator_order
-        if n.startswith(prefix) and any(k in n for k in _ARM_KEYWORDS)
-    ]
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="replay_publisher",
+        description="Play one clip directory to the G1 node and the hand drivers.",
+    )
+    parser.add_argument("--clip", required=True, help="Clip directory under clips/safe/")
+    parser.add_argument("--arms", choices=SIDE_CHOICES, default="both", help="Arm topics to publish (default both)")
+    parser.add_argument("--hands", choices=SIDE_CHOICES, default="both", help="Hand topics to publish (default both)")
+    parser.add_argument(
+        "--speed",
+        type=float,
+        default=None,
+        help="Playback speed in (0, 1]; default: the fastest entry in the clip's safe_speeds",
+    )
+    return parser
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    """Parse the command line. Refuses --arms none together with --hands none."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.arms == "none" and args.hands == "none":
+        parser.error("nothing to publish: --arms none and --hands none together")
+    return args
 
 
 class ReplayPublisher(Node):
-    def __init__(self, method_dir: Path, rate: float, loop: bool,
-                 arms: bool, hands: bool):
-        super().__init__('replay_publisher')
-        if not (arms or hands):
-            raise ValueError("Nothing to publish: both --no-arms and --no-hands given")
+    """One timer, four optional publishers, no state beyond the frame index."""
 
-        meta_path = method_dir / 'g1_reference' / 'target_meta.json'
-        if not meta_path.exists():
-            raise FileNotFoundError(
-                f"{meta_path} not found. --method-dir must be a sample's GT/ or "
-                "Ours/ directory. In the teleop container the bundle is mounted "
-                "read-only at /home/wuji/ros2_ws/RobotSTAR_demos "
-                "(docker-compose.yml); a container created before that mount "
-                "was added needs `docker compose up -d teleop` to recreate it."
-            )
-        with open(meta_path) as f:
-            meta = json.load(f)
-        frames = int(meta['frames'])
-        source_frames = int(meta['source_frames'])
-        ratio = meta['target_fps'] / meta['source_fps']
-        if frames != round(source_frames * ratio):
-            raise ValueError(
-                f"Non-uniform retime (frames={frames}, source_frames={source_frames}, "
-                f"fps ratio={ratio}) -- the normalized-time arm/hand alignment "
-                "below would be wrong for this sample."
-            )
-
-        self._num_frames = frames
+    def __init__(self, clip: Clip, speed: float, arm_sides: tuple[str, ...], hand_sides: tuple[str, ...]):
+        super().__init__("replay_publisher")
+        self._clip = clip
+        self._arm_sides = arm_sides
+        self._hand_sides = hand_sides
         self._idx = 0
-        self._loop = loop
-        self._arm_frames = {}
-        self._hand_frames = {}
-
-        if arms:
-            npz = method_dir / 'g1_reference' / 'controller_reference_v7.npz'
-            data = np.load(npz)
-            body_q = np.asarray(data['body_q'], dtype=np.float64)
-            actuator_order = meta['joint_actuator_order']['body_actuators']
-            if body_q.shape != (frames, len(actuator_order)):
-                raise ValueError(
-                    f"body_q shape {body_q.shape} vs meta "
-                    f"({frames}, {len(actuator_order)}) -- npz/meta mismatch"
-                )
-            name_to_col = {n: i for i, n in enumerate(actuator_order)}
-            for side in ('left', 'right'):
-                names = _arm_joint_names(actuator_order, side)
-                if not names:
-                    raise ValueError(f"No {side} arm joints in {meta_path}")
-                self._arm_frames[side] = (names, body_q[:, [name_to_col[n] for n in names]])
-                self.get_logger().info(f"arms/{side}: {names}")
-
-        if hands:
-            kp_candidates = sorted(method_dir.glob('hand2_input/*_human_targets_v5.npz'))
-            if len(kp_candidates) != 1:
-                raise FileNotFoundError(
-                    f"Expected one hand2_input/*_human_targets_v5.npz in "
-                    f"{method_dir}, found {kp_candidates}"
-                )
-            kp_data = np.load(kp_candidates[0])
-            for side in ('left', 'right'):
-                kp = np.asarray(kp_data[f'{side}_hand_keypoints21'], dtype=np.float64)
-                if kp.shape != (source_frames, 21, 3):
-                    raise ValueError(
-                        f"{side}_hand_keypoints21 shape {kp.shape}, expected "
-                        f"({source_frames}, 21, 3)"
-                    )
-                self._hand_frames[side] = kp
-            self.get_logger().info(
-                f"hands: {source_frames} keypoint frames from {kp_candidates[0].name} "
-                f"(retargeted live by wujihand_controller, input_source=keypoints_topic)"
-            )
+        self._last_frame_logged = False
 
         self._arm_pubs = {
-            side: self.create_publisher(JointState, f'/{side}_arm/joint_targets', 10)
-            for side in self._arm_frames
+            side: self.create_publisher(JointState, ARM_TOPIC.format(side=side), COMMAND_QOS)
+            for side in arm_sides
         }
         self._hand_pubs = {
-            side: self.create_publisher(Float64MultiArray, f'/{side}_hand/keypoints21', 10)
-            for side in self._hand_frames
+            side: self.create_publisher(JointState, HAND_TOPIC.format(side=side), COMMAND_QOS)
+            for side in hand_sides
         }
 
-        step_dt = (meta['time_scale'] / meta['target_fps']) if rate <= 0 else (1.0 / rate)
+        period = frame_period(clip, speed)
         self.get_logger().info(
-            f"Replaying {method_dir} -- {frames} frames every {step_dt * 1000:.1f} ms "
-            f"(loop={loop}, arms={sorted(self._arm_frames)}, hands={sorted(self._hand_frames)})"
+            f"clip {clip.name}: {clip.frames} frames at {clip.rate_hz:g} Hz, speed {speed:g} "
+            f"(period {period * 1000:.1f} ms), arms {'+'.join(arm_sides) or 'none'}, "
+            f"hands {'+'.join(hand_sides) or 'none'}, duration {duration_s(clip, speed):.1f} s, "
+            "then holding the last frame"
         )
-        self.timer = self.create_timer(step_dt, self._tick)
+        self._timer = self.create_timer(period, self._tick)
 
-    def _hand_index(self, body_idx: int, hand_len: int) -> int:
-        if self._num_frames <= 1:
-            return 0
-        return round(body_idx * (hand_len - 1) / (self._num_frames - 1))
+    def _publish(self, pub, names: tuple[str, ...], positions, stamp) -> None:
+        msg = JointState()
+        msg.header.stamp = stamp
+        msg.name = list(names)
+        msg.position = positions.tolist()
+        pub.publish(msg)
 
     def _tick(self) -> None:
-        if self._idx >= self._num_frames:
-            if self._loop:
-                self._idx = 0
-            else:
-                # Hold the final frame (bundle end behavior: hold_last_target).
-                self._idx = self._num_frames - 1
-
+        i = self._idx
         stamp = self.get_clock().now().to_msg()
-        for side, (names, q_arr) in self._arm_frames.items():
-            msg = JointState()
-            msg.header.stamp = stamp
-            msg.name = names
-            msg.position = [float(v) for v in q_arr[self._idx]]
-            self._arm_pubs[side].publish(msg)
+        for side in self._arm_sides:
+            self._publish(self._arm_pubs[side], self._clip.arm_names[side], self._clip.arm_q[side][i], stamp)
+        for side in self._hand_sides:
+            self._publish(self._hand_pubs[side], self._clip.hand_names[side], self._clip.hand_q20[side][i], stamp)
 
-        for side, kp in self._hand_frames.items():
-            msg = Float64MultiArray()
-            msg.data = [float(v) for v in kp[self._hand_index(self._idx, kp.shape[0])].ravel()]
-            self._hand_pubs[side].publish(msg)
-
-        self._idx += 1
+        if i < self._clip.frames - 1:
+            self._idx = i + 1
+        elif not self._last_frame_logged:
+            self._last_frame_logged = True
+            self.get_logger().info(f"last frame ({i}) reached; holding it until killed")
 
 
 def main(argv=None) -> None:
-    raw_argv = sys.argv if argv is None else ['replay_publisher', *argv]
-    cli_argv = remove_ros_args(raw_argv)[1:]
+    raw_argv = sys.argv if argv is None else ["replay_publisher", *argv]
+    args = parse_args(remove_ros_args(raw_argv)[1:])
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '--method-dir', required=True, type=Path,
-        help="A sample's GT/ or Ours/ directory (contains g1_reference/ and hand2_input/)",
-    )
-    parser.add_argument(
-        '--rate', type=float, default=0.0,
-        help='Publish rate in Hz. Default: target_fps/time_scale from the bundle '
-             '(slower playback redistributes time, never scales amplitude).',
-    )
-    parser.add_argument('--loop', action='store_true', help='Loop back to frame 0 at clip end')
-    parser.add_argument('--no-arms', action='store_true', help='Skip arm joint targets')
-    parser.add_argument('--no-hands', action='store_true', help='Skip hand keypoints')
-    args = parser.parse_args(cli_argv)
+    try:
+        clip = load_clip(args.clip)
+        speed = default_speed(clip) if args.speed is None else check_speed(clip, args.speed)
+    except ClipError as exc:
+        print(f"replay_publisher: refused: {exc}", file=sys.stderr)
+        sys.exit(EXIT_REFUSED)
 
     rclpy.init(args=raw_argv)
-    node = ReplayPublisher(
-        args.method_dir, args.rate, args.loop,
-        arms=not args.no_arms, hands=not args.no_hands,
-    )
+    node = ReplayPublisher(clip, speed, parse_sides(args.arms), parse_sides(args.hands))
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -220,5 +183,5 @@ def main(argv=None) -> None:
             rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
