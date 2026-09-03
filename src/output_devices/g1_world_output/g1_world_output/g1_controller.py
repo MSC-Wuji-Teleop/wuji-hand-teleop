@@ -72,6 +72,7 @@ class G1CartesianController:
                 motion_mode=motion_mode,
                 simulation_mode=simulation_mode,
                 arm_type=self.arm_type,
+                network_interface=self._cfg.network_interface,
             )
 
         left_zsp = self._cfg.default_zsp_para.get('left', [0, -1, -0.5, 0, 0, 0])

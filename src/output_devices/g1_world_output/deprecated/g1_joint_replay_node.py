@@ -34,7 +34,7 @@ path, not a replacement: pico_input and g1_world_output_node are untouched.
 Run one or the other, not both -- they share the same DDS arm channel via
 G1CartesianController/G1_23_ArmController.
 
-Per TUITION.md Sec. 5 / HANDOFF_README.md: an offline reference is typically
+An offline reference is typically
 sampled far slower (e.g. 50 FPS) than the hardware control loop needs
 ("do not treat a 50 FPS reference as 50 Hz step commands" / "do not jump
 directly to the next vector at every source frame"). This node linearly

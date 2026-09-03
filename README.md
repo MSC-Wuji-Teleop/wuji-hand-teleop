@@ -1,6 +1,6 @@
 # wuji-hand-teleop
 
-ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (23-DoF)** with **two
+ROS2 Humble teleoperation stack for one rig: a **Unitree G1 (29-DoF)** with **two
 Wuji Hand 2** end effectors, driven by **Wuji Gloves** for the hands and a
 **PICO 4** headset with 4 Motion Trackers for the arms. Docker on Ubuntu 22.04
 x86_64 is the only supported runtime, and the hardware is fixed: this is a
@@ -63,17 +63,24 @@ The two containers share host networking, `ROS_DOMAIN_ID`, and
 > driven the G1 from the PICO yet. The sim smoke test below exercises
 > everything except the PICO itself.
 
-### Flow 3 — Replay a recorded SOT sample (sim, no input hardware)
+### Flow 3 — Replay a recorded clip (sim or hardware)
 
-Replays one sample from the `RobotSTAR_demos/` handoff bundle
-through the same output controllers teleop uses: arms as named joint targets
-into `g1_world_output` (`mode:=joint_replay`, no IK), hands as 21-point
-keypoints retargeted live by the hand controllers
-(`input_source: "keypoints_topic"`). Validated in MuJoCo on the 29-DoF model;
-sending replay to the real robot is **not** wired up yet (deliberately — see
-the bundle's own [TUITION.md](RobotSTAR_demos/TUITION.md)).
-Commands and details: [SOT bundle replay](docs/usage.md#sot-bundle-replay-sim)
-in usage.md.
+Plays one clip from `clips/safe/` on the G1 arms and both hands. Clips are
+prepared offline from the `RobotSTAR_demos/` handoff bundle by
+`tools/prepare_clip.py`: it smooths the arms, retargets the hands to Hand 2,
+replays the result dynamically in MuJoCo, and files the clip as safe or
+rejected with the audit numbers in its `clip.json`. Online, `replay_publisher`
+writes the clip's joint targets to `g1_world_output` (`mode:=joint_replay`, no
+IK) and to the two `starport_wuji_hand` drivers; nothing else runs.
+
+```bash
+# host, repo root
+scripts/replay.sh clips/safe/<clip> --sim      # MuJoCo, no hardware
+scripts/replay.sh clips/safe/<clip>            # the rig
+```
+
+Runbook: [docs/replay.md](docs/replay.md); design: [spec1.md](docs/spec/spec1.md).
+The online half has not yet run in the container or on the rig.
 
 ---
 
@@ -96,7 +103,8 @@ cd ~/ros2_ws/src/wuji-hand-teleop
 Skip either and `docker compose build` fails:
 
 ```bash
-# 3a. Submodules. Without this the build dies at
+# 3a. Submodules: wuji-retargeting, unitree_sdk2_python, and the USB hand
+#     driver (wujihandros2) until it is removed. Without this the build dies at
 #     COPY src/wujihandros2/external/wuji-description/...
 git submodule update --init --recursive
 
@@ -137,7 +145,11 @@ repo and a pull never conflicts with local values.
 Finding the serials:
 
 ```bash
-# Wuji Hands
+# Wuji Hands, Ethernet driver: scan the hands' subnet; prints serial, IP, side.
+# (path valid once starport_wuji_hand is vendored into src/)
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+
+# Wuji Hands, USB driver (current tree)
 lsusb -v -d 0483:2000 | grep iSerial
 
 # Wuji Gloves — printed on the device, and shown in Wuji Studio
@@ -184,8 +196,8 @@ shortcut.
 
 The hand and arm sim toggles are independent: run either, both, or neither.
 
-- **Hands**: `enable_hand_driver:=false` skips `wujihand_driver`, the only
-  process that opens hand USB. The controller still runs off real glove input
+- **Hands**: `enable_hand_driver:=false` skips the hand driver, the only
+  process that opens the hand link. The controller still runs off real glove input
   and publishes `/left_hand/joint_commands` unchanged.
 - **Arms**: `dry_run:=true` makes `g1_world_output` solve real IK from the
   target-pose topics and publish joint commands, without ever opening DDS.
@@ -241,14 +253,16 @@ every hop from device to MuJoCo with its file and line is in
 |---|---|
 | `src/input_devices/wuji_glove/` | Glove config. The SDK is imported in-process by each hand controller over UDP, so glove data never crosses a topic |
 | `src/input_devices/pico_input/` | PICO headset + 4 trackers -> chest-frame `PoseStamped`. Also owns the PICO frame math (`transform_utils.py`, `config_loader.py`, `config/robot_frames.yaml`) |
-| `src/input_devices/replay/` | Replays a SOT bundle sample: named arm joint targets + 21-point hand keypoints, time-aligned on one timer |
+| `src/input_devices/replay/` | Plays a prepared clip directory: named arm joint targets to the G1 node and named hand joints to the hand drivers, one timer |
 | `src/controller/` | `wujihand_controller`, run as two independent processes (left/right) so the sides never block each other |
 | `src/output_devices/wujihand_output/` | Hand retargeting + IK |
+| `src/starport_wuji_hand/` | Ethernet Wuji Hand 2 driver, vendored (BSD-3). One `hand_node` per side |
 | `src/output_devices/g1_world_output/` | G1 arms: Pinocchio + CasADi IK, Unitree DDS. **Own container** |
 | `src/g1_wuji2_description/` | Composed G1 + 2x Wuji Hand 2 URDF / MJCF / meshes. Generated; do not hand-edit |
 | `src/wuji_teleop_bringup/` | Launch files, one per preset |
 | `src/wuji_teleop_monitor/` | Qt5 GUI |
 | `src/camera/` | **Staged, not wired.** Targets the planned G1 head cameras (D435i / D455). Nothing launches it |
+| `tools/` | `prepare_clip.py` and `clip_audit.py`: offline clip preparation and the MuJoCo audit for replay |
 
 Arm topic contract, which any arm output can consume (`g1_world_output`'s
 `mode` parameter selects which set it listens to):
@@ -273,8 +287,10 @@ Hand output contract, ~120 Hz:
 
 **Invariants**
 
-- The hand controller never opens hand USB. Only the separate
-  `wujihand_driver` process does.
+- The hand controller never opens the hand link. Only the separate hand
+  driver process does: `starport_wuji_hand` `hand_node` over Ethernet
+  ([docs/spec/spec1.md](docs/spec/spec1.md)); the USB `wujihand_driver`
+  until the swap lands.
 - No launch file in the `teleop` container can start the G1 arms.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own
   licenses. Do not modify it as first-party.
@@ -317,9 +333,10 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
   pose by a constant wrist-frame vector.
 - **Hand 2 mounting adapter does not exist yet.** The vendor STL is a Hand v1
   part. `g1_wuji2_description` uses a provisional flange.
-- **The 29-DoF control path is sim-only.** `arm_type:=G1_29` exists for SOT
-  bundle replay in MuJoCo, but there is no 29-DoF DDS controller or IK;
-  `g1_world_output` refuses to open DDS with it (the rig's robot is 23-DoF).
+- **Hardware replay is unverified from this branch.** `arm_type:=G1_29` drives
+  DDS through `G1ArmController` and pose-mode IK stays `G1_23`-only; the clip
+  replay graph (publisher, G1 node, Ethernet hand drivers) has not been run in
+  the container or on the rig.
 - **Monitor cannot start the G1**, and the **joint panel still shows 7 arm
   columns** (Tianji's DoF count; the G1_23 has 5 per side).
 

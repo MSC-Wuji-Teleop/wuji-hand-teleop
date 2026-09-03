@@ -174,10 +174,14 @@ RUN if [ -n "${PIP_INDEX_URL}" ]; then \
 # -------------------------------------------
 # 5.5 wuji-sdk (Wuji Glove SDK, UDP transport)
 # -------------------------------------------
-# Required by the wuji_glove input path: wujihand_node imports wuji_sdk
-# lazily when wujihand_ik.yaml::input_source is "wuji_glove" (the default).
-# Public PyPI release tracks Wuji Studio (current: 2026.5.26 <-> Studio 5.18).
-ARG WUJI_SDK_VERSION=2026.5.26
+# Required by the wuji_glove input path (wujihand_node imports wuji_sdk
+# lazily when wujihand_ik.yaml::input_source is "wuji_glove", the default) and
+# by the Ethernet Hand 2 driver (starport_wuji_hand hand_node: SdkManager,
+# DeviceType.WujiHand2, JointCommand). 2026.5.26 (Studio 5.18) has no
+# DeviceType and no JointCommand; 2026.8.31 has both and keeps the glove
+# surface the controller uses (SdkManager.instance/connect, ConnectOptions
+# enable_bridge, hand_side, hand_skeleton). Checked 2026-09-02.
+ARG WUJI_SDK_VERSION=2026.8.31
 RUN pip3 install --no-cache-dir --timeout ${PIP_TIMEOUT} wuji-sdk==${WUJI_SDK_VERSION}
 
 # -------------------------------------------

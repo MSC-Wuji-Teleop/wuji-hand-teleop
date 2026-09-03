@@ -1,0 +1,55 @@
+# Build context excludes. Both images build with `context: ..` (the repo root,
+# docker-compose.yml), and neither COPYs the source tree: `src/` is bind-mounted
+# at run time. What is actually COPYed is only
+#   docker/prebuilt/*.deb, docker/entrypoint.sh, docker/scripts/, docker/cyclonedds.xml,
+#   src/wuji-retargeting, src/wujihandros2/external/wuji-description/.../urdf,
+#   src/unitree_sdk2_python (the g1_world_output image),
+#   src/output_devices/g1_world_output/docker/entrypoint.sh
+# so everything below is context the daemon would tar up and then never read.
+# Without this file the context is ~2.9 GB, which is both slow and a real problem
+# on a full disk; with it, well under 300 MB.
+
+# Reference data and run artifacts (all gitignored, none of it COPYed).
+RobotSTAR_demos/
+wuji_runs/
+wuji_clips/
+clips/
+sanitized_clips/
+
+# History.
+.git/
+.gitattributes
+
+# Docs and notes.
+docs/
+*.md
+LICENSE
+
+# Build and install trees, if a host-side colcon ever wrote them here.
+build/
+install/
+log/
+
+# Python and editor droppings.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+**/venv/
+.vscode/
+.idea/
+*.swp
+
+# Vendored source that no COPY reads. The two paths that ARE read are
+# re-included below, and order matters: the negations must follow the excludes.
+src/
+!src/wuji-retargeting/
+!src/wujihandros2/external/wuji-description/hand/body/urdf/
+!src/unitree_sdk2_python/
+!src/output_devices/g1_world_output/docker/
+
+# ...but not those trees' own history or caches.
+src/wuji-retargeting/.git
+src/wujihandros2/.git
+src/unitree_sdk2_python/.git
+**/wuji-retargeting/**/__pycache__/

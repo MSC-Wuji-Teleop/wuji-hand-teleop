@@ -21,9 +21,11 @@ inline there.
 | Topic | Read |
 |---|---|
 | **Hardware spec**: G1 23-DoF and 29-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [spec/hardware_spec.md](spec/hardware_spec.md) |
+| **Clip replay design**: offline clip preparation vs online playback, topics, build status | [spec/spec1.md](spec/spec1.md) |
+| **Replay runbook**: prepare a clip, check connections, single-device and full replays | [replay.md](replay.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, SOT bundle replay, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, replay path, process/container model, config convention, invariants | [architecture.md](architecture.md) |
-| **SOT handoff bundle** (recorded GT/Ours motion samples): safety restrictions and file contracts, from the bundle's authors | [../RobotSTAR_demos/HANDOFF_README.md](../RobotSTAR_demos/HANDOFF_README.md), [TUITION.md](../RobotSTAR_demos/TUITION.md) |
+| **SOT handoff bundle** (recorded GT/Ours motion samples): file layout, from the bundle's authors. The bundle is gitignored and obtained separately | `RobotSTAR_demos/HANDOFF_README.md`, inside the bundle |
 | **What was removed from the upstream fork, and why** | [deprecated/cleanup.md](deprecated/cleanup.md) |
 | Camera topic map and troubleshooting. **Staged, not wired** — targets the G1 head cameras | [wuji-camera-topics.md](wuji-camera-topics.md) |
 

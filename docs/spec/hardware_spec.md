@@ -33,6 +33,19 @@ G1_29 (commit 5ce3ea8).
 Link inertias also differ. The 23-DoF robot is not the 29-DoF robot with
 joints removed.
 
+Network and firmware, measured on the rig 2026-09-01: the robot answers at
+`192.168.123.161` and the host NIC sits on the `192.168.123.0/24` subnet,
+pinned by `g1_robot.yaml` `network_interface` (currently `enx00051bc62afa`).
+The Unitree SDK builds its own CycloneDDS config and ignores `CYCLONEDDS_URI`,
+so that parameter is the only thing that binds the robot link to the right
+interface on a multi-NIC host; left empty, the SDK takes the first interface
+and the only symptom is the lowstate timeout. All 14 arm joints including
+wrist pitch and yaw track over `rt/arm_sdk` (which confirms the 29-DoF
+variant), the lowstate tick is 1000 Hz, `mode_machine` is 5 in the standing
+mode used for replay, and `unitree-sdk2py` is 1.0.1. **This rig has no
+dedicated e-stop:** the physical stop is the remote damp command or main
+power.
+
 #### Joint indices and limits
 
 | Index | Joint Name | Limit (rad) |
@@ -78,8 +91,8 @@ wrist pitch/yaw) are real joints. On a 23-DoF robot they are absent, and
 | Property | Value |
 |---|---|
 | Model | Wuji Hand 2, 20 actuated DoF per hand |
-| Connection | USB (VID:PID `0483:2000`); firmware v1.2.1+ recommended (upstream README) |
-| Milestone 1 | Sim-only; no physical hand in the loop |
+| Connection | **Ethernet** (decided 2026-09-02): each hand has a static IP on its own subnet, is discovered by UDP broadcast, and is selected by serial number; driver `starport_wuji_hand` over `wuji_sdk` ([spec1.md](spec1.md)). The tree still runs the USB driver (`wujihandros2`, VID:PID `0483:2000`) until the swap lands. IPs, subnet, and firmware versions: unrecorded |
+| Serial numbers, IPs, revision (Beta 1 or Beta 2), firmware | unrecorded; fill from the rig |
 
 ### Mounting adapter: does not exist yet
 

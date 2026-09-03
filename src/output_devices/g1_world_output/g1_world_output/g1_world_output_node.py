@@ -13,14 +13,20 @@ Three modes, switchable at runtime via the 'mode' ROS parameter:
               -> g1_world_output (chest->pelvis remap) -> G1 IK -> DDS LowCmd
 
   joint_replay
-    joint_replay_publisher.py -> /left_arm/joint_targets  (sensor_msgs/JointState)
-                              -> /right_arm/joint_targets (sensor_msgs/JointState)
-              -> g1_world_output (interpolate by arrival time) -> DDS LowCmd
-    For sources that ship joint angles directly (e.g. a replayed reference
-    trajectory) rather than end-effector poses -- no IK involved. See
-    TUITION.md/HANDOFF_README.md: a 50 FPS offline reference must not be
-    treated as 50 Hz step commands, so this mode interpolates between the
-    two most recently received samples rather than holding/jumping.
+    replay_publisher -> /left_arm/joint_targets  (sensor_msgs/JointState)
+                     -> /right_arm/joint_targets (sensor_msgs/JointState)
+              -> g1_world_output (SideBuffer interpolation) -> DDS LowCmd
+    For sources that ship joint angles directly (a replayed clip) rather
+    than end-effector poses; no IK. Any named JointState source works.
+    Frames arrive at the publish rate (50 Hz times the replay speed) and
+    the control loop runs faster (250 Hz on the rig), so each side keeps a
+    SideBuffer (side_buffer.py). The buffer holds the newest sample until
+    two real samples exist, then interpolates one publish period behind
+    between the two newest: alpha = (now - t_next) / (t_next - t_prev),
+    clamped to [0, 1], where t is arrival time. The first frame is a step
+    from the measured pose. Every later frame is continuous, one publish
+    period late. The rule before 2026-09-02 measured alpha from t_prev,
+    which is at or past 1 at every poll, so it was a zero-order hold.
 
   idle
     Holds the arms at their current measured position. Used as a safe
@@ -42,7 +48,6 @@ import signal
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import rclpy
@@ -58,6 +63,7 @@ from std_msgs.msg import Float64MultiArray
 from g1_world_output.config_loader import G1Config
 from g1_world_output.g1_controller import G1CartesianController
 from g1_world_output.ros2_logging import ROS2LoggerAdapter, setup_ros2_logging_bridge
+from g1_world_output.side_buffer import SideBuffer
 
 LOG_DIR = Path.home() / ".g1_teleop_logs"
 
@@ -68,45 +74,6 @@ ARM_JOINT_QOS = QoSProfile(
 )
 
 VALID_MODES = ('pose', 'joint_replay', 'idle')
-
-
-class _SideBuffer:
-    """Two most-recent (timestamp, q) samples for one arm, for interpolation.
-
-    seed() is for a mode switch (or startup): both prev and next are set to
-    the same (measured) value so interpolate() holds there until a real
-    sample arrives via push(), which then ramps from that measured position
-    to the first real target instead of stepping.
-    """
-
-    def __init__(self):
-        self.prev_t: Optional[float] = None
-        self.prev_q: Optional[list] = None
-        self.next_t: Optional[float] = None
-        self.next_q: Optional[list] = None
-
-    def seed(self, t: float, q: list) -> None:
-        self.prev_t, self.prev_q = t, list(q)
-        self.next_t, self.next_q = t, list(q)
-
-    def push(self, t: float, q: list) -> None:
-        if self.next_q is not None:
-            self.prev_t, self.prev_q = self.next_t, self.next_q
-        else:
-            self.prev_t, self.prev_q = t, q
-        self.next_t, self.next_q = t, q
-
-    def interpolate(self, now: float) -> Optional[list]:
-        if self.next_q is None:
-            return None
-        if self.prev_q is None or self.next_t <= self.prev_t:
-            return self.next_q
-        alpha = (now - self.prev_t) / (self.next_t - self.prev_t)
-        alpha = min(max(alpha, 0.0), 1.0)
-        return [
-            (1.0 - alpha) * p + alpha * n
-            for p, n in zip(self.prev_q, self.next_q)
-        ]
 
 
 class G1WorldOutputNode(Node):
@@ -133,8 +100,8 @@ class G1WorldOutputNode(Node):
         self.declare_parameter('simulation_mode', self._cfg.simulation_mode)
         self.declare_parameter('dry_run', False)
         self.declare_parameter('mode', 'pose')
-        # 'G1_23' (real rig, full pose+DDS) or 'G1_29' (joint_replay/sim only
-        # -- 7-DoF-arm joint names for the SOT bundle; no DDS/IK yet).
+        # 'G1_29' (7 DoF/arm, the rig's robot) or 'G1_23' (5 DoF/arm). Both
+        # drive DDS; the pose IK is G1_23-only, so mode=pose refuses G1_29.
         self.declare_parameter('arm_type', self._cfg.arm_type)
 
         arm_type = str(self.get_parameter('arm_type').value)
@@ -225,7 +192,10 @@ class G1WorldOutputNode(Node):
             Float64MultiArray, '/right_arm/zsp_para', ARM_JOINT_QOS
         )
 
-        self._joint_buffers = {'left': _SideBuffer(), 'right': _SideBuffer()}
+        # One interpolation buffer per side (side_buffer.py). Seeded with the
+        # measured pose at every mode switch, fed by _handle_joint_targets,
+        # read by _control_loop_joint_replay.
+        self._joint_buffers = {'left': SideBuffer(), 'right': SideBuffer()}
         self._bad_target_warned = {'left': False, 'right': False}
         self._first_joint_target_received = False
 
@@ -258,9 +228,10 @@ class G1WorldOutputNode(Node):
     def _enter_mode(self, new_mode: str) -> None:
         """Switch active mode with bumpless transfer.
 
-        Seeds the joint-replay interpolation buffers from the arm's current
-        measured position before switching, so whichever mode is entered
-        next starts from where the arm actually is. For 'pose', also runs
+        Seeds the joint-replay buffers with the arm's current measured
+        position before switching, so joint_replay commands that pose until
+        the first frame arrives. The first frame is then a step: the buffer
+        never ramps from the seed (side_buffer.py). For 'pose', also runs
         the existing move_to_init() reset-pose IK solve (unchanged
         behavior); for 'joint_replay'/'idle' it is skipped so those modes
         never need Pinocchio+CasADi.
@@ -371,6 +342,8 @@ class G1WorldOutputNode(Node):
             self.get_logger().info("First joint-replay target received, starting control...")
 
         q = [float(by_name[n]) for n in names]
+        # Arrival time, not the message stamp: the buffer interpolates over
+        # the publish period it observes.
         self._joint_buffers[side].push(self._now(), q)
 
     # ==================== Publishing ====================
@@ -461,6 +434,8 @@ class G1WorldOutputNode(Node):
 
     def _control_loop_joint_replay(self) -> None:
         now = self._now()
+        # One publish period behind the newest sample once two samples exist;
+        # the newest value before that; None for a side never seeded or fed.
         left_q = self._joint_buffers['left'].interpolate(now)
         right_q = self._joint_buffers['right'].interpolate(now)
         if left_q is None and right_q is None:

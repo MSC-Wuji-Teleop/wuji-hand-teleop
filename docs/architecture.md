@@ -32,7 +32,7 @@ graph LR
     subgraph Inputs
         WG["Wuji Glove"]
         PICO["PICO 4<br/>+ 4 trackers"]
-        SOT["replay<br/>(recorded bundle)"]
+        SOT["replay<br/>(prepared clip directory)"]
     end
 
     WG -. "wuji_sdk UDP<br/>in-process" .-> HC["wujihand_controller<br/>(left + right processes)"]
@@ -40,9 +40,9 @@ graph LR
 
     PI --> TP["/left_arm_target_pose<br/>/right_arm_target_pose"]
     SOT --> JT["/left_arm/joint_targets<br/>/right_arm/joint_targets"]
-    SOT -- "/left_hand/keypoints21<br/>/right_hand/keypoints21" --> HC
+    SOT -- "/left/wuji_hand/joint_command<br/>/right/wuji_hand/joint_command" --> DRV
 
-    HC -- "/left_hand/joint_commands<br/>/right_hand/joint_commands" --> DRV["wujihand_driver<br/>(C++, USB)"]
+    HC -- "/left_hand/joint_commands<br/>/right_hand/joint_commands" --> DRV["hand_node x2<br/>(starport_wuji_hand, Ethernet)"]
     DRV --> HAND["2x Wuji Hand 2"]
 
     TP -.->|"cross-container DDS<br/>(mode=pose)"| G1O["g1_world_output<br/>(own container)"]
@@ -121,17 +121,19 @@ Runs as two independent processes, one per side. No ROS2 topic on the way in.
 | 9 | Written to the 20 hand actuators | [_mujoco_common.py:186](../src/output_devices/g1_world_output/scripts/_mujoco_common.py#L186) |
 
 Steps 1–3 are the `wuji_glove` input source. With
-`input_source: "keypoints_topic"` (SOT bundle replay), steps 1–3 are replaced
+`input_source: "keypoints_topic"` (a topic-fed source; clip replay no longer
+uses it, since the hands are retargeted offline), steps 1–3 are replaced
 by a plain topic subscription — `/{hand_name}/keypoints21`, 63-float
 MediaPipe `(21, 3)` in meters, latest-wins under a lock
 ([wujihand_node.py:255](../src/controller/controller/wujihand_node.py#L255)
 setup, [:264](../src/controller/controller/wujihand_node.py#L264) callback,
 [:275](../src/controller/controller/wujihand_node.py#L275) consume) — and
-steps 4–9 are identical, so replay exercises the production retargeting path.
+steps 4–9 are identical.
 
 Because the message carries no joint names, index order is an unchecked
 convention shared across three codebases: the retargeter's output order, the
-`wujihandros2` driver's index parsing, and `HAND_CODES` in the viewer.
+hand driver's hardware order (`joint_map.py` in `starport_wuji_hand`; the USB
+driver's `JOINT_NAMES` today), and `HAND_CODES` in the viewer.
 
 ### Arm chain: PICO to MuJoCo
 
@@ -256,105 +258,54 @@ grep -rn "create_publisher\|create_subscription\|create_timer" \
 
 ## SOT bundle replay
 
-`RobotSTAR_demos/` (repo root) is a handoff bundle of recorded
+`RobotSTAR_demos/` (repo root, gitignored) is a handoff bundle of recorded
 sign-language motion samples: 29-DoF G1 joint trajectories plus 21-point human
-hand keypoints per sample. Its own docs are the authority on what may touch
-hardware — read
-[HANDOFF_README.md](../RobotSTAR_demos/HANDOFF_README.md) and
-[TUITION.md](../RobotSTAR_demos/TUITION.md). Two of their
-constraints shaped the pipeline:
+hand keypoints per sample. Its `HANDOFF_README.md` describes the file layout.
+Replay has two halves with one file boundary between them, the clip
+directory ([spec/spec1.md](spec/spec1.md#clip-directory)):
 
-- **The bundle's precomputed hand joints target the legacy hand model and must
-  never reach a real Hand 2.** So replay never touches them: the hands are
-  driven from the sample's `hand2_input/*_human_targets_v5.npz` keypoints,
-  retargeted live by the production hand controllers
-  (`input_source: "keypoints_topic"`).
-- **A 50 FPS reference must not become 50 Hz step commands.** So
-  `g1_world_output_node`'s `joint_replay` mode linearly interpolates between
-  the two most recently received samples at its own `control_rate`
-  ([g1_world_output_node.py:73](../src/output_devices/g1_world_output/g1_world_output/g1_world_output_node.py#L73) buffer, [:99](../src/output_devices/g1_world_output/g1_world_output/g1_world_output_node.py#L99) interpolate).
-
-One publisher feeds both sides, time-aligned on a single timer
-([replay_publisher.py](../src/input_devices/replay/replay/replay_publisher.py)):
-
-```mermaid
-graph LR
-    NPZ["sample GT/ or Ours/<br/>controller_reference_v7.npz<br/>+ hand2_input keypoints"]
-    SOT["replay_publisher<br/>one 50 Hz timer"]
-    HC["wujihand_controller x2<br/>input_source=keypoints_topic"]
-    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29"]
-    VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml"]
-
-    NPZ --> SOT
-    SOT -->|"/left,right_hand/keypoints21<br/>63 floats"| HC
-    SOT -->|"/left,right_arm/joint_targets<br/>JointState, named, 7/side"| G1O
-    HC -->|"/left,right_hand/joint_commands"| VIZ
-    G1O -->|"/left,right_arm/joint_commands"| VIZ
-```
-
-Joints cross every hop **by name**, per the bundle's own instruction ("map
-joints by joint name, do not map only by array index"): the publisher selects
-arm columns by name from `target_meta.json`, the consumer matches them against
-`joint_names(side)` and warns on extras, and the viewer resolves each name to
-a `{name}_joint` actuator. That is what lets the same publisher drive today's
-5-DoF-arm G1_23 controller and the 29-DoF sim without changes.
-
-The rig's robot is 29-DoF. As of 2026-08-27 `G1ArmController` drives either
-variant over DDS (`arm_type` selects the arm slot set; `G1_29` is the config
-default) and pose-IK teleop stays `G1_23`-only. What keeps replay sim-only
-today is the missing safety envelope, not the controller: TUITION's
-requirements on feedback gating (§5), bounded startup and termination (§8),
-stop conditions (§9), and run logging (§10) are not implemented yet.
-Runbook with the exact commands:
-[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim). Checklist and
-staged bring-up for the eventual hardware runs:
-[Hardware replay](usage.md#hardware-replay).
-
-### Hardware replay design (planned)
-
-Design target, not implemented. The sim topology above carries over with two
-changes, both inside existing processes. No new nodes.
-
-A "mode" here is a parameter on a device node, not a separate process.
-`g1_world_output` already has `mode` (`pose` | `joint_replay` | `idle`), and
-the hand node already has `input_source` (`wuji_glove` | `keypoints_topic`).
-The planned branch adds one more `input_source` value, `q20_topic`. Each
-device node keeps sole ownership of its command topic in every mode; the
-parameter only selects which input branch its control timer runs, so a
-second writer is structurally impossible. That is the same property the DDS
-writer lockfile enforces on the arm side.
+- **Offline**, `tools/prepare_clip.py`: smooths the 14 arm columns, retargets
+  the hand keypoints to Hand 2 with the production retargeter and the same
+  URDF-order permutation the hand controller applies, replays the whole clip
+  dynamically in MuJoCo with the G1 node's arm gains and the hands actuated
+  (`tools/clip_audit.py`), judges peak contact force and arm torque ratio per
+  speed, and files the clip under `clips/safe/` or `clips/rejected/` with
+  every audit number in `clip.json`. The bundle's precomputed hand joints
+  target the legacy hand model and are never used.
+- **Online**, `replay_publisher`: reads a safe clip, waits for the selected
+  consumers, approaches frame 0 from the measured pose, then publishes named
+  `JointState` targets at 100 Hz (clip frames interpolated), arms to
+  `g1_world_output` and hand joints straight to the two `starport_wuji_hand`
+  drivers. The hand controller is not on this path. Nothing else runs.
 
 ```mermaid
 graph LR
-    CC["condition_clip (planned, offline)<br/>keypoints to q20 retarget<br/>+ velocity audit, per-clip verdict"]
-    ART[("conditioned clip<br/>artifact")]
-    SOT["replay_publisher<br/>one timer"]
-    HC["wujihand_controller x2<br/>input_source=q20_topic (planned)<br/>interp + clamp + watchdog inside"]
-    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29"]
-    DRV["wujihand_driver<br/>unchanged"]
-    DDS["Unitree G1<br/>DDS rt/arm_sdk"]
+    CLIP[("clips/safe/&lt;clip&gt;/<br/>arm_q.npz, hand_q20.npz, clip.json")]
+    PUB["replay_publisher<br/>100 Hz, wait + approach + lerp"]
+    G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29<br/>(own container)"]
+    HN["hand_node x2<br/>(starport_wuji_hand, Ethernet)"]
+    VIZ["mujoco_visualizer.py<br/>(sim only)"]
 
-    CC --> ART --> SOT
-    SOT -->|"/left,right_hand/joint_targets<br/>named q20 (planned topic)"| HC
-    SOT -->|"/left,right_arm/joint_targets<br/>unchanged"| G1O
-    HC -->|"/left,right_hand/joint_commands"| DRV
-    G1O --> DDS
+    CLIP --> PUB
+    PUB -->|"/left,right_arm/joint_targets<br/>JointState, named, 7/side"| G1O
+    PUB -->|"/left,right/wuji_hand/joint_command<br/>JointState, named, 20/side"| HN
+    G1O -.->|"/left,right_arm/joint_commands"| VIZ
+    PUB -.->|"hand commands"| VIZ
 ```
 
-What replaces what, relative to the sim diagram:
+Joints cross every hop **by name**: the G1 node matches the arm names
+against `joint_names(side)`, the hand driver resolves each hand name to its
+hardware index and refuses names from the other hand, and the viewer maps
+both onto the model's actuators. The G1 node's `joint_replay` buffer
+(`side_buffer.py`) interpolates one publish period behind the newest sample,
+so a 50 FPS clip at any speed becomes a continuous 250 Hz command with one
+frame of latency; the first frame is a step from wherever the arms are.
 
-| Sim path (today) | Hardware path (planned) |
-|---|---|
-| `/left,right_hand/keypoints21`, 63 floats | `/left,right_hand/joint_targets`, named q20 |
-| NLopt retarget at runtime, inside the hand node | retarget offline in `condition_clip`, audited before any run (TUITION §3.1: `reset()` per clip, retarget metadata recorded) |
-| latest-wins keypoint consumption, no interpolation | interpolation between q20 samples in the same timer loop (TUITION §5) |
-| no clamps or feedback gating on the hand side | joint-limit clamp plus `joint_states`/`hand_diagnostics` watchdog in the same branch (TUITION §5) |
-| viewer consumes the command topics | `wujihand_driver` (USB) and DDS consume them |
-
-The arm side is identical in both diagrams: `joint_replay` already
-interpolates named targets and `G1ArmController` owns DDS behind the writer
-lock. The pending arm-side work is the safety envelope listed above, not
-topology.
+Nothing sits between the publisher and the device nodes: no run-time
+checks, trips, or ramps, by decision. The publisher plays the clip once and
+holds the last frame; clip quality is decided offline. Design:
+[spec/spec1.md](spec/spec1.md). Runbooks: [replay.md](replay.md) and
+[SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim).
 
 ## Input devices
 
@@ -365,7 +316,7 @@ interfaces:
 |---|---|---|
 | `wuji_glove/` | Wuji Glove (default hand input) | None. Connects in-process via `wuji_sdk` UDP directly inside each hand controller |
 | `pico_input/` | PICO 4 headset + 4 Motion Trackers | `PoseStamped` on `/left_arm_target_pose`, `/right_arm_target_pose`. These are chest-frame poses; the node converts from PICO's world frame internally, using `pico_input/transform_utils.py` and the anchors in `config/robot_frames.yaml` |
-| `replay/` | None (recorded SOT bundle sample) | Named `JointState` on `/left_arm/joint_targets`, `/right_arm/joint_targets` + 63-float keypoints on `/left_hand/keypoints21`, `/right_hand/keypoints21`. See [SOT bundle replay](#sot-bundle-replay) |
+| `replay/` | None (a prepared clip directory under `clips/safe/`) | Named `JointState` on `/left_arm/joint_targets`, `/right_arm/joint_targets` (7/side) and on `/left/wuji_hand/joint_command`, `/right/wuji_hand/joint_command` (20/side). See [SOT bundle replay](#sot-bundle-replay) |
 
 The topic contract for plugging in a custom input is specified in the
 [Architecture](../README.md#architecture) section of the main README.
@@ -381,8 +332,8 @@ Key properties:
 
 - **Input selection**: `wujihand_ik.yaml::input_source` picks which input
   feeds it — `wuji_glove` (in-process SDK, the teleop default) or
-  `keypoints_topic` (subscribes `/{hand_name}/keypoints21`, used by SOT bundle
-  replay). Dispatch lives in `controller/wujihand_node.py`; the
+  `keypoints_topic` (subscribes `/{hand_name}/keypoints21`; not used by clip
+  replay, which retargets offline). Dispatch lives in `controller/wujihand_node.py`; the
   retargeting/hardware controller class it drives is
   `src/output_devices/wujihand_output/wujihand_controller.py`. Each source has
   a retarget config in `wujihand_output/config/`
@@ -390,8 +341,12 @@ Key properties:
 - **Never touches hand hardware**: it always publishes
   `/left_hand/joint_commands` and `/right_hand/joint_commands`
   (`sensor_msgs/JointState`, ~120 Hz) regardless of whether a physical hand is
-  attached. Only the separate `wujihand_driver` process (from the
-  `wujihandros2` submodule, C++) opens the real USB connection.
+  attached. Only the separate hand driver process opens the real hand link:
+  `starport_wuji_hand` `hand_node`, one per side, over Ethernet via `wuji_sdk`
+  ([spec1.md](spec/spec1.md)). The USB driver (`wujihand_driver` from the
+  `wujihandros2` submodule) is what the teleop launch files spawn until the
+  swap lands; the controller's command topic then moves to the driver's
+  `/{side}/wuji_hand/joint_command`.
 - **Sim mode**: `wuji_teleop_hand.launch.py enable_hand_driver:=false` skips
   the driver process (real glove input, no physical hand). Pair with
   `g1_world_output/scripts/mujoco_visualizer.py --focus hands`.
@@ -449,7 +404,8 @@ Two containers, one ROS2 graph (host networking, same `ROS_DOMAIN_ID`):
   over ROS2/DDS.
 
 Within `teleop`, the hand pipeline is per-side processes end to end: two
-controller processes, plus the driver process that owns USB.
+controller processes, plus one hand driver process per side that owns the
+hand link.
 
 ## Configuration convention
 
@@ -463,8 +419,9 @@ symlink picks it up. The full config list is in
 
 ## Invariants
 
-- **Controller/driver split**: only `wujihand_driver` opens the hand USB
-  connection. The hand controller stays hardware-agnostic and always publishes
+- **Controller/driver split**: only the hand driver (`starport_wuji_hand`
+  `hand_node`; the USB `wujihand_driver` until the swap) opens the hand
+  link. The hand controller stays hardware-agnostic and always publishes
   joint-command topics.
 - **Vendored code is pinned**: `src/input_devices/pico_input/vendor/` is
   upstream XRoboToolkit source under its own licenses. Treat it as an external

@@ -18,6 +18,11 @@
 
   <!-- Package dependencies -->
   <exec_depend>wujihand_output</exec_depend>
+  <!-- replay.launch.py: the clip publisher and connection check, and the hand drivers it includes -->
+  <exec_depend>replay</exec_depend>
+  <exec_depend>starport_wuji_hand</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

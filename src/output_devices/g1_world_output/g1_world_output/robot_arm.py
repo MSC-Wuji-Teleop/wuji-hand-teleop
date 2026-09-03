@@ -19,6 +19,7 @@ import logging
 import threading
 import time
 from enum import IntEnum
+from typing import Optional
 
 import numpy as np
 
@@ -162,10 +163,9 @@ G1_23_ARM_JOINT_NAMES = [
 ]
 
 # G1_29: 7 DoF per arm (adds wrist pitch/yaw; unified-motor-array indices
-# 20/21 and 27/28, which the 23-DoF enum above marks NotUsed). The 29 DDS
-# controller is NOT reinstated yet -- these names currently serve the
-# joint_replay/sim path (name-matched topics, g1_29_wuji2 description);
-# G1CartesianController refuses to open DDS with arm_type=G1_29.
+# 20/21 and 27/28, which the 23-DoF enum above marks NotUsed). G1ArmController
+# drives DDS for this variant too (ARM_INDICES_BY_TYPE, WRIST_MOTORS_BY_TYPE
+# below); only the pose IK path in g1_controller.py is G1_23-only.
 G1_29_ARM_JOINT_NAMES = [
     'left_shoulder_pitch',
     'left_shoulder_roll',
@@ -219,6 +219,7 @@ class G1ArmController:
         simulation_mode: bool = False,
         dds_already_initialized: bool = False,
         arm_type: str = 'G1_23',
+        network_interface: Optional[str] = None,
     ):
         if arm_type not in ARM_INDICES_BY_TYPE:
             raise ValueError(
@@ -263,10 +264,19 @@ class G1ArmController:
         self._running = True
 
         if not dds_already_initialized:
-            if self.simulation_mode:
-                ChannelFactoryInitialize(1)
+            # Pin the participant to a NIC when one is configured. The SDK
+            # otherwise takes the first interface, which on a multi-NIC host is
+            # not necessarily the one the robot is on: the link then never comes
+            # up and the only symptom is the lowstate timeout. Robot address and
+            # subnet: docs/spec/hardware_spec.md.
+            domain = 1 if self.simulation_mode else 0
+            if network_interface:
+                logger.info(
+                    f"[G1ArmController] DDS domain {domain} pinned to NIC {network_interface}"
+                )
+                ChannelFactoryInitialize(domain, network_interface)
             else:
-                ChannelFactoryInitialize(0)
+                ChannelFactoryInitialize(domain)
         else:
             logger.info(
                 "[G1ArmController] DDS already initialized, skipping ChannelFactoryInitialize"

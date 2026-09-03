@@ -1,0 +1,75 @@
+# Wuji hand2 (beta1) left-hand joint position limits, radians.
+#
+# GENERATED from assets/robots/wuji_hand2/mjcf/left.xml by
+# scripts/generate_limits_yaml.py -- do not hand-edit. Values are each JOINT's `range`,
+# not `actuatorfrcrange`. test_limits_match_mjcf.py fails if this drifts from the MJCF.
+#
+# Each hand is projected from its own MJCF rather than mirrored from the other, so a revision
+# that makes the two diverge shows up here as a changed file instead of a wrong clamp.
+#
+# The hardware also reports its own limits (wujihandpy read_joint_lower_limit /
+# read_joint_upper_limit -- the checked bus reads, not the get_joint_*_limit cache accessors,
+# which are unpopulated until an upstream-enabled controller exists); hand_node cross-checks
+# these against those at startup and refuses to run on disagreement. This file is what the
+# reference trajectories were solved against.
+joints:
+  l_thumb_cmc_flex:
+    lower: -1.187
+    upper: 1.291
+  l_thumb_cmc_abd:
+    lower: -1.484
+    upper: 0.698
+  l_thumb_mcp:
+    lower: -1.047
+    upper: 1.57
+  l_thumb_ip:
+    lower: -1.047
+    upper: 1.57
+  l_index_finger_mcp_flex:
+    lower: -1.047
+    upper: 1.57
+  l_index_finger_mcp_abd:
+    lower: -0.698
+    upper: 0.698
+  l_index_finger_pip:
+    lower: -1.047
+    upper: 2.094
+  l_index_finger_dip:
+    lower: -1.047
+    upper: 1.57
+  l_middle_finger_mcp_flex:
+    lower: -1.047
+    upper: 1.57
+  l_middle_finger_mcp_abd:
+    lower: -0.698
+    upper: 0.698
+  l_middle_finger_pip:
+    lower: -1.047
+    upper: 2.094
+  l_middle_finger_dip:
+    lower: -1.047
+    upper: 1.57
+  l_ring_finger_mcp_flex:
+    lower: -1.047
+    upper: 1.57
+  l_ring_finger_mcp_abd:
+    lower: -0.698
+    upper: 0.698
+  l_ring_finger_pip:
+    lower: -1.047
+    upper: 2.094
+  l_ring_finger_dip:
+    lower: -1.047
+    upper: 1.57
+  l_pinky_mcp_flex:
+    lower: -1.047
+    upper: 1.57
+  l_pinky_mcp_abd:
+    lower: -0.698
+    upper: 0.698
+  l_pinky_pip:
+    lower: -1.047
+    upper: 2.094
+  l_pinky_dip:
+    lower: -1.047
+    upper: 1.57

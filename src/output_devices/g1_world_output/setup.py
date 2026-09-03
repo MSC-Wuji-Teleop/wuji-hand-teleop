@@ -16,6 +16,10 @@ setup(
             glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'),
             glob('config/*.yaml')),
+        # The sim viewer and its helpers, so replay.launch.py (wuji_teleop_bringup) can
+        # start scripts/mujoco_visualizer.py from the share directory (docs/replay.md, Sim).
+        (os.path.join('share', package_name, 'scripts'),
+            glob('scripts/*.py')),
     ],
     install_requires=[
         'setuptools',

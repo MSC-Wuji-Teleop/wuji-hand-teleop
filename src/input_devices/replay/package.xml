@@ -2,13 +2,18 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>replay</name>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <description>
-    Replay input device for the SOT handoff bundle (RobotSTAR_demos):
-    publishes a sample's G1 arm joint targets and 21-point hand keypoints as
-    topics, so the existing output controllers (g1_world_output joint_replay
-    mode, wujihand_controller keypoints_topic source) can drive the robot or
-    the MuJoCo sim from recorded motion instead of live teleop.
+    Plays a prepared clip directory (clips/safe/&lt;clip&gt;/, written offline by
+    tools/prepare_clip.py and audited in MuJoCo) on the rig: replay_publisher
+    reads arm_q.npz, hand_q20.npz and clip.json and publishes, on one timer,
+    named arm joint targets to g1_world_output (mode joint_replay) and named
+    hand joints to the starport_wuji_hand drivers, once, then holds the last
+    frame. It refuses a directory not filed under clips/safe/, a verdict that
+    is not safe, and a speed the audit did not pass. replay_check waits for
+    state from the selected device nodes and prints the topic rates before a
+    run. Pure rclpy and numpy; no device SDK, no retargeting, no run-time
+    checks.
   </description>
   <maintainer email="nathan.jew@berkeley.edu">Nathan Jew</maintainer>
   <license>MIT</license>
@@ -16,6 +21,7 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>

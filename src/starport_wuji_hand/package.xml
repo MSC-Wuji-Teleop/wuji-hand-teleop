@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>starport_wuji_hand</name>
+  <version>0.1.0</version>
+  <description>Ethernet Wuji Hand 2 driver over wuji_sdk (UDP broadcast discovery, selection by serial number), 20-DoF joint-position command in radians with a guard chain (finite check, limit clamp, slew-rate limit, command watchdog), JointState feedback and DiagnosticArray health; vendored from Multiply Labs' starport_wuji_hand (BSD-3-Clause).</description>
+  <maintainer email="solvin@multiplylabs.com">Multiply Labs</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -12,7 +12,7 @@
 # (glove SDK thumb reconstruction, monocular depth compression). Fused SMPL-X
 # keypoints are metrically consistent 3D and the bundle's own hand solve used
 # official session defaults (target_meta.json "hand_solver"), so no bias terms
-# here. Tune against reference videos only with evidence, per TUITION.md Sec 4.
+# here. Tune against reference videos only with evidence.
 #
 # mediapipe_rotation below is NOT a bias term. See the note on it.
 
