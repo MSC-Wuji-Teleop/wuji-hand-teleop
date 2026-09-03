@@ -26,6 +26,8 @@ from starport_wuji_hand.joint_map import NUM_JOINTS, index_to_nid, joint_names
 from starport_wuji_hand.limits_io import load_friction
 
 RIGHT_NAMES = joint_names("right")
+LEFT_NAMES = joint_names("left")
+LEFT_LIMITS_YAML = str(Path(__file__).resolve().parents[1] / "config" / "joint_limits_hand2_beta1_left.yaml")
 
 # The tests intentionally poke the node's private connection state and callbacks.
 # ruff: noqa: SLF001
@@ -624,6 +626,23 @@ def published_values(node):
     """The key/value pairs of the most recently published DiagnosticArray."""
     arr = node._pub_diag.publish.call_args[0][0]
     return {kv.key: kv.value for st in arr.status for kv in st.values}
+
+
+def test_a_left_hand_node_accepts_left_joint_names(make_node):
+    # resolve_command defaults to the right hand; a left driver that forgets to pass side=
+    # refuses every l_* name the publisher sends (the --hands left replay path).
+    node = make_node(hand_side="left", limits_file=LEFT_LIMITS_YAML)
+    connected(node)
+    node._on_command(JointState(name=list(LEFT_NAMES), position=[0.2] * NUM_JOINTS))
+    assert node._pending is not None
+    np.testing.assert_allclose(node._pending, np.full(NUM_JOINTS, 0.2))
+
+
+def test_a_left_hand_node_refuses_right_joint_names(make_node):
+    node = make_node(hand_side="left", limits_file=LEFT_LIMITS_YAML)
+    connected(node)
+    node._on_command(JointState(name=[RIGHT_NAMES[0]], position=[0.2]))
+    assert node._pending is None
 
 
 def test_bare_twenty_array_command_is_accepted(node):

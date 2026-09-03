@@ -789,7 +789,9 @@ class WujiHandNode(Node):
         """
         names = list(msg.name) if len(msg.name) else None
         try:
-            target = resolve_command(names, list(msg.position), self._to_logical(self._chain.last_safe))
+            target = resolve_command(
+                names, list(msg.position), self._to_logical(self._chain.last_safe), side=self._side
+            )
         except ValueError as exc:
             self.get_logger().warning(f"command refused: {exc}")
             return
