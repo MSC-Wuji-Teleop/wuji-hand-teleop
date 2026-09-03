@@ -211,6 +211,11 @@ def write_fake_urdf(path: Path, joint_names: List[str]) -> Path:
     return path
 
 
+# The alpha the fake reports before any override, distinct from the configs'
+# 0.2 so a test can tell "left alone" from "set to the default".
+FAKE_LP_ALPHA = 0.35
+
+
 class FakeRetargeter:
     """Stands in for wuji_retargeting.Retargeter.
 
@@ -233,6 +238,9 @@ class FakeRetargeter:
         self._hw_index_of_opt = np.array([hw.index(n) for n in names_opt])
         self.pattern_hw = (FAKE_PATTERN_HW.copy() if pattern_hw is None
                            else np.asarray(pattern_hw, dtype=np.float64))
+        # The real Retargeter smooths its output with this; prepare_clip reads
+        # and may override its alpha, so the double carries one too.
+        self.lp_filter = SimpleNamespace(alpha=FAKE_LP_ALPHA)
         self.kp_gain = kp_gain
         self.reset_calls = 0
         self.retarget_calls = 0

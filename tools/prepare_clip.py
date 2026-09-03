@@ -183,6 +183,7 @@ class Options:
     max_contact_force_n: float = clip_audit.DEFAULT_MAX_CONTACT_FORCE_N
     note: str = ""
     retarget_config_dir: Path = DEFAULT_RETARGET_CONFIG_DIR
+    hand_lp_alpha: Optional[float] = None
 
     def thresholds(self) -> Thresholds:
         return Thresholds(max_arm_torque_ratio=float(self.max_arm_torque_ratio),
@@ -209,6 +210,8 @@ class Options:
             raise PrepareError("thresholds must be >= 0")
         if not Path(self.retarget_config_dir).is_dir():
             raise PrepareError(f"--retarget-config-dir {self.retarget_config_dir} is not a directory")
+        if self.hand_lp_alpha is not None and not (0.0 < float(self.hand_lp_alpha) <= 1.0):
+            raise PrepareError(f"--hand-lp-alpha must be in (0, 1], got {self.hand_lp_alpha}")
 
 
 def log(message: str) -> None:
@@ -525,24 +528,52 @@ def retarget_side(retargeter, perm: np.ndarray, keypoints: np.ndarray, kp_indice
     return out
 
 
+def set_lp_alpha(retargeter, alpha: Optional[float], side: str) -> Optional[float]:
+    """Override the retargeter's low-pass coefficient, and report what it ended up as.
+
+    The retargeter smooths its own output with a first-order filter,
+    y += alpha * (x - y), applied once per body frame. The configs ship
+    alpha 0.2, which at 50 Hz is a corner near 1.8 Hz: it keeps the gross
+    finger envelope and flattens the fast detail. A larger alpha keeps more
+    of the source motion and more of its estimator noise. The hand driver's
+    own 2 rad/s slew limit bounds what any of it can reach the hardware as.
+
+    None leaves the config's value alone. An override on a retargeter with no
+    such filter raises rather than passing silently, so the flag can never
+    look applied when it was not.
+    """
+    lp = getattr(retargeter, "lp_filter", None)
+    if alpha is not None:
+        if lp is None or not hasattr(lp, "alpha"):
+            raise PrepareError(
+                f"{side} retargeter has no lp_filter.alpha to override; "
+                "drop --hand-lp-alpha or update this function for the new retargeter")
+        lp.alpha = float(alpha)
+    return None if lp is None else float(getattr(lp, "alpha"))
+
+
 def retarget_hands(keypoints: Dict[str, np.ndarray], kp_indices: np.ndarray, config_dir: Path,
                    hand_jnt_range: Dict[str, np.ndarray],
-                   retargeter_factory: Optional[RetargeterFactory] = None) -> Tuple[Dict[str, np.ndarray], dict]:
+                   retargeter_factory: Optional[RetargeterFactory] = None,
+                   lp_alpha: Optional[float] = None) -> Tuple[Dict[str, np.ndarray], dict]:
     """spec1 step 2 for both sides.
 
     Returns hand_q20[side] (T, 20) float64 in HAND_JOINT_NAMES order, clipped
     into hand_jnt_range[side], and clip.json's hand_retarget block, whose
     clipped_fraction counts values more than CLIP_TOLERANCE_RAD outside the range.
+    lp_alpha overrides the configs' low-pass coefficient; see set_lp_alpha.
     """
     factory = retargeter_factory or default_retargeter_factory
     hand_q20: Dict[str, np.ndarray] = {}
     config_sha: Dict[str, str] = {}
     clipped: Dict[str, float] = {}
+    effective_alpha: Dict[str, Optional[float]] = {}
     for side in SIDES:
         config_path = Path(config_dir) / RETARGET_CONFIG_PATTERN.format(side=side)
         if not config_path.is_file():
             raise PrepareError(f"retarget config {config_path} is missing")
         retargeter = factory(config_path, side)
+        effective_alpha[side] = set_lp_alpha(retargeter, lp_alpha, side)
         perm = hardware_perm(retargeter, side)
         raw = retarget_side(retargeter, perm, keypoints[side], kp_indices)
         if not np.all(np.isfinite(raw)):
@@ -552,7 +583,8 @@ def retarget_hands(keypoints: Dict[str, np.ndarray], kp_indices: np.ndarray, con
         clipped[side] = float(np.mean((raw < lo - CLIP_TOLERANCE_RAD) | (raw > hi + CLIP_TOLERANCE_RAD)))
         hand_q20[side] = np.clip(raw, lo, hi)
         config_sha[side] = clip_audit.sha256_file(config_path)
-    block = {"config": RETARGET_CONFIG_PATTERN, "config_sha256": config_sha, "clipped_fraction": clipped}
+    block = {"config": RETARGET_CONFIG_PATTERN, "config_sha256": config_sha,
+             "clipped_fraction": clipped, "lp_alpha": effective_alpha}
     return hand_q20, block
 
 
@@ -764,7 +796,8 @@ def prepare_one(method_dir: Path, out_root: Path, opts: Options, rig: AuditRig,
                              opts.trim_start, opts.trim_end)
     t0 = time.perf_counter()
     hand_q20, hand_block = retarget_hands(traj.keypoints, kp_indices, opts.retarget_config_dir,
-                                          rig.hand_jnt_range, retargeter_factory)
+                                          rig.hand_jnt_range, retargeter_factory,
+                                          opts.hand_lp_alpha)
     log(f"{name}: retargeted {len(kp_indices)} frames x 2 hands in {time.perf_counter() - t0:.1f} s")
 
     # 3. Audit every speed; 5. --auto-trim re-audits the kept window.
@@ -964,6 +997,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="composed MJCF the audit replays on")
     p.add_argument("--retarget-config-dir", type=Path, default=DEFAULT_RETARGET_CONFIG_DIR,
                    help=f"directory holding {RETARGET_CONFIG_PATTERN}")
+    p.add_argument("--hand-lp-alpha", type=float, default=None,
+                   help="override the retargeter's low-pass coefficient, in (0, 1]. "
+                        "The configs ship 0.2, which flattens fast finger motion; "
+                        "larger keeps more detail and more estimator noise. "
+                        "Default: leave the configs alone")
     return p.parse_args(argv)
 
 
@@ -980,7 +1018,8 @@ def options_from_args(args: argparse.Namespace) -> Options:
         max_arm_torque_ratio=float(args.max_arm_torque_ratio),
         max_contact_force_n=float(args.max_contact_force_n),
         note=str(args.note),
-        retarget_config_dir=Path(args.retarget_config_dir))
+        retarget_config_dir=Path(args.retarget_config_dir),
+        hand_lp_alpha=(None if args.hand_lp_alpha is None else float(args.hand_lp_alpha)))
 
 
 def main(argv: Optional[Sequence[str]] = None,

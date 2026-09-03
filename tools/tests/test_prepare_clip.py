@@ -16,8 +16,9 @@ import pytest
 
 import clip_audit as ca
 import prepare_clip as pc
-from tests.conftest import (BODY_ACTUATORS, FAKE_HAND_RANGE, REPLAY_PKG_DIR, FakeRetargeter,
-                            flat_hand_keypoints, make_bundle, optimizer_joint_names, write_fake_urdf)
+from tests.conftest import (BODY_ACTUATORS, FAKE_HAND_RANGE, FAKE_LP_ALPHA, REPLAY_PKG_DIR,
+                            FakeRetargeter, flat_hand_keypoints, make_bundle,
+                            optimizer_joint_names, write_fake_urdf)
 
 FPS = 50.0
 
@@ -275,6 +276,46 @@ def test_retarget_hands_uses_the_mapped_keypoint_frames(fake_retargeter_factory,
     assert np.allclose(hand_q20["left"][:, 0], 100.0 * means, atol=1e-5)
 
 
+def test_retarget_hands_leaves_the_config_alpha_alone_by_default(fake_retargeter_factory, bundle_root):
+    """No --hand-lp-alpha means the retargeter keeps whatever its config set."""
+    traj = pc.read_bundle(make_bundle(bundle_root))
+    kp_idx = pc.keypoint_frame_indices(traj.frames, traj.source_frames)
+    ranges = {s: FAKE_HAND_RANGE for s in ca.SIDES}
+    _, block = pc.retarget_hands(traj.keypoints, kp_idx, pc.DEFAULT_RETARGET_CONFIG_DIR, ranges,
+                                 fake_retargeter_factory)
+    assert [r.lp_filter.alpha for r in fake_retargeter_factory.made] == [FAKE_LP_ALPHA] * 2
+    assert block["lp_alpha"] == {"left": FAKE_LP_ALPHA, "right": FAKE_LP_ALPHA}
+
+
+def test_retarget_hands_applies_and_records_the_alpha_override(fake_retargeter_factory, bundle_root):
+    """--hand-lp-alpha reaches every side's retargeter and lands in clip.json."""
+    traj = pc.read_bundle(make_bundle(bundle_root))
+    kp_idx = pc.keypoint_frame_indices(traj.frames, traj.source_frames)
+    ranges = {s: FAKE_HAND_RANGE for s in ca.SIDES}
+    _, block = pc.retarget_hands(traj.keypoints, kp_idx, pc.DEFAULT_RETARGET_CONFIG_DIR, ranges,
+                                 fake_retargeter_factory, lp_alpha=0.6)
+    assert [r.lp_filter.alpha for r in fake_retargeter_factory.made] == [0.6, 0.6]
+    assert block["lp_alpha"] == {"left": 0.6, "right": 0.6}
+
+
+def test_set_lp_alpha_refuses_a_retargeter_without_the_filter():
+    """An override that cannot be applied raises instead of passing silently."""
+    with pytest.raises(pc.PrepareError, match="no lp_filter"):
+        pc.set_lp_alpha(SimpleNamespace(), 0.5, "left")
+    # Reading with no override is fine: the value is simply unknown.
+    assert pc.set_lp_alpha(SimpleNamespace(), None, "left") is None
+
+
+@pytest.mark.parametrize("alpha", [0.0, -0.1, 1.5])
+def test_options_refuse_an_alpha_outside_the_unit_interval(alpha):
+    with pytest.raises(pc.PrepareError, match="hand-lp-alpha"):
+        pc.Options(hand_lp_alpha=alpha).validate()
+
+
+def test_options_accept_the_open_upper_bound():
+    pc.Options(hand_lp_alpha=1.0).validate()
+
+
 def test_retarget_hands_refuses_a_missing_config(fake_retargeter_factory, bundle_root, tmp_path):
     traj = pc.read_bundle(make_bundle(bundle_root))
     with pytest.raises(pc.PrepareError, match="retarget config"):
@@ -416,7 +457,7 @@ def _check_clip_json(meta, speeds=(1.0, 0.5, 0.25)):
     assert meta["arm_joint_names"] == ca.ARM_JOINT_NAMES
     assert meta["hand_joint_names"] == ca.HAND_JOINT_NAMES
     assert list(meta["sanitize"]) == SPEC_SANITIZE_KEYS
-    assert list(meta["hand_retarget"]) == ["config", "config_sha256", "clipped_fraction"]
+    assert list(meta["hand_retarget"]) == ["config", "config_sha256", "clipped_fraction", "lp_alpha"]
     assert set(meta["hand_retarget"]["config_sha256"]) == {"left", "right"}
     assert set(meta["hand_retarget"]["clipped_fraction"]) == {"left", "right"}
     assert list(meta["audit"]) == SPEC_AUDIT_KEYS
