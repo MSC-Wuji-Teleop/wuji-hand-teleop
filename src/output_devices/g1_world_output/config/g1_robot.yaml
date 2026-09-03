@@ -19,6 +19,13 @@ arm_type: "G1_29"
 motion_mode: true
 simulation_mode: false   # true -> ChannelFactoryInitialize(1)
 
+# NIC for the Unitree DDS participant. CYCLONEDDS_URI governs only the ROS
+# graph: the Unitree SDK builds its own CycloneDDS config and ignores the env
+# var, so on a multi-NIC host this parameter is the only way to pin the robot
+# link. Empty = SDK default (first interface), which on this host is not
+# necessarily the robot's. Robot address and subnet: docs/spec/hardware_spec.md.
+network_interface: "enx00051bc62afa"
+
 # Path to g1_wuji2_description (directory that contains g1_23_wuji2.urdf + meshes/).
 # Leave blank to resolve via the g1_wuji2_description package's ament share
 # directory; set an absolute path only to override (e.g. a shared install or

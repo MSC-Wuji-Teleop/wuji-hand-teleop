@@ -33,6 +33,19 @@ G1_29 (commit 5ce3ea8).
 Link inertias also differ. The 23-DoF robot is not the 29-DoF robot with
 joints removed.
 
+Network and firmware, measured on the rig 2026-09-01: the robot answers at
+`192.168.123.161` and the host NIC sits on the `192.168.123.0/24` subnet,
+pinned by `g1_robot.yaml` `network_interface` (currently `enx00051bc62afa`).
+The Unitree SDK builds its own CycloneDDS config and ignores `CYCLONEDDS_URI`,
+so that parameter is the only thing that binds the robot link to the right
+interface on a multi-NIC host; left empty, the SDK takes the first interface
+and the only symptom is the lowstate timeout. All 14 arm joints including
+wrist pitch and yaw track over `rt/arm_sdk` (which confirms the 29-DoF
+variant), the lowstate tick is 1000 Hz, `mode_machine` is 5 in the standing
+mode used for replay, and `unitree-sdk2py` is 1.0.1. **This rig has no
+dedicated e-stop:** the physical stop is the remote damp command or main
+power.
+
 #### Joint indices and limits
 
 | Index | Joint Name | Limit (rad) |

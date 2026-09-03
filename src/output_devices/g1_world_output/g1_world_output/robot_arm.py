@@ -19,6 +19,7 @@ import logging
 import threading
 import time
 from enum import IntEnum
+from typing import Optional
 
 import numpy as np
 
@@ -218,6 +219,7 @@ class G1ArmController:
         simulation_mode: bool = False,
         dds_already_initialized: bool = False,
         arm_type: str = 'G1_23',
+        network_interface: Optional[str] = None,
     ):
         if arm_type not in ARM_INDICES_BY_TYPE:
             raise ValueError(
@@ -262,10 +264,19 @@ class G1ArmController:
         self._running = True
 
         if not dds_already_initialized:
-            if self.simulation_mode:
-                ChannelFactoryInitialize(1)
+            # Pin the participant to a NIC when one is configured. The SDK
+            # otherwise takes the first interface, which on a multi-NIC host is
+            # not necessarily the one the robot is on: the link then never comes
+            # up and the only symptom is the lowstate timeout. Robot address and
+            # subnet: docs/spec/hardware_spec.md.
+            domain = 1 if self.simulation_mode else 0
+            if network_interface:
+                logger.info(
+                    f"[G1ArmController] DDS domain {domain} pinned to NIC {network_interface}"
+                )
+                ChannelFactoryInitialize(domain, network_interface)
             else:
-                ChannelFactoryInitialize(0)
+                ChannelFactoryInitialize(domain)
         else:
             logger.info(
                 "[G1ArmController] DDS already initialized, skipping ChannelFactoryInitialize"

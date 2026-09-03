@@ -43,6 +43,7 @@ class G1Config:
     reset_wrist_pose: Dict[str, Dict[str, np.ndarray]]
     default_zsp_para: Dict[str, list]
     config_path: Path
+    network_interface: Optional[str]
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> 'G1Config':
@@ -136,6 +137,12 @@ class G1Config:
 
         urdf_dir = cls._resolve_urdf_dir((raw.get('urdf_package_dir') or '').strip())
 
+        # NIC for the Unitree DDS participant. CYCLONEDDS_URI governs only the
+        # ROS graph: the Unitree SDK builds its own CycloneDDS config and ignores
+        # the env var, so on a multi-NIC host this is the only way to pin the
+        # robot link. Empty or absent means the SDK's default (first interface).
+        nic = (raw.get('network_interface') or '').strip() or None
+
         return cls(
             raw=raw,
             arm_type=raw.get('arm_type', 'G1_23'),
@@ -149,6 +156,7 @@ class G1Config:
             reset_wrist_pose=reset_wrist_pose,
             default_zsp_para=raw.get('default_zsp_para', {}),
             config_path=config_path,
+            network_interface=nic,
         )
 
     def get_world_to_chest_rotation(self, side: str) -> np.ndarray:
