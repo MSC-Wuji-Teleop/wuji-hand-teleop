@@ -4,7 +4,7 @@
   "sample": "90_sweep_joints",
   "method": "GT",
   "bundle_manifest_sha256": "81f157ca6a82d8ba0fb3256106001396e8eb9780292b17677e4b497b30a0db5d",
-  "method_dir": "/home/wuji/ros2_ws/RobotSTAR_demos/sweep-test/samples/90_sweep_joints/GT",
+  "method_dir": "/Users/alexshao/Desktop/wuji-hand-teleop/RobotSTAR_demos/sweep-test/samples/90_sweep_joints/GT",
   "time_scale": 1.0
  },
  "frames": 1029,
@@ -89,11 +89,11 @@
    "peak_acc_rad_s2": 0.6244572701922906
   },
   "after": {
-   "max_step_deg": 0.2864419694004045,
-   "peak_vel_rad_s": 0.24987269378291266,
+   "max_step_deg": 0.28644196940040373,
+   "peak_vel_rad_s": 0.24987269378291196,
    "peak_acc_rad_s2": 0.6283584303650185
   },
-  "arm_rmse_rad": 6.418465723683877e-06,
+  "arm_rmse_rad": 6.418465723683839e-06,
   "flip_max_step_deg": 0.2864465260480461,
   "auto_trim_note": ""
  },
@@ -106,6 +106,10 @@
   "clipped_fraction": {
    "left": 0.0,
    "right": 0.0
+  },
+  "lp_alpha": {
+   "left": 0.5,
+   "right": 0.5
   }
  },
  "audit": {
@@ -133,8 +137,8 @@
   "per_speed": {
    "1.0": {
     "pass": true,
-    "peak_arm_torque_ratio": 0.32862893145754485,
-    "peak_contact_force_n": 0.04667718009688986,
+    "peak_arm_torque_ratio": 0.32862892734254695,
+    "peak_contact_force_n": 0.07827753886925622,
     "peak_contact_pair": [
      "left_wuji_l_middle_finger_distal",
      "left_wuji_l_ring_finger_distal"
@@ -143,31 +147,31 @@
     "arm_saturation_fraction": 0.0,
     "hand_saturation_fraction": 0.0,
     "tracking_rmse_rad": {
-     "arms": 0.017286103416738113,
-     "hands": 0.027158719143962853
+     "arms": 0.017286089356545676,
+     "hands": 0.027182105760836895
     },
     "top_contact_pairs": [
      [
       "left_wuji_l_middle_finger_distal",
       "left_wuji_l_ring_finger_distal",
-      0.04667718009688986
+      0.07827753886925622
      ],
      [
       "left_wuji_l_middle_finger_tip_sensor_frame",
       "left_wuji_l_ring_finger_distal",
-      0.04484636249749219
+      0.04591490121600163
      ],
      [
       "right_wuji_r_index_finger_distal",
       "right_wuji_r_middle_finger_distal",
-      0.03733549681439323
+      0.03254242205896115
      ]
     ]
    },
    "0.5": {
     "pass": true,
-    "peak_arm_torque_ratio": 0.33162501959207374,
-    "peak_contact_force_n": 0.04775680072984874,
+    "peak_arm_torque_ratio": 0.3316250189755279,
+    "peak_contact_force_n": 0.05620537919368671,
     "peak_contact_pair": [
      "left_wuji_l_middle_finger_distal",
      "left_wuji_l_ring_finger_distal"
@@ -176,31 +180,31 @@
     "arm_saturation_fraction": 0.0,
     "hand_saturation_fraction": 0.0,
     "tracking_rmse_rad": {
-     "arms": 0.017164606528624737,
-     "hands": 0.027090273494860023
+     "arms": 0.017164588268690217,
+     "hands": 0.02709855144732922
     },
     "top_contact_pairs": [
      [
       "left_wuji_l_middle_finger_distal",
       "left_wuji_l_ring_finger_distal",
-      0.04775680072984874
+      0.05620537919368671
      ],
      [
       "left_wuji_l_middle_finger_tip_sensor_frame",
       "left_wuji_l_ring_finger_distal",
-      0.040475313066299
+      0.040475313067834424
      ],
      [
       "right_wuji_r_index_finger_distal",
       "right_wuji_r_middle_finger_distal",
-      0.03915066406271701
+      0.035619298791920745
      ]
     ]
    },
    "0.25": {
     "pass": true,
-    "peak_arm_torque_ratio": 0.3323645449688519,
-    "peak_contact_force_n": 0.04873282541294603,
+    "peak_arm_torque_ratio": 0.3323645449594831,
+    "peak_contact_force_n": 0.04415814717428347,
     "peak_contact_pair": [
      "left_wuji_l_middle_finger_distal",
      "left_wuji_l_ring_finger_distal"
@@ -209,24 +213,24 @@
     "arm_saturation_fraction": 0.0,
     "hand_saturation_fraction": 0.0,
     "tracking_rmse_rad": {
-     "arms": 0.01711614672927387,
-     "hands": 0.027075867700836694
+     "arms": 0.017116136516313094,
+     "hands": 0.027078572947217213
     },
     "top_contact_pairs": [
      [
       "left_wuji_l_middle_finger_distal",
       "left_wuji_l_ring_finger_distal",
-      0.04873282541294603
+      0.04415814717428347
      ],
      [
       "right_wuji_r_index_finger_distal",
       "right_wuji_r_middle_finger_distal",
-      0.041528468367582665
+      0.04152846836764619
      ],
      [
       "left_wuji_l_middle_finger_tip_sensor_frame",
       "left_wuji_l_ring_finger_distal",
-      0.040560792433136775
+      0.04056079243468126
      ]
     ]
    }
