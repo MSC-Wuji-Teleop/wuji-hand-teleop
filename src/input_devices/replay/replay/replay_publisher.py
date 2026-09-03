@@ -41,6 +41,7 @@ import argparse
 import sys
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from rclpy.utilities import remove_ros_args
@@ -175,8 +176,15 @@ def main(argv=None) -> None:
     node = ReplayPublisher(clip, speed, parse_sides(args.arms), parse_sides(args.hands))
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    except Exception:
+        # Humble: a SIGINT/SIGTERM that lands between the executor's context
+        # check and its wait-set creation surfaces as RCLError ("context is not
+        # valid") instead of ExternalShutdownException. Same shutdown; anything
+        # else is a real error and propagates.
+        if rclpy.ok():
+            raise
     finally:
         node.destroy_node()
         if rclpy.ok():

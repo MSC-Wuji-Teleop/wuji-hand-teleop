@@ -139,7 +139,13 @@ def main(args: list[str] | None = None) -> None:
     finally:
         if node is not None:
             node.destroy_node()
-        rclpy.shutdown()
+        # Guarded: launch stops a node with SIGINT, and rclpy's own signal handler has
+        # already shut the context down by the time this runs. An unguarded shutdown()
+        # then raises RCLError("rcl_shutdown already called"), the process exits 1, and
+        # launch reports "process has died" for what was a clean stop -- which on the
+        # replay path made every Ctrl-C look like a driver crash.
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
