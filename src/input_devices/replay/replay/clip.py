@@ -7,14 +7,15 @@ Everything the publisher checks lives here so it can be tested without ROS.
 
 Layout of a clip directory (docs/spec/spec1.md, "Clip directory"):
 
-    clips/safe/<name>/arm_q.npz      keys left, right: (T, 7) float64 rad
-    clips/safe/<name>/hand_q20.npz   keys left, right: (T, 20) float64 rad
-    clips/safe/<name>/clip.json      verdict, safe_speeds, joint names, audit
+    clips/{safe,home}/<name>/arm_q.npz      keys left, right: (T, 7) float64 rad
+    clips/{safe,home}/<name>/hand_q20.npz   keys left, right: (T, 20) float64 rad
+    clips/{safe,home}/<name>/clip.json      verdict, safe_speeds, names, audit
 
 Rules, in the order they are applied:
 
-1. The resolved parent directory must be named ``safe``. prepare_clip.py
-   files a clip there only when its verdict is safe; a copy elsewhere is not
+1. The resolved parent directory must be named ``safe`` or ``home``. Each is
+   written only by a tool that has just audited the clip: prepare_clip.py
+   files ``safe``, make_home_clip.py files ``home``. A copy elsewhere is not
    played, whatever its clip.json says.
 2. clip.json ``verdict`` must be ``"safe"`` and ``safe_speeds`` non-empty.
 3. Both npz files must carry both sides with the declared shapes, the same
@@ -49,9 +50,13 @@ ARM_JOINTS_PER_SIDE = 7
 # hardware index count (starport_wuji_hand joint_map.NUM_JOINTS).
 HAND_JOINTS_PER_SIDE = 20
 
-# prepare_clip.py files a clip with a safe verdict under clips/safe/. The
-# publisher refuses any directory whose parent is not named this.
-SAFE_PARENT_DIR_NAME = "safe"
+# Directory names a clip may be played from. A clip lands in one of these only
+# after an audit passed: clips/safe/ from tools/prepare_clip.py, clips/home/
+# from tools/make_home_clip.py, which generates and audits a rehome motion
+# seconds before it is played (docs/spec/spec1_1.md). Either tool files a clip
+# that failed under clips/rejected/, which is not in this tuple. The publisher
+# refuses any directory whose parent is not named one of these.
+PLAYABLE_PARENT_DIR_NAMES = ("safe", "home")
 
 # The clip.json verdict value that allows playback.
 SAFE_VERDICT = "safe"
@@ -173,9 +178,10 @@ def load_clip(path: str | Path) -> Clip:
     clip_dir = Path(path).expanduser().resolve()
     _require(clip_dir.is_dir(), f"{clip_dir} is not a directory")
     _require(
-        clip_dir.parent.name == SAFE_PARENT_DIR_NAME,
-        f"{clip_dir} is not under a directory named {SAFE_PARENT_DIR_NAME!r}: the publisher plays "
-        f"only clips filed under clips/{SAFE_PARENT_DIR_NAME}/ by prepare_clip.py",
+        clip_dir.parent.name in PLAYABLE_PARENT_DIR_NAMES,
+        f"{clip_dir} is not under a directory named one of {list(PLAYABLE_PARENT_DIR_NAMES)}: "
+        "the publisher plays only clips a tool filed after an audit, under clips/safe/ "
+        "(tools/prepare_clip.py) or clips/home/ (tools/make_home_clip.py)",
     )
     for fname in (META_FILE, ARM_FILE, HAND_FILE):
         _require((clip_dir / fname).is_file(), f"{clip_dir / fname} is missing")

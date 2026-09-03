@@ -19,7 +19,8 @@ form in docs/replay.md shows the `docker compose run` line it uses. Exact operat
     ros2 launch wuji_teleop_bringup replay.launch.py clip:=clips/safe/<clip> sim:=true
     ros2 launch wuji_teleop_bringup replay.launch.py check:=true arms:=left hands:=none
 
-Arguments: `clip` (default '', a directory under clips/safe/, resolved against the launch cwd),
+Arguments: `clip` (default '', a directory under clips/safe/ or clips/home/, resolved against the
+launch cwd),
 `arms` and `hands` (none|left|right|both, default both), `speed` ('' means the clip's fastest safe
 speed), `check` and `sim` (true|false, default false). An OpaqueFunction reads them and refuses a
 bad combination -- no clip without check, an unknown side, arms none with hands none -- before any
@@ -157,7 +158,7 @@ def replay_actions(context: LaunchContext) -> list:
     if arms == "none" and hands == "none":
         raise RuntimeError("arms:=none with hands:=none selects nothing to play or check")
     if not clip and not check:
-        raise RuntimeError("clip:=<dir under clips/safe> is required unless check:=true")
+        raise RuntimeError("clip:=<dir under clips/safe or clips/home> is required unless check:=true")
 
     actions: list = []
     if hands != "none" and not sim:
@@ -179,7 +180,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "clip",
                 default_value="",
-                description="Clip directory under clips/safe/ (relative to the launch cwd, or absolute). "
+                description="Clip directory under clips/safe/ or clips/home/ (relative to the launch cwd, or absolute). "
                 "Required unless check:=true.",
             ),
             DeclareLaunchArgument(

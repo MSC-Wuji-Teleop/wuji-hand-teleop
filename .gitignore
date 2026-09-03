@@ -61,3 +61,8 @@ RobotSTAR_demos/
 # scratch and rejected trees are not.
 clips/candidate/
 clips/rejected/
+# clips/home/ is generated per rehome invocation by tools/make_home_clip.py
+# and audited seconds before it plays (docs/spec/spec1_1.md). Nothing about it
+# is worth keeping after the run.
+clips/home/
+*.mp4

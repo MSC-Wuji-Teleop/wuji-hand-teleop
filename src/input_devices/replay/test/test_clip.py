@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from replay.clip import (
+    PLAYABLE_PARENT_DIR_NAMES,
     SIDE_CHOICES,
     ClipError,
     check_speed,
@@ -44,11 +45,39 @@ def test_clip_accepts_a_relative_path_and_a_trailing_slash(clip_dir: Path, monke
     assert load_clip(str(clip_dir) + "/").name == CLIP_NAME
 
 
-def test_parent_not_named_safe_is_refused(tmp_path: Path):
-    for parent in ("candidate", "rejected", "clips"):
+def test_parent_not_a_playable_directory_is_refused(tmp_path: Path):
+    """Only directories a tool files a clip into after an audit are playable.
+
+    clips/rejected/ is where both prepare_clip.py and make_home_clip.py put a
+    clip the audit turned down, so it has to stay out of this set.
+    """
+    for parent in ("candidate", "rejected", "clips", "homes", "Safe"):
         d = write_clip(tmp_path / parent / CLIP_NAME)
-        with pytest.raises(ClipError, match="'safe'"):
+        with pytest.raises(ClipError, match="not under a directory named"):
             load_clip(d)
+
+
+def test_playable_parents_are_safe_and_home(tmp_path: Path):
+    assert PLAYABLE_PARENT_DIR_NAMES == ("safe", "home")
+
+
+def test_a_home_clip_loads(tmp_path: Path):
+    """tools/make_home_clip.py files an audited rehome clip under clips/home/."""
+    d = write_clip(tmp_path / "home" / "home_20260903T120000Z")
+    clip = load_clip(d)
+    assert clip.name == "home_20260903T120000Z"
+    assert clip.verdict == "safe"
+
+
+def test_a_home_clip_the_audit_rejected_is_still_refused(tmp_path: Path):
+    """A rejected home clip is filed under rejected/, and would be refused there.
+
+    This pins the other half: even if one were placed under home/, the verdict
+    check still stops it. The directory name is not the only guard.
+    """
+    d = write_clip(tmp_path / "home" / "home_20260903T120000Z", clip_meta(verdict="rejected"))
+    with pytest.raises(ClipError, match="verdict is 'rejected'"):
+        load_clip(d)
 
 
 def test_verdict_rejected_is_refused(tmp_path: Path):
