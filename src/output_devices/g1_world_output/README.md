@@ -92,9 +92,12 @@ source (same wire format, reads the npz directly; see its docstring).
 **Hands are out of scope for this node.** The bundle's hand columns target
 the legacy 20-DoF hand model, not the real Wuji Hand 2, and must never be
 sent to it directly (`legacy_wuji_sim_only/`, marked `DO_NOT_COMMAND_HAND2.txt`
-in every sample). Hand replay goes through `replay`'s keypoint topics
-into `wujihand_controller` (`input_source: "keypoints_topic"`), which
-regenerates Hand 2 joints live from each sample's 21-point keypoints.
+in every sample). `tools/prepare_clip.py` regenerates Hand 2 joints offline
+from each sample's 21-point keypoints, and `replay_publisher` sends them
+straight to the hand drivers on `/left/wuji_hand/joint_command` and
+`/right/wuji_hand/joint_command`; under `--sim` no driver runs and
+`scripts/mujoco_visualizer.py` mirrors those two topics instead
+([Sim mode](#sim-mode-vs-hardware-mode), [docs/spec/spec1.md](../../../docs/spec/spec1.md)).
 
 ## Topics (the standard arm-output contract)
 
@@ -180,8 +183,27 @@ docker exec -it wuji-hand-teleop python3 \
 what each one actually does; neither replaces `--dry-run` as the "no
 hardware" switch. `mujoco_visualizer.py` only subscribes (it publishes
 nothing), so it also mirrors real teleop's `/left_hand/joint_commands` /
-`/right_hand/joint_commands` if `wujihand_controller` happens to be running
-too.
+`/right_hand/joint_commands` (the glove controller's positional 20-vectors)
+if `wujihand_controller` happens to be running too, and the replay
+publisher's `/left/wuji_hand/joint_command` / `/right/wuji_hand/joint_command`
+(the hand drivers' own command topics, 20 named joints). Arm commands and
+the driver-topic hand commands are matched by joint name against the loaded
+model (`left_elbow` -> MJCF `left_elbow_joint`; `l_thumb_ip` -> MJCF
+`left_wuji_l_thumb_ip`, then the actuator driving that joint); names the
+model does not have are skipped and logged once per distinct set. The
+default model is `g1_23_wuji2_fixed.xml`; clip replay runs on the 29-DoF
+model, which is what `--sim` in [docs/replay.md](../../../docs/replay.md)
+passes:
+
+```bash
+# Clip replay sim: G1 node in joint_replay on the 29 names, no DDS; viewer on the 29 model
+docker compose run --rm --name g1-world-output g1_world_output \
+    ros2 launch g1_world_output g1_world_output.launch.py \
+    dry_run:=true mode:=joint_replay arm_type:=G1_29 control_rate:=250.0
+docker exec -it wuji-hand-teleop python3 \
+    src/output_devices/g1_world_output/scripts/mujoco_visualizer.py \
+    --mjcf src/g1_wuji2_description/g1_29_wuji2_fixed.xml
+```
 
 That hand side has its own hardware/sim split, independent of G1: the Wuji
 Glove → retargeting → `/left_hand/joint_commands` publish
@@ -223,7 +245,9 @@ python3 src/output_devices/g1_world_output/scripts/sweep_and_visualize.py
 `--no-viewer` publishes only (headless topic smoke test); `--period`,
 `--pos-amplitude`, `--rot-amplitude-deg` tune the sweep. See the script's
 module docstring for the full topic contract it exercises. Both scripts
-share their MuJoCo plumbing via `scripts/_mujoco_common.py`.
+share their MuJoCo plumbing via `scripts/_mujoco_common.py`; its
+joint-name -> ctrl mapping is pinned by `tests/test_mujoco_common.py`
+against both composed models (runs where `rclpy` is installed).
 
 Two things make the cross-container round trip (either script) work out of
 the box:
