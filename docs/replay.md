@@ -4,7 +4,9 @@ Exact commands for preparing and playing clips on the rig. Design, clip
 format, and build status: [spec/spec1.md](spec/spec1.md). Everything below is
 built, and everything except the hardware sections has been run: the offline
 half on the whole bundle, the online half in sim. Nothing has run on the rig.
-Start at [Which clip to run first](#which-clip-to-run-first).
+On a host that has not run this before, start at
+[Per-machine setup](#0-per-machine-setup-once-per-host); otherwise start at
+[Which clip to run first](#which-clip-to-run-first).
 
 Where things run. Every code block below starts with the line that gets
 you to the right place:
@@ -30,21 +32,79 @@ the first run of a new clip. Full format: [spec1.md](spec/spec1.md#clip-director
 
 ## Which clip to run first
 
-`clips/safe/90_sweep_joints_GT`, from `RobotSTAR_demos/sweep-test`. It is built
-for this: the left arm's seven joints ramp together, then the right arm's, then
-a one-second stop, then each thumb flexes on its own, with amplitudes capped at
-0.2 rad. It audits at peak arm torque ratio 0.33 and zero contact force, and it
-passes at all three speeds.
+`clips/safe/90_sweep_joints_GT`. It is generated rather than recorded, by
+`tools/generate_sweep_sample.py`, and built for this: the left arm's seven
+joints ramp together, then the right arm's, then a one-second stop, then each
+thumb flexes on its own. It audits at peak arm torque ratio 0.33 and
+essentially zero contact force, and passes at all three speeds.
+
+Two things to expect. The 0.2 rad amplitude cap is on the **arm** joints; the
+hands start the clip already curled, with the middle, ring and pinky PIP joints
+near 1.4 rad, so the first hand command is about 1.4 rad from the pose the
+driver homes to and the fingers close over roughly 0.7 s at the driver's slew
+limit. And only the thumbs move after that, deliberately: whole-hand motion on
+this donor pose presses adjacent fingers into each other, which the generator's
+docstring explains. Regenerating it:
+[SOURCE.md](../clips/safe/90_sweep_joints_GT/SOURCE.md).
 
 The sign-language clips are a different proposition. Of the bundle's 30
 trajectories, 4 are safe, 23 are rejected and 3 are refused for estimator
 orientation flips, and what rejects them is almost always **wrist pitch or wrist
-yaw**: those two joints per arm carry a 5 Nm clamp against 25 Nm elsewhere, and
-in these clips the hands press on each other hard enough to hold that clamp at
-any speed. The bundle authors' own physical audit agrees, saturating a wrist
-actuator on all 30. Playing a rejected clip slower does not fix it; re-solving
-the arm retarget against this model is what would. See
+yaw**: those two joints per arm carry a 5 Nm clamp against 25 Nm elsewhere.
+Two mechanisms load them, and which one binds depends on the speed. At full
+speed it is the motion itself: the arms still peak near 13 rad/s after
+smoothing, and at kd 2 the damping term alone reaches the clamp at 2.5 rad/s.
+Re-auditing `11_..._Ours` with every contact removed from the model still
+saturates at 1.0x, and drops to 0.38 at 0.25x. At the slow end contact is what
+holds the clamp, which is why slowing down often does not help. The bundle
+authors' own physical audit saturates a wrist actuator on all 30, and names
+wrist pitch or yaw as the worst joint in every one, so this is a property of
+the source trajectories rather than of our audit. Re-solving the arm retarget
+against this model is the fix. See
 [the handoff note](issues/replay-handoff-2026-09-02.md#verified-2026-09-03).
+
+## 0. Per-machine setup, once per host
+
+Two values are not in git, because they name this host's hardware rather than
+the robot's. Both must be right before section 2 can pass.
+
+**The G1's network interface.** The Unitree SDK builds its own CycloneDDS
+config and ignores `CYCLONEDDS_URI`, so this parameter is the only thing that
+binds the robot link to the right adapter. Wrong or empty on a multi-NIC host,
+the SDK takes the first interface and the only symptom is a lowstate timeout.
+
+```bash
+# host: which interface holds an address on the robot's subnet
+ip -br addr | grep 192.168.123.
+ip link                       # if nothing matches, the adapter is unplugged
+```
+
+Put that interface name in `network_interface` in
+[g1_robot.yaml](../src/output_devices/g1_world_output/config/g1_robot.yaml).
+It is committed with this rig's adapter already set. A name that does not
+exist stops the node at startup with `<name>: does not match an available
+interface`, which is the intended failure: it never quietly binds Wi-Fi. The
+robot's address and subnet are in
+[spec/hardware_spec.md](spec/hardware_spec.md).
+
+**The hand serial numbers.** `wujihand_ik.yaml` is gitignored and seeded from
+its template on first container start, with placeholders. Left as
+`YOUR_LEFT_HAND_SERIAL` the driver scans, finds no hand with that serial, and
+gives up after ten attempts.
+
+```bash
+# teleop container: what is on the hands' subnet right now
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+```
+
+Write the two serials into `left_hand.serial_number` and
+`right_hand.serial_number` in
+`src/output_devices/wujihand_output/config/wujihand_ik.yaml`, then
+`colcon build --symlink-install --packages-select wujihand_output` so the
+launch files read the new values. Leaving a serial empty makes the driver take
+the first Hand 2 that answers, which is only safe with one hand connected: with
+both, each node refuses the hand whose reported handedness does not match its
+side.
 
 ## 1. Prepare clips (offline, no hardware)
 
@@ -75,6 +135,7 @@ Options, all recorded in `clip.json`:
 | `--trim-start N`, `--trim-end N` | `0` | drop frames |
 | `--auto-trim --min-seconds S` | off, `3` | keep the longest window that passes |
 | `--allow-flips` | off | smooth through a 90 deg single-frame step instead of refusing |
+| `--hand-lp-alpha` | the configs' `0.2` | the retargeter's low-pass on the fingers. 0.2 keeps the gross shape and flattens fast detail; 0.5 roughly doubles the retained finger motion at the same verdict. The hand driver's own 2 rad/s slew bounds what any value reaches the hardware as |
 | `--max-arm-torque-ratio`, `--max-contact-force-n` | `0.8`, `80` | pass thresholds |
 | `--note "..."` | | reason, when a threshold was changed |
 
