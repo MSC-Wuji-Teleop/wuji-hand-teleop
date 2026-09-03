@@ -315,6 +315,13 @@ or trip conditions (temperature, effort, contact), no e-stop logic, no
 approach ramp. Teleop (glove, PICO) is untouched and shares only
 `g1_world_output` with this path.
 
+The rehome ([spec1_1.md](spec1_1.md)) does not change that. It is a separate
+operator command, `scripts/replay.sh --home`, which generates and audits a clip
+before it runs and then plays it through this same publisher and this same
+graph. It adds no runtime state, no mode and no second motion path, and nothing
+on the replay path can reach it: `--home` takes no clip and a replay invocation
+never sets it.
+
 ## Build status
 
 Verified 2026-09-03 in the teleop container unless a row says otherwise.

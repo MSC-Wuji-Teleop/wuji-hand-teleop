@@ -306,6 +306,14 @@ holds the last frame; clip quality is decided offline. Design:
 [spec/spec1.md](spec/spec1.md). Runbooks: [replay.md](replay.md) and
 [SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim).
 
+**Rehome** (`scripts/replay.sh --home`, [spec/spec1_1.md](spec/spec1_1.md))
+reuses that graph rather than adding to it. `capture_arm_pose` reads the
+measured pose and exits, `tools/make_home_clip.py` writes and audits a slow
+clip from it to all-zeros under `clips/home/`, and the same `replay_publisher`
+plays it with no hand driver. The clip's frame 0 is the measured pose, so the
+first published frame is a no-op. It is a separate operator command and not an
+e-stop; the remote's damp command remains the fast stop.
+
 ## Input devices
 
 All under `src/input_devices/`. Each turns hardware into one of the standard
