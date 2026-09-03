@@ -19,12 +19,14 @@ are `RELIABLE`, `KEEP_LAST`, depth 10, matching the consumers.
 | `/left_arm/joint_targets`, `/right_arm/joint_targets` | `sensor_msgs/JointState`, 7 named joints, rad | `g1_world_output` with `mode:=joint_replay arm_type:=G1_29` (own container); matches by name, interpolates one publish period behind |
 | `/left/wuji_hand/joint_command`, `/right/wuji_hand/joint_command` | `sensor_msgs/JointState`, 20 named joints, rad | `starport_wuji_hand` `hand_node`, one per side at `/{side}/wuji_hand`; matches by name, refuses the other hand's names |
 
-Behaviour: one timer with period `1 / (rate_hz * speed)`; each tick publishes
-frame `i` for every selected side with joint names on every message; after
-the last frame it keeps publishing that frame until killed. The first frame
-is a step from wherever the robot is (the G1 node's velocity clip and the hand
-driver's slew are the only limiters). Nothing else: no approach ramp, no
-run-time checks, no loop. Clip quality is decided offline, before the run.
+Behaviour: wait for the selected consumers (same sources as `replay_check`;
+`--ready-timeout` default 30 s, `0` skips), then a quintic approach from the
+measured pose to frame 0 (`--ramp` default 2 s, matching the clip's start
+velocity so the join is C1), then play at 100 Hz with linear interpolation
+between clip frames. After the last frame it keeps publishing that frame
+until killed. `--speed` scales clip time, not the publish rate, so a slow
+replay is not a staircase. Nothing else: no run-time checks, no loop. Clip
+quality is decided offline, before the run.
 
 ## Refusals
 
@@ -47,7 +49,8 @@ file or value at fault.
 
 ```bash
 ros2 run replay replay_publisher -- --clip clips/safe/<clip> \
-    [--arms none|left|right|both] [--hands none|left|right|both] [--speed S]
+    [--arms none|left|right|both] [--hands none|left|right|both] \
+    [--speed S] [--ready-timeout S] [--ramp S]
 ```
 
 | flag | default | meaning |
@@ -56,6 +59,8 @@ ros2 run replay replay_publisher -- --clip clips/safe/<clip> \
 | `--arms` | `both` | which arm topics are published; `none` publishes nothing to the G1 node |
 | `--hands` | `both` | which hand driver topics are published |
 | `--speed S` | largest `safe_speeds` entry | same frames published slower; peak velocity scales by `S`, acceleration by `S^2` |
+| `--ready-timeout S` | `30` | wait for selected consumers before the first command; `0` skips (required when no drivers run, e.g. `sim:=true`) |
+| `--ramp S` | `2` | quintic approach from the measured pose to frame 0; `0` skips |
 
 ## replay_check
 
@@ -97,6 +102,7 @@ A missing row reads `missing    no message in 20.0 s` (or `no r_* names in
 ```
 replay/clip.py              clip directory loader and the refusals (pure numpy + json)
 replay/check.py             connection-check rules and the table (pure Python)
+replay/motion.py            clip lerp and the quintic approach (pure numpy)
 replay/replay_publisher.py  the publisher node
 replay/replay_check.py      the check node
 test/                       pytest; needs numpy and pytest only, ROS is stubbed in test/conftest.py

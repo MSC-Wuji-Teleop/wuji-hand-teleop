@@ -134,7 +134,7 @@ Hand 2, audits the result dynamically, and files it under `clips/safe/` or
 ```mermaid
 graph LR
     CLIP[("clips/safe/&lt;clip&gt;/")]
-    PUB["replay_publisher<br/>one timer at rate_hz * speed"]
+    PUB["replay_publisher<br/>100 Hz interpolated"]
     G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29,<br/>dry_run (own container)"]
     VIZ["mujoco_visualizer.py<br/>--mjcf g1_29_wuji2_fixed.xml"]
 

@@ -252,7 +252,9 @@ def test_check_with_hands_still_starts_their_drivers(launch_module):
 def test_sim_starts_no_driver_and_opens_the_viewer_next_to_the_publisher(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x", sim="true")
     assert _includes(actions) == []
-    assert _node(context, actions, "replay_publisher") is not None
+    publisher = _node(context, actions, "replay_publisher")
+    assert publisher is not None
+    assert _flag(_texts(context, publisher.cmd), "--ready-timeout") == "0"
 
     (viewer,) = _processes(actions)
     cmd = _texts(context, viewer.cmd)

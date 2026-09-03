@@ -207,7 +207,7 @@ respectively, and are separate work items, not part of this tool.
 ```mermaid
 graph LR
     CLIP[("clips/safe/&lt;clip&gt;/")]
-    PUB["replay_publisher<br/>one timer at rate_hz * speed<br/>--arms --hands --speed<br/>plays once, holds last frame"]
+    PUB["replay_publisher<br/>100 Hz, wait + min-jerk + lerp<br/>--arms --hands --speed<br/>plays once, holds last frame"]
     G1["g1_world_output<br/>mode=joint_replay arm_type=G1_29<br/>interpolates one frame behind<br/>own container"]
     HL["hand_node left<br/>starport_wuji_hand, Ethernet"]
     HR["hand_node right<br/>starport_wuji_hand, Ethernet"]
@@ -231,15 +231,14 @@ retargeter) is not on this path.
 | `--clip DIR` | a directory under `clips/safe/` | refuses a directory that is not under `clips/safe/` or whose `clip.json` `verdict` is not `safe` |
 | `--arms` | `none`, `left`, `right`, `both` (default `both`) | which arm topics are published. `none` publishes nothing to the G1 node |
 | `--hands` | `none`, `left`, `right`, `both` (default `both`) | which hand driver topics are published |
-| `--speed S` | one of the clip's `safe_speeds`; default: the largest | timer period is `1 / (rate_hz * S)`. Same frames, published slower. Amplitudes unchanged, peak velocity scales by `S`, acceleration by `S^2`. Any speed that is not an audited passing speed is refused, including a slower one: see [Slower is not always safer](#slower-is-not-always-safer) |
+| `--speed S` | one of the clip's `safe_speeds`; default: the largest | clip time scales by `S`. Amplitudes unchanged, peak velocity scales by `S`, acceleration by `S^2`. The publish rate stays 100 Hz; frames are linearly interpolated. Any speed that is not an audited passing speed is refused, including a slower one: see [Slower is not always safer](#slower-is-not-always-safer) |
+| `--ready-timeout S` | `30`; `0` skips | wait for the selected consumers (same sources as `replay_check`) before the first command. `sim:=true` passes `0` because no hand driver runs |
+| `--ramp S` | `2`; `0` skips | quintic approach from the measured pose to frame 0, ending at the clip's first-frame velocity so the join is C1 |
 
-Behaviour: one timer; at each tick publish frame `i` for every selected
-side, with joint names on every message; at the end hold the last frame
-(keep publishing it) until killed. The first published frame is a step
-from wherever the robot is to frame 0: on the arm side the G1 node's
-velocity clip is the only limiter, on the hand side the driver's slew limit.
-No approach ramp here, by decision; if one is wanted it is clip content
-written by `prepare_clip.py`.
+Behaviour: one 100 Hz timer. Wait for consumers, approach frame 0 from the
+measured pose, then interpolate the clip; at the end hold the last frame
+until killed. A missing measurement skips the approach and starts at
+frame 0.
 
 ### Slower is not always safer
 
@@ -311,9 +310,8 @@ commands: [replay.md](../replay.md).
 ## Out of scope, by decision
 
 Nothing runs between the publisher and the device nodes: no run-time checks
-or trip conditions (temperature, effort, contact), no e-stop logic, no
-approach ramp. Teleop (glove, PICO) is untouched and shares only
-`g1_world_output` with this path.
+or trip conditions (temperature, effort, contact), no e-stop logic. Teleop
+(glove, PICO) is untouched and shares only `g1_world_output` with this path.
 
 ## Build status
 
@@ -324,7 +322,7 @@ Verified 2026-09-03 in the teleop container unless a row says otherwise.
 | `tools/prepare_clip.py`, `tools/clip_audit.py` | run on the whole bundle: 30 trajectories in 6 min, `clips/summary.md` written; 69 tests | none |
 | `scipy` in the teleop image | present (`scipy==1.14.1`, Dockerfile section 5) | none |
 | `clips/`, `tools/` mounts | built and in use | none |
-| `replay_publisher`, `replay_check` | both run; publisher plays a clip at 50 Hz and holds the last frame, check exits 1 naming its missing sources; 89 tests | run the check against real hardware |
+| `replay_publisher`, `replay_check` | both run; publisher waits for consumers, approaches frame 0, interpolates at 100 Hz and holds the last frame; check exits 1 naming its missing sources | run the check against real hardware |
 | `g1_world_output` `joint_replay` | measured on the live graph: 250 Hz command stream advancing 1/20 of a frame step per tick at `--speed 0.25`; 29 tests | none |
 | `starport_wuji_hand` driver | `wuji_sdk` import check passes on the 2026.8.31 pin; `colcon build` and 268 tests pass; shutdown no longer raises on SIGINT | run against a hand |
 | Humble `launch_ros` and `list[float]` | accepted: `is_typing_list` checks `__origin__ in (list, List)` | none |
