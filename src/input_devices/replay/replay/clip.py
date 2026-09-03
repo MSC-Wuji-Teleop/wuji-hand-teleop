@@ -235,17 +235,29 @@ def default_speed(clip: Clip) -> float:
 
 
 def check_speed(clip: Clip, speed: float) -> float:
-    """Return ``speed`` as a float, or raise ClipError if the clip may not be played at it."""
+    """Return ``speed`` as a float, or raise ClipError if the clip may not be played at it.
+
+    The speed must BE one of ``safe_speeds``, not merely at or below the largest.
+    A slower speed is not always a safer speed, and the audit is the only thing
+    that knows which is which: ``05_test_G42xKICVj9U_5-5-rgb_front_GT`` passes at
+    0.5 (peak arm torque ratio 0.736) and fails at both 1.0 (1.00) and 0.25
+    (0.846), because most of the load on the wrist joints is a hand-to-hand
+    contact reaction that barely changes with speed. Under the old rule, which
+    only refused a speed above the fastest safe one, ``--speed 0.25`` on that
+    clip was accepted and would have played a speed the audit had rejected.
+    Playing an unaudited speed is exactly what the offline gate exists to stop.
+    """
     try:
         s = float(speed)
     except (TypeError, ValueError) as exc:
         raise ClipError(f"speed must be a number, got {speed!r}") from exc
     _require(math.isfinite(s) and s > 0.0, f"speed must be > 0, got {s}")
     _require(s <= MAX_SPEED + SPEED_TOLERANCE, f"speed must be <= {MAX_SPEED}, got {s}")
-    fastest = default_speed(clip)
     _require(
-        s <= fastest + SPEED_TOLERANCE,
-        f"speed {s} is above the clip's fastest safe speed {fastest} (safe_speeds: {list(clip.safe_speeds)})",
+        any(abs(s - audited) <= SPEED_TOLERANCE for audited in clip.safe_speeds),
+        f"speed {s} is not one of the clip's audited safe speeds {list(clip.safe_speeds)}; "
+        "every other speed either failed the audit or was never run. Re-run "
+        "tools/prepare_clip.py with --speeds to audit the speed you want.",
     )
     return s
 
