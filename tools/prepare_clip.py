@@ -98,6 +98,20 @@ RETARGET_CONFIG_PATTERN = "retarget_keypoints_topic_{side}.yaml"
 # below any angle that matters.
 CLIP_TOLERANCE_RAD = 1e-6
 
+# The retargeter's low-pass coefficient for the fingers: the fraction of each
+# new solve that is kept, so LARGER means less smoothing (y += alpha * (x - y),
+# applied once per body frame). The configs ship 0.2, a corner near 1.8 Hz at
+# 50 Hz, which holds the gross finger envelope and flattens the fast detail
+# that carries meaning in these clips: on 13_val_..._Ours it leaves 470
+# direction reversals against 2130 at 0.8. 0.5 keeps roughly 1.6x the detail of
+# 0.2 at an unchanged verdict and about 2 percent hand-servo saturation. It is
+# not pushed higher because the hand driver slew-limits its own command to
+# 2 rad/s, and 0.5 already commands 5.2 rad/s peaks: past here the extra
+# detail is truncated at the driver and what is left is mostly monocular
+# estimator noise. Arms are smoothed separately and much harder, by the
+# Butterworth below.
+DEFAULT_HAND_LP_ALPHA = 0.5
+
 # Arm sanitizer (spec1 step 1; the earlier sanitize_robotstar_clip.py).
 DEFAULT_CUTOFF_HZ = 6.0
 DEFAULT_MAX_STEP_DEG = 15.0
@@ -183,7 +197,7 @@ class Options:
     max_contact_force_n: float = clip_audit.DEFAULT_MAX_CONTACT_FORCE_N
     note: str = ""
     retarget_config_dir: Path = DEFAULT_RETARGET_CONFIG_DIR
-    hand_lp_alpha: Optional[float] = None
+    hand_lp_alpha: Optional[float] = DEFAULT_HAND_LP_ALPHA
 
     def thresholds(self) -> Thresholds:
         return Thresholds(max_arm_torque_ratio=float(self.max_arm_torque_ratio),
@@ -997,11 +1011,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="composed MJCF the audit replays on")
     p.add_argument("--retarget-config-dir", type=Path, default=DEFAULT_RETARGET_CONFIG_DIR,
                    help=f"directory holding {RETARGET_CONFIG_PATTERN}")
-    p.add_argument("--hand-lp-alpha", type=float, default=None,
-                   help="override the retargeter's low-pass coefficient, in (0, 1]. "
-                        "The configs ship 0.2, which flattens fast finger motion; "
-                        "larger keeps more detail and more estimator noise. "
-                        "Default: leave the configs alone")
+    p.add_argument("--hand-lp-alpha", type=float, default=DEFAULT_HAND_LP_ALPHA,
+                   help="the retargeter's low-pass coefficient for the fingers, in (0, 1]: "
+                        "the fraction of each new solve that is kept, so larger is less "
+                        f"smoothing (default {DEFAULT_HAND_LP_ALPHA}; the configs' own value "
+                        "is 0.2, which flattens fast finger motion)")
     return p.parse_args(argv)
 
 

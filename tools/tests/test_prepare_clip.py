@@ -276,15 +276,31 @@ def test_retarget_hands_uses_the_mapped_keypoint_frames(fake_retargeter_factory,
     assert np.allclose(hand_q20["left"][:, 0], 100.0 * means, atol=1e-5)
 
 
-def test_retarget_hands_leaves_the_config_alpha_alone_by_default(fake_retargeter_factory, bundle_root):
-    """No --hand-lp-alpha means the retargeter keeps whatever its config set."""
+def test_retarget_hands_leaves_the_config_alpha_alone_when_asked(fake_retargeter_factory, bundle_root):
+    """lp_alpha=None is the library's "use whatever the config set" path."""
     traj = pc.read_bundle(make_bundle(bundle_root))
     kp_idx = pc.keypoint_frame_indices(traj.frames, traj.source_frames)
     ranges = {s: FAKE_HAND_RANGE for s in ca.SIDES}
     _, block = pc.retarget_hands(traj.keypoints, kp_idx, pc.DEFAULT_RETARGET_CONFIG_DIR, ranges,
-                                 fake_retargeter_factory)
+                                 fake_retargeter_factory, lp_alpha=None)
     assert [r.lp_filter.alpha for r in fake_retargeter_factory.made] == [FAKE_LP_ALPHA] * 2
     assert block["lp_alpha"] == {"left": FAKE_LP_ALPHA, "right": FAKE_LP_ALPHA}
+
+
+def test_the_default_alpha_is_lighter_than_the_configs_own(fake_retargeter_factory, bundle_root):
+    """A clip prepared with no flag carries DEFAULT_HAND_LP_ALPHA, not the config's 0.2.
+
+    Larger alpha keeps more of each new solve, so the default has to be above
+    the configs' value for the fingers to keep their fast detail.
+    """
+    assert pc.Options().hand_lp_alpha == pc.DEFAULT_HAND_LP_ALPHA
+    assert pc.DEFAULT_HAND_LP_ALPHA > 0.2
+    traj = pc.read_bundle(make_bundle(bundle_root))
+    kp_idx = pc.keypoint_frame_indices(traj.frames, traj.source_frames)
+    ranges = {s: FAKE_HAND_RANGE for s in ca.SIDES}
+    _, block = pc.retarget_hands(traj.keypoints, kp_idx, pc.DEFAULT_RETARGET_CONFIG_DIR, ranges,
+                                 fake_retargeter_factory, lp_alpha=pc.Options().hand_lp_alpha)
+    assert block["lp_alpha"] == {s: pc.DEFAULT_HAND_LP_ALPHA for s in ca.SIDES}
 
 
 def test_retarget_hands_applies_and_records_the_alpha_override(fake_retargeter_factory, bundle_root):
