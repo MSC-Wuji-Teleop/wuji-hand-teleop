@@ -22,7 +22,8 @@ setup(
         'Plays a prepared clip directory (clips/safe/<clip>/, written by tools/prepare_clip.py) '
         'on one timer: named arm joint targets to g1_world_output in joint_replay mode and named '
         'hand joints to the starport_wuji_hand drivers, once, then holds the last frame. Also the '
-        'connection check that waits for state from those nodes before a run.'
+        'connection check that waits for state from those nodes before a run, and the '
+        'one-shot arm pose capture the rehome command reads (docs/spec/spec1_1.md).'
     ),
     license='MIT',
     tests_require=['pytest'],
@@ -30,6 +31,7 @@ setup(
         'console_scripts': [
             'replay_publisher = replay.replay_publisher:main',
             'replay_check = replay.replay_check:main',
+            'capture_arm_pose = replay.capture_arm_pose:main',
         ],
     },
 )
