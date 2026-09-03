@@ -1,8 +1,10 @@
 # Spec 1: clip replay on the G1 and two Wuji Hand 2
 
-**Status:** built 2026-09-02. The offline half is verified on one clip
-outside the container; the online half is written but has not run in the
-container or on the rig. Per-piece state: [build status](#build-status).
+**Status:** built 2026-09-02, verified 2026-09-03. The offline half has run on
+the whole bundle in the container (30 trajectories: 4 safe, 23 rejected, 3
+refused) and the online half has run in sim end to end. Nothing has run on the
+rig. Per-piece state: [build status](#build-status); what the runs showed:
+[the handoff note](../issues/replay-handoff-2026-09-02.md#verified-2026-09-03).
 Operator commands: [replay.md](../replay.md).
 
 Play every recorded clip in the handoff bundle on the real 29-DoF G1 arms
@@ -229,7 +231,7 @@ retargeter) is not on this path.
 | `--clip DIR` | a directory under `clips/safe/` | refuses a directory that is not under `clips/safe/` or whose `clip.json` `verdict` is not `safe` |
 | `--arms` | `none`, `left`, `right`, `both` (default `both`) | which arm topics are published. `none` publishes nothing to the G1 node |
 | `--hands` | `none`, `left`, `right`, `both` (default `both`) | which hand driver topics are published |
-| `--speed S` | `0 < S <= 1`; default: the largest value in `safe_speeds` | timer period is `1 / (rate_hz * S)`. Same frames, published slower. Amplitudes unchanged, peak velocity scales by `S`, acceleration by `S^2`. A value larger than the largest `safe_speeds` entry is refused |
+| `--speed S` | one of the clip's `safe_speeds`; default: the largest | timer period is `1 / (rate_hz * S)`. Same frames, published slower. Amplitudes unchanged, peak velocity scales by `S`, acceleration by `S^2`. Any speed that is not an audited passing speed is refused, including a slower one: see [Slower is not always safer](#slower-is-not-always-safer) |
 
 Behaviour: one timer; at each tick publish frame `i` for every selected
 side, with joint names on every message; at the end hold the last frame
@@ -238,6 +240,21 @@ from wherever the robot is to frame 0: on the arm side the G1 node's
 velocity clip is the only limiter, on the hand side the driver's slew limit.
 No approach ramp here, by decision; if one is wanted it is clip content
 written by `prepare_clip.py`.
+
+### Slower is not always safer
+
+`check_speed` requires the requested speed to *be* one of `safe_speeds`, not
+merely to sit at or below the largest. The first draft of this spec refused only
+speeds above the fastest safe one, on the assumption that a slower replay of the
+same frames is always gentler. The bundle falsifies that:
+`05_test_G42xKICVj9U_5-5-rgb_front_GT` passes at 0.5 with a peak arm torque ratio
+of 0.736 and fails at both 1.0 (1.00) and **0.25 (0.846)**. Most of the load on
+the wrist joints in these clips is a hand-to-hand contact reaction, which barely
+changes when the clip is played slower, while the poses it is reacting to do
+change. Under the old rule `--speed 0.25` on that clip was accepted and would
+have played a speed the audit had rejected, which is the one thing the offline
+gate exists to prevent. Auditing another speed is one `prepare_clip.py --speeds`
+run away, so nothing is lost by refusing.
 
 **Arms.** `g1_world_output` in `joint_replay` mode, `arm_type=G1_29` (the
 config default), own container. It matches joints by name and writes DDS
@@ -300,19 +317,24 @@ approach ramp. Teleop (glove, PICO) is untouched and shares only
 
 ## Build status
 
+Verified 2026-09-03 in the teleop container unless a row says otherwise.
+
 | piece | state | remaining |
 |---|---|---|
-| `tools/prepare_clip.py`, `tools/clip_audit.py` | built; run on one clip outside the container with MuJoCo 3.12.0 (the image's pin) and the retargeter | run `--all` in the container; compare its `summary.md` with the outside run |
+| `tools/prepare_clip.py`, `tools/clip_audit.py` | run on the whole bundle: 30 trajectories in 6 min, `clips/summary.md` written; 69 tests | none |
 | `scipy` in the teleop image | present (`scipy==1.14.1`, Dockerfile section 5) | none |
-| `clips/`, `tools/` mounts | built | none |
-| `replay_publisher`, `replay_check` | built against the clip directory; pure rules in `replay/clip.py` with tests | run in the container |
-| `g1_world_output` `joint_replay` | fixed: `side_buffer.py`, interpolates one publish period behind, tests | run in the container |
-| `starport_wuji_hand` driver | vendored into `src/`, pruned (rviz view, Beta 1 URDFs, udev, monorepo bench scripts), README rewritten, the two out-of-repo tests re-pointed at `wujihand_urdf` and the composed MJCF | in the container: `python3 -c "import wuji_sdk; wuji_sdk.DeviceType.WujiHand2; wuji_sdk.JointCommand"`; `colcon build --symlink-install`; `colcon test` |
+| `clips/`, `tools/` mounts | built and in use | none |
+| `replay_publisher`, `replay_check` | both run; publisher plays a clip at 50 Hz and holds the last frame, check exits 1 naming its missing sources; 89 tests | run the check against real hardware |
+| `g1_world_output` `joint_replay` | measured on the live graph: 250 Hz command stream advancing 1/20 of a frame step per tick at `--speed 0.25`; 29 tests | none |
+| `starport_wuji_hand` driver | `wuji_sdk` import check passes on the 2026.8.31 pin; `colcon build` and 268 tests pass; shutdown no longer raises on SIGINT | run against a hand |
 | Humble `launch_ros` and `list[float]` | accepted: `is_typing_list` checks `__origin__ in (list, List)` | none |
-| `replay.launch.py` | built | run in the container |
-| `scripts/replay.sh` | built | run on the host |
+| `replay.launch.py`, `scripts/replay.sh` | one host command brings up the G1 container, the publisher and the viewer, and stops the G1 container on exit; 20 tests | run on the rig |
 | model fix | cherry-picked (`2a76a4f`) | none |
-| G1 image CRC libraries | cherry-picked (`b2c18ec`) | rebuild the G1 image |
+| G1 image CRC libraries | present after a `--no-cache` rebuild (`utils/lib/crc_{amd64,aarch64}.so`) | none |
+| G1 DDS NIC pin | `g1_robot.yaml` `network_interface` is read and reaches `ChannelFactoryInitialize`; verified live (the node names the NIC and refuses to start when it is absent) | confirm the adapter's name on the rig |
+| build context | `.dockerignore` added; the context was 2.9 GB and is now a few hundred MB | none |
+| `wuji-sdk` pin | `docker/Dockerfile` moved to 2026.8.31 (2026.5.26 has neither `DeviceType` nor `JointCommand`) and the image is rebuilt: the SDK is on the system path, not a `pip --user` install | none |
 | `wujihandros2` (USB driver) | present; teleop launches still use it | remove the submodule and the `wujihandcpp` deb once the Ethernet driver runs on the rig |
 | `wujihand_controller` | built, teleop only | none |
-| `mujoco_visualizer.py` | subscribes the driver command topics as well, for `--sim` | none |
+| `mujoco_visualizer.py` | mirrors the driver command topics by name and the controller's positional ones; verified live on both forms | none |
+| `--check` in sim | cannot pass: with `dry_run` the G1 controller has no `arm_ctrl`, so `/{side}_arm/joint_states` is never published | hardware-only command, by nature |

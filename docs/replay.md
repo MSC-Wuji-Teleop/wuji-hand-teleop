@@ -1,8 +1,10 @@
 # Replay runbook
 
 Exact commands for preparing and playing clips on the rig. Design, clip
-format, and build status: [spec/spec1.md](spec/spec1.md). Everything below
-is built; the online half has not yet run in the container or on the rig.
+format, and build status: [spec/spec1.md](spec/spec1.md). Everything below is
+built, and everything except the hardware sections has been run: the offline
+half on the whole bundle, the online half in sim. Nothing has run on the rig.
+Start at [Which clip to run first](#which-clip-to-run-first).
 
 Where things run. Every code block below starts with the line that gets
 you to the right place:
@@ -26,6 +28,24 @@ trajectory, named `<sample>_<GT|Ours>`, and holds `arm_q.npz`,
 peak arm torque ratio, saturation, tracking error) per speed. Read it before
 the first run of a new clip. Full format: [spec1.md](spec/spec1.md#clip-directory).
 
+## Which clip to run first
+
+`clips/safe/90_sweep_joints_GT`, from `RobotSTAR_demos/sweep-test`. It is built
+for this: the left arm's seven joints ramp together, then the right arm's, then
+a one-second stop, then each thumb flexes on its own, with amplitudes capped at
+0.2 rad. It audits at peak arm torque ratio 0.33 and zero contact force, and it
+passes at all three speeds.
+
+The sign-language clips are a different proposition. Of the bundle's 30
+trajectories, 4 are safe, 23 are rejected and 3 are refused for estimator
+orientation flips, and what rejects them is almost always **wrist pitch or wrist
+yaw**: those two joints per arm carry a 5 Nm clamp against 25 Nm elsewhere, and
+in these clips the hands press on each other hard enough to hold that clamp at
+any speed. The bundle authors' own physical audit agrees, saturating a wrist
+actuator on all 30. Playing a rejected clip slower does not fix it; re-solving
+the arm retarget against this model is what would. See
+[the handoff note](issues/replay-handoff-2026-09-02.md#verified-2026-09-03).
+
 ## 1. Prepare clips (offline, no hardware)
 
 One trajectory:
@@ -43,7 +63,7 @@ Every trajectory in the bundle (15 samples x GT and Ours):
 ```bash
 # teleop container (same shell as above)
 python3 tools/prepare_clip.py --all RobotSTAR_demos/samples --out clips
-cat clips/summary.md      # one row per trajectory: verdict, safe speeds, peak force and pair, torque ratio
+cat clips/summary.md      # one row per trajectory: verdict, safe speeds, and the audit numbers at the speed named in the `at` column
 ```
 
 Options, all recorded in `clip.json`:
@@ -59,8 +79,10 @@ Options, all recorded in `clip.json`:
 | `--note "..."` | | reason, when a threshold was changed |
 
 A rejected clip lands in `clips/rejected/` with the same `clip.json`; the
-`per_speed` block says which number failed at which speed. Rerun slower,
-trim, or change a threshold with a note.
+`per_speed` block says which number failed at which speed. Rerun slower, trim,
+or change a threshold with a note. Read the failing number before reaching for
+`--speeds`: a torque ratio of 1.00 that stays at 1.00 as the speed drops is a
+contact reaction the wrist cannot hold, and no speed will clear it.
 
 ## 2. Check hardware connections
 
@@ -112,8 +134,12 @@ scripts/replay.sh clips/safe/<clip> --arms none  --hands right
 ```bash
 # host, repo root
 scripts/replay.sh clips/safe/<clip>                    # --arms both --hands both, fastest safe speed
-scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower
+scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower -- only if 0.25 is in the clip's safe_speeds
 ```
+
+`--speed` takes one of the clip's `safe_speeds` and nothing else. A speed the
+audit did not pass is refused even when it is slower than the default, because
+slower is not reliably safer here (see [Flags](#flags)).
 
 Ctrl-C stops the publisher and the hand drivers, then the G1 container. The
 G1 node releases the `arm_sdk` weight on shutdown, so the onboard controller
@@ -126,7 +152,7 @@ without commands).
 |---|---|---|
 | `--arms` | `none` `left` `right` `both` (default `both`) | which arm topics the publisher writes; `none` also skips starting the G1 container |
 | `--hands` | `none` `left` `right` `both` (default `both`) | which hand driver topics the publisher writes; `none` skips the hand drivers |
-| `--speed S` | `0 < S <= 1`; default: fastest value in the clip's `safe_speeds` | same frames published slower. Amplitudes do not change; peak velocity scales by `S`, acceleration by `S^2`. A speed above the clip's fastest safe speed is refused |
+| `--speed S` | one of the clip's `safe_speeds`; default: the fastest | same frames published slower. Amplitudes do not change; peak velocity scales by `S`, acceleration by `S^2`. A speed the audit did not pass is refused, **including a slower one**: on `05_test_G42xKICVj9U_5-5-rgb_front_GT` the audit passes 0.5 and fails 0.25. To play a speed that is not listed, audit it first with `prepare_clip.py --speeds` |
 | `--check` | | connection check only (section 2) |
 | `--sim` | | G1 node with `dry_run:=true`, no hand drivers, MuJoCo viewer on the composed model instead |
 
