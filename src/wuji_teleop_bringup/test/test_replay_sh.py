@@ -93,6 +93,16 @@ def test_home_starts_no_hand_driver():
     assert "hands:=none" in rows["teleop launch"]
 
 
+def test_home_disables_the_publishers_approach_ramp():
+    """The clip's frame 0 is the measured pose, so approaching frame 0 is a move
+    to where the arms already are, and its 2 s is not in the printed duration."""
+    assert "ramp:=0" in plan("--home")["teleop launch"]
+
+
+def test_an_ordinary_replay_keeps_the_publishers_default_ramp():
+    assert "ramp:=" not in plan(CLIP_NAME)["teleop launch"]
+
+
 def test_home_plays_the_clip_it_generated():
     rows = plan("--home")
     clip = rows["clip (container)"]

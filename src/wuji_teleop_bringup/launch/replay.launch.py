@@ -7,6 +7,8 @@ What starts, per flag combination (docs/spec/spec1.md "Launch and the single ter
                          (publisher waits for those drivers, then approaches frame 0)
     hands:=none          no hand driver; the publisher writes no hand topic
     check:=true          replay_check --arms <arms> --hands <hands> in place of the publisher
+    ramp:=0              no approach to frame 0; what scripts/replay.sh --home passes, because a
+                         rehome clip already starts at the measured pose
     sim:=true            no hand driver; publisher --ready-timeout 0; mujoco_visualizer.py
                          on g1_29_wuji2_fixed.xml next to the publisher (the viewer
                          mirrors the G1 node's arm commands and the publisher's hand commands)
@@ -102,13 +104,19 @@ def hand_drivers(hands: str) -> IncludeLaunchDescription:
     )
 
 
-def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool) -> Node:
+def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool, ramp: str) -> Node:
     """replay_publisher on the clip; its exit ends the launch."""
     # Absolute, so the path in the log and in the publisher's refusal message is unambiguous
     # whatever cwd the node process ends up with.
     arguments = ["--clip", os.path.abspath(clip), "--arms", arms, "--hands", hands]
     if speed:
         arguments += ["--speed", speed]
+    # Empty keeps the publisher's own default. A rehome clip passes 0: its frame 0
+    # is the measured pose already, so an approach to frame 0 is an approach to
+    # where the arms are, and the 2 s it takes is not in the duration the
+    # generator printed (docs/spec/spec1_1.md).
+    if ramp:
+        arguments += ["--ramp", ramp]
     # sim starts no hand drivers and may have no G1 state yet; waiting on
     # /{side}/wuji_hand/connected would hang until --ready-timeout.
     if sim:
@@ -159,6 +167,7 @@ def replay_actions(context: LaunchContext) -> list:
     speed = LaunchConfiguration("speed").perform(context)
     check = _as_bool("check", LaunchConfiguration("check").perform(context))
     sim = _as_bool("sim", LaunchConfiguration("sim").perform(context))
+    ramp = LaunchConfiguration("ramp").perform(context)
 
     if arms == "none" and hands == "none":
         raise RuntimeError("arms:=none with hands:=none selects nothing to play or check")
@@ -171,7 +180,7 @@ def replay_actions(context: LaunchContext) -> list:
     if check:
         actions.append(connection_check(arms, hands))
     else:
-        actions.append(publisher(clip, arms, hands, speed, sim))
+        actions.append(publisher(clip, arms, hands, speed, sim, ramp))
     if sim:
         actions.append(viewer())
     return actions
@@ -209,6 +218,14 @@ def generate_launch_description() -> LaunchDescription:
                 "check",
                 default_value="false",
                 description="Connection check: hand drivers and replay_check, no publisher.",
+            ),
+            DeclareLaunchArgument(
+                "ramp",
+                default_value="",
+                description=(
+                    "Seconds of min-jerk approach from the measured pose to frame 0; "
+                    "empty means the publisher's default. scripts/replay.sh --home passes 0."
+                ),
             ),
             DeclareLaunchArgument(
                 "sim",

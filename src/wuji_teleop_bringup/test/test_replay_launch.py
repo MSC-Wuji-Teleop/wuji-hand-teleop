@@ -40,7 +40,8 @@ SOURCE_SHARE = {
     "g1_wuji2_description": SRC_DIR / "g1_wuji2_description",
 }
 
-EXPECTED_DEFAULTS = {"clip": "", "arms": "both", "hands": "both", "speed": "", "check": "false", "sim": "false"}
+EXPECTED_DEFAULTS = {"clip": "", "arms": "both", "hands": "both", "speed": "", "ramp": "",
+                     "check": "false", "sim": "false"}
 SIDES = ["none", "left", "right", "both"]
 
 
@@ -183,6 +184,7 @@ def test_defaults_start_both_hand_drivers_and_the_publisher(launch_module):
     assert _flag(arguments, "--arms") == "both"
     assert _flag(arguments, "--hands") == "both"
     assert "--speed" not in arguments
+    assert "--ramp" not in arguments, "an empty ramp keeps the publisher's own default"
     assert isinstance(_on_exit(publisher), Shutdown), "a refused clip must end the launch"
 
     assert _node(context, actions, "replay_check") is None
@@ -213,6 +215,23 @@ def test_speed_is_passed_only_when_given(launch_module):
     publisher = _node(context, actions, "replay_publisher")
     arguments = _texts(context, publisher.cmd)
     assert _flag(arguments, "--speed") == "0.5"
+
+
+def test_ramp_is_passed_only_when_given(launch_module):
+    """scripts/replay.sh --home passes ramp:=0, because a rehome clip's frame 0 is
+    already the measured pose and approaching it is a move to where the arms are
+    (docs/spec/spec1_1.md)."""
+    context, actions = _actions(launch_module, clip="clips/home/home_x", ramp="0")
+    publisher = _node(context, actions, "replay_publisher")
+    assert _flag(_texts(context, publisher.cmd), "--ramp") == "0"
+
+
+def test_a_home_clip_is_accepted_as_a_clip(launch_module):
+    context, actions = _actions(launch_module, clip="clips/home/home_x", hands="none", ramp="0")
+    publisher = _node(context, actions, "replay_publisher")
+    arguments = _texts(context, publisher.cmd)
+    assert _flag(arguments, "--clip").endswith("clips/home/home_x")
+    assert _flag(arguments, "--hands") == "none"
 
 
 def test_hands_none_starts_no_driver(launch_module):

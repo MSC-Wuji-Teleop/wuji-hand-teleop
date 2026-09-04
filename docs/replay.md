@@ -224,7 +224,9 @@ scripts/replay.sh --home --arms left                       # one arm at a time
 scripts/replay.sh --home --sim --from stand                # rehearsal, no hardware
 ```
 
-What it does to the robot, in order:
+What it does to the robot, in order. Note that the publisher's usual 2 s
+approach to frame 0 is switched off here (`ramp:=0`): a rehome clip already
+starts at the measured pose, so there is nothing to approach.
 
 1. Starts the G1 node exactly as a replay does. It takes the arms and holds the
    pose it measured at startup.

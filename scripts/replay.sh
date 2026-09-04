@@ -19,7 +19,7 @@
 #   a. capture_arm_pose  reads /{side}_arm/joint_states and writes the measured pose as JSON;
 #   b. tools/make_home_clip.py  writes clips/home/<stamp>/ and audits it in MuJoCo, exiting
 #      non-zero if the audit rejects it, in which case the publisher never starts;
-#   c. replay.launch.py with that clip, arms as given, hands none.
+#   c. replay.launch.py with that clip, arms as given, hands none, ramp 0.
 # Neither (a) nor (b) commands anything. The only thing that moves the arms is the same
 # replay_publisher a normal replay uses, playing a clip whose frame 0 is the pose captured in
 # (a), so the first published frame is a no-op. This is not an e-stop: it is a slow deliberate
@@ -81,7 +81,8 @@ and stops the G1 container on exit. Run on the host with the containers up (cd d
   --check            connection check only: drivers and G1 node with replay_check, no publisher; exits 0 when
                      every selected source reported within 20 s, 1 otherwise
   --home             rehome: capture the measured arm pose, generate and audit a slow clip to the home
-                     pose, then play it. Takes no clip and no --speed, and starts no hand driver.
+                     pose, then play it with ramp:=0 (the clip already starts at the measured pose).
+                     Takes no clip and no --speed, and starts no hand driver.
                      NOT an e-stop: it takes the duration the generator prints. Design: docs/spec/spec1_1.md
   --from SPEC        --home only: start pose instead of reading it off the robot. One of stand, zeros,
                      clip:<dir>[@first|@last], or 14 numbers. Required with --sim, because a dry-run
@@ -217,6 +218,10 @@ LAUNCH_ARGS=()
 [[ -z $CLIP_CONTAINER_PATH ]] || LAUNCH_ARGS+=("clip:=$CLIP_CONTAINER_PATH")
 LAUNCH_ARGS+=("arms:=$ARMS" "hands:=$HANDS")
 [[ -z $SPEED ]] || LAUNCH_ARGS+=("speed:=$SPEED")
+# A rehome clip's frame 0 is the pose the arms are already in, so the publisher's
+# approach to frame 0 would be a 2 s move to where they already are, on top of the
+# duration the generator printed. Everything else keeps the publisher's default.
+[[ $HOME_MODE == 0 ]] || LAUNCH_ARGS+=("ramp:=0")
 LAUNCH_ARGS+=("check:=$(as_bool "$CHECK")" "sim:=$(as_bool "$SIM")")
 
 INNER="source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash && cd ~/ros2_ws"

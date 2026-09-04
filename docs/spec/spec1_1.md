@@ -66,7 +66,7 @@ indistinguishable, 0.27 to 0.36 either way.
 
 Three short-lived processes in sequence, then the existing publisher. The
 motion the robot performs is an ordinary clip, audited seconds before it plays,
-played through the same `side_buffer` interpolation into the same node. One
+published at 100 Hz and interpolated by the same G1 node as any other clip. One
 motion path in the system, not two.
 
 ```mermaid
@@ -83,6 +83,16 @@ graph LR
 Steps 2 and 3 command nothing. Step 4 is the only thing that moves the arms,
 and its frame 0 is the pose captured in step 2, so the first published frame
 is a no-op against where the arms already are.
+
+**The publisher's approach ramp is switched off for a rehome.** Since
+`feefce7` the publisher spends `--ramp` seconds (default 2) on a min-jerk
+approach from the measured pose to clip frame 0, because an ordinary clip's
+frame 0 is wherever the recording started and reaching it was a step. A rehome
+clip is built the other way round: frame 0 *is* the measured pose. Approaching
+it would be a 2 s move to where the arms already are, and those 2 s are not in
+the duration the generator printed. `scripts/replay.sh --home` therefore passes
+`ramp:=0`. The eased departure is in the clip, where it can be audited, rather
+than in the publisher, where it cannot.
 
 `--home` is a separate invocation that re-acquires the arms, not a mode of a
 running session. A mode would be new runtime state, and it would be unavailable
@@ -105,7 +115,7 @@ its arithmetic in the comment.
 | duration | `T = clamp(dq_max * pi / 0.4, 3, 30)` s | inverts the ease's peak velocity `dq * pi / (2T)` |
 | peak acceleration | `dq * pi^2 / (2T^2)` | at most 0.209 rad/s^2, reached at a travel of 0.382 rad where the 3 s floor starts to bind, and falling to 0.026 at the largest legal travel. Against the 3.0 rad/s^2 deploy value |
 | frame count | `ceil(T * 50) + 1` | rounded up, not to nearest: n frames span (n - 1) periods, so rounding down shortens the motion and lifts peak velocity over the limit. Measured at 0.2003 rad/s from the stand pose before this was ceil |
-| frames | `round(T * 50)` | the rate every prepared clip uses, so the node's one-frame-behind interpolation adds the usual 20 ms |
+| frames | `ceil(T * 50) + 1` | 50 Hz is the rate every prepared clip uses; the publisher interpolates between frames at 100 Hz |
 | audited speeds | 1.0 | the duration is already in the clip; a speed knob on a fixed-duration motion is a second way to get it wrong |
 
 Worked ends of the range. From a clip's last frame, within 0.25 rad of zeros,
