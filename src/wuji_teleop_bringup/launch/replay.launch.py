@@ -28,7 +28,9 @@ launch cwd),
 speed), `check` and `sim` (true|false, default false). An OpaqueFunction reads them and refuses a
 bad combination -- no clip without check, an unknown side, arms none with hands none -- before any
 process starts. hand.launch.py's own defaults (0.6 A effort, 2 rad/s slew, home on start, ten
-connect attempts) are the driver's business; only `side` is passed to it.
+connect attempts) are the driver's business. `side` is always passed; the two
+serials from `wujihand_ik.yaml` are passed when they are set, so both drivers
+do not race for the first hand the scan returns.
 
 The publisher and the check node carry on_exit=Shutdown(): when either ends -- a refused clip,
 the check's verdict -- the launch takes the drivers down with it instead of leaving them running.
@@ -94,13 +96,34 @@ def _as_bool(name: str, value: str) -> bool:
         raise RuntimeError(f"{name}:={value!r} is not a boolean; use true or false") from None
 
 
+def _configured_serials() -> tuple[str, str]:
+    """Serials from wujihand_ik.yaml, or empty if that file is still placeholders / missing.
+
+    Imported lazily so this launch file still loads in tests that have no
+    wujihand_output share directory.
+    """
+    try:
+        from wuji_teleop_bringup.hand_defaults import LEFT_HAND_SERIAL, RIGHT_HAND_SERIAL
+    except Exception:
+        return "", ""
+    left = "" if not LEFT_HAND_SERIAL or LEFT_HAND_SERIAL.startswith("YOUR_") else LEFT_HAND_SERIAL
+    right = "" if not RIGHT_HAND_SERIAL or RIGHT_HAND_SERIAL.startswith("YOUR_") else RIGHT_HAND_SERIAL
+    return left, right
+
+
 def hand_drivers(hands: str) -> IncludeLaunchDescription:
-    """hand.launch.py for the selected side(s), with nothing but `side` passed."""
+    """hand.launch.py for the selected side(s), with serials when they are configured."""
+    left, right = _configured_serials()
+    arguments = {"side": hands}
+    if left:
+        arguments["left_serial_number"] = left
+    if right:
+        arguments["right_serial_number"] = right
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory(HAND_DRIVER_PACKAGE), HAND_DRIVER_LAUNCH)
         ),
-        launch_arguments={"side": hands}.items(),
+        launch_arguments=arguments.items(),
     )
 
 

@@ -138,7 +138,7 @@ def test_only_the_opaque_function_follows_the_declarations(launch_module):
     # Every process comes out of replay_actions, so the refusals in it run before anything starts.
     entities = launch_module.generate_launch_description().entities
     kinds = [type(entity) for entity in entities]
-    assert kinds[:-1] == [DeclareLaunchArgument] * 6
+    assert kinds[:-1] == [DeclareLaunchArgument] * 7
     assert kinds[-1] is OpaqueFunction
 
 
@@ -176,7 +176,7 @@ def test_defaults_start_both_hand_drivers_and_the_publisher(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x")
 
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "both")]
+    assert dict(_include_arguments(context, include))["side"] == "both"
 
     publisher = _node(context, actions, "replay_publisher")
     assert publisher is not None
@@ -244,7 +244,7 @@ def test_hands_none_starts_no_driver(launch_module):
 def test_one_side_starts_that_driver_only(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x", hands="left", arms="none")
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "left")]
+    assert dict(_include_arguments(context, include))["side"] == "left"
     assert _flag(_texts(context, _node(context, actions, "replay_publisher").cmd), "--arms") == "none"
 
 
@@ -264,7 +264,7 @@ def test_check_runs_replay_check_and_no_publisher(launch_module):
 def test_check_with_hands_still_starts_their_drivers(launch_module):
     context, actions = _actions(launch_module, check="true")
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "both")]
+    assert dict(_include_arguments(context, include))["side"] == "both"
     assert _node(context, actions, "replay_check") is not None
 
 
