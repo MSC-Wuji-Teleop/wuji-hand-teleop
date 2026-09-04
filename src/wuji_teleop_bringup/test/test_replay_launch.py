@@ -40,7 +40,8 @@ SOURCE_SHARE = {
     "g1_wuji2_description": SRC_DIR / "g1_wuji2_description",
 }
 
-EXPECTED_DEFAULTS = {"clip": "", "arms": "both", "hands": "both", "speed": "", "check": "false", "sim": "false"}
+EXPECTED_DEFAULTS = {"clip": "", "arms": "both", "hands": "both", "speed": "", "ramp": "",
+                     "check": "false", "sim": "false"}
 SIDES = ["none", "left", "right", "both"]
 
 
@@ -137,7 +138,7 @@ def test_only_the_opaque_function_follows_the_declarations(launch_module):
     # Every process comes out of replay_actions, so the refusals in it run before anything starts.
     entities = launch_module.generate_launch_description().entities
     kinds = [type(entity) for entity in entities]
-    assert kinds[:-1] == [DeclareLaunchArgument] * 6
+    assert kinds[:-1] == [DeclareLaunchArgument] * 7
     assert kinds[-1] is OpaqueFunction
 
 
@@ -175,7 +176,7 @@ def test_defaults_start_both_hand_drivers_and_the_publisher(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x")
 
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "both")]
+    assert dict(_include_arguments(context, include))["side"] == "both"
 
     publisher = _node(context, actions, "replay_publisher")
     assert publisher is not None
@@ -183,6 +184,7 @@ def test_defaults_start_both_hand_drivers_and_the_publisher(launch_module):
     assert _flag(arguments, "--arms") == "both"
     assert _flag(arguments, "--hands") == "both"
     assert "--speed" not in arguments
+    assert "--ramp" not in arguments, "an empty ramp keeps the publisher's own default"
     assert isinstance(_on_exit(publisher), Shutdown), "a refused clip must end the launch"
 
     assert _node(context, actions, "replay_check") is None
@@ -215,6 +217,23 @@ def test_speed_is_passed_only_when_given(launch_module):
     assert _flag(arguments, "--speed") == "0.5"
 
 
+def test_ramp_is_passed_only_when_given(launch_module):
+    """scripts/replay.sh --home passes ramp:=0, because a rehome clip's frame 0 is
+    already the measured pose and approaching it is a move to where the arms are
+    (docs/spec/spec1_1.md)."""
+    context, actions = _actions(launch_module, clip="clips/home/home_x", ramp="0")
+    publisher = _node(context, actions, "replay_publisher")
+    assert _flag(_texts(context, publisher.cmd), "--ramp") == "0"
+
+
+def test_a_home_clip_is_accepted_as_a_clip(launch_module):
+    context, actions = _actions(launch_module, clip="clips/home/home_x", hands="none", ramp="0")
+    publisher = _node(context, actions, "replay_publisher")
+    arguments = _texts(context, publisher.cmd)
+    assert _flag(arguments, "--clip").endswith("clips/home/home_x")
+    assert _flag(arguments, "--hands") == "none"
+
+
 def test_hands_none_starts_no_driver(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x", hands="none")
     assert _includes(actions) == []
@@ -225,7 +244,7 @@ def test_hands_none_starts_no_driver(launch_module):
 def test_one_side_starts_that_driver_only(launch_module):
     context, actions = _actions(launch_module, clip="clips/safe/x", hands="left", arms="none")
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "left")]
+    assert dict(_include_arguments(context, include))["side"] == "left"
     assert _flag(_texts(context, _node(context, actions, "replay_publisher").cmd), "--arms") == "none"
 
 
@@ -245,7 +264,7 @@ def test_check_runs_replay_check_and_no_publisher(launch_module):
 def test_check_with_hands_still_starts_their_drivers(launch_module):
     context, actions = _actions(launch_module, check="true")
     (include,) = _includes(actions)
-    assert _include_arguments(context, include) == [("side", "both")]
+    assert dict(_include_arguments(context, include))["side"] == "both"
     assert _node(context, actions, "replay_check") is not None
 
 

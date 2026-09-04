@@ -299,10 +299,10 @@ container detached unless `--arms none`, runs the teleop launch in the
 foreground, stops the G1 container on exit. Its flags are the publisher's
 plus `--check` and `--sim`. `--check` starts the drivers and the G1 node
 with no publisher and runs `replay_check` in place of it: it waits up to
-20 s for state from every selected source (the driver gives up on an absent
-hand after ten connect attempts at 2 s), prints the topic rates, and exits 0
-when all reported, 1 otherwise; `--arms` and `--hands` narrow what is
-started and checked. `--sim` runs the G1 node with `dry_run`, starts no hand
+30 s for state from every selected source (two-hand UDP scan plus the
+driver's blocking 3 s home; same window as the publisher's `--ready-timeout`),
+prints the topic rates, and exits 0 when all reported, 1 otherwise;
+`--arms` and `--hands` narrow what is started and checked. `--sim` runs the G1 node with `dry_run`, starts no hand
 driver, and opens `mujoco_visualizer.py` on the composed model, which
 mirrors the G1 node's arm commands and the publisher's hand commands. Exact
 commands: [replay.md](../replay.md).
@@ -312,6 +312,13 @@ commands: [replay.md](../replay.md).
 Nothing runs between the publisher and the device nodes: no run-time checks
 or trip conditions (temperature, effort, contact), no e-stop logic. Teleop
 (glove, PICO) is untouched and shares only `g1_world_output` with this path.
+
+The rehome ([spec1_1.md](spec1_1.md)) does not change that. It is a separate
+operator command, `scripts/replay.sh --home`, which generates and audits a clip
+before it runs and then plays it through this same publisher and this same
+graph. It adds no runtime state, no mode and no second motion path, and nothing
+on the replay path can reach it: `--home` takes no clip and a replay invocation
+never sets it.
 
 ## Build status
 

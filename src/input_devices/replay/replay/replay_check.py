@@ -12,8 +12,9 @@ been heard from:
                       /{side}/wuji_hand/connected     (driver, must have been true once)
 
 When all have reported it prints the table and exits 0. At ``--timeout``
-(default 20 s, the hand driver's own give-up time) it prints the table with
-the missing rows marked and exits 1. The table goes to stdout with print(),
+(default 30 s, matching the publisher's ready wait: two-hand scan plus the
+driver's blocking 3 s home) it prints the table with the missing rows
+marked and exits 1. The table goes to stdout with print(),
 so it reads the same under ``ros2 run`` and ``ros2 launch``.
 
 Subscriptions are BEST_EFFORT, KEEP_LAST, depth 10. The G1 node publishes its
@@ -25,7 +26,7 @@ Usage:
     ros2 run replay replay_check -- [--arms none|left|right|both] \\
         [--hands none|left|right|both] [--timeout S]
 
-Defaults: arms both, hands both, timeout 20. Refused: arms none together with
+Defaults: arms both, hands both, timeout 30. Refused: arms none together with
 hands none; a timeout that is not positive. Exit status: 0 when every selected
 source reported, 1 when one did not (timeout or Ctrl-C), 2 for a bad argument.
 """
@@ -90,7 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--timeout",
         type=float,
         default=DEFAULT_TIMEOUT_S,
-        help=f"Seconds to wait before giving up (default {DEFAULT_TIMEOUT_S:g}, the hand driver's own give-up time)",
+        help=(
+            f"Seconds to wait before giving up (default {DEFAULT_TIMEOUT_S:g}, "
+            "matching the publisher's ready wait)"
+        ),
     )
     return parser
 

@@ -243,6 +243,9 @@ class G1ArmController:
                 "rt/lowcmd/rt/arm_sdk at a time -- stop it before starting this one."
             )
 
+        # Placeholder only: lowstate does not exist yet, so measured cannot be
+        # read here. Overwritten with the measured pose further down, before the
+        # write thread that commands it starts.
         self.q_target = np.zeros(self._arm_dof)
         self.tauff_target = np.zeros(self._arm_dof)
         self.motion_mode = motion_mode
@@ -341,6 +344,21 @@ class G1ArmController:
                     self.msg.motor_cmd[id].kd = self.kd_high
             self.msg.motor_cmd[id].q = self.all_motor_q[id]
         logger.info("Lock OK!")
+
+        # Seed q_target from measured before the write thread exists. The thread
+        # commands q_target on every one of its 250 ticks per second and steps the
+        # arm_sdk weight slot to 1.0 on its first one, so the zeros this attribute
+        # was initialised with above were a real target: clip_arm_q_target walked
+        # the arms toward all-zeros at arm_velocity_limit (0.08 rad per 4 ms tick)
+        # for the whole window between here and the node's first control-loop
+        # write, which is after the rest of node construction and rclpy.spin
+        # starting. Nobody commanded that motion, nothing audited it, and where it
+        # stopped depended on how long spin took to come up. Unitree's own arm_sdk
+        # example gets its acquire the same way this line does, by making the first
+        # commanded pose the measured one (example/g1/high_level/
+        # g1_arm7_sdk_dds_example.py stage 1: q = (1 - ratio) * measured_q at
+        # ratio 0).
+        self.q_target = self.get_current_dual_arm_q()
 
         self.publish_thread = threading.Thread(
             target=self._ctrl_motor_state, daemon=True

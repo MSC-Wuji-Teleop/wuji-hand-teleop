@@ -2,7 +2,7 @@
 # One host command for a clip replay (docs/replay.md).
 #
 #   scripts/replay.sh [clips/safe/<clip>] [--arms none|left|right|both] [--hands none|left|right|both]
-#                     [--speed S] [--check] [--sim] [-h]
+#                     [--speed S] [--check] [--home [--from SPEC]] [--sim] [-h]
 #
 # In order:
 #   1. unless --arms none, starts the G1 node detached in its own container
@@ -12,6 +12,18 @@
 #      selected sides and the publisher, or replay_check instead of the publisher with --check, or no
 #      drivers and the MuJoCo viewer with --sim;
 #   3. on exit -- the launch ended, Ctrl-C, a signal -- stops the G1 container it started.
+#
+# --home is the rehome program (docs/spec/spec1_1.md), a third mode beside --check and --sim.
+# It takes no clip. After the G1 container is up and holding the measured pose, it runs two
+# short-lived processes in the teleop container and then the ordinary launch:
+#   a. capture_arm_pose  reads /{side}_arm/joint_states and writes the measured pose as JSON;
+#   b. tools/make_home_clip.py  writes clips/home/<stamp>/ and audits it in MuJoCo, exiting
+#      non-zero if the audit rejects it, in which case the publisher never starts;
+#   c. replay.launch.py with that clip, arms as given, hands none, ramp 0.
+# Neither (a) nor (b) commands anything. The only thing that moves the arms is the same
+# replay_publisher a normal replay uses, playing a clip whose frame 0 is the pose captured in
+# (a), so the first published frame is a no-op. This is not an e-stop: it is a slow deliberate
+# motion, and the remote's damp command remains the fast stop.
 #
 # Stop order, and why the G1 node goes last: Ctrl-C reaches the launch inside the teleop container
 # first (publisher and hand drivers shut down), then this script's trap stops the G1 container,
@@ -49,12 +61,14 @@ G1_STOP_GRACE_S=10                      # SIGINT grace: launch waits 5 s on its 
 CONTAINER_WS="/home/wuji/ros2_ws"       # the workspace in the teleop container (docker-compose.yml mounts)
 HOST_SAFE_CLIPS="$REPO_ROOT/clips/safe"
 CONTAINER_SAFE_CLIPS="$CONTAINER_WS/clips/safe"
+CONTAINER_HOME_CLIPS="$CONTAINER_WS/clips/home"   # written by tools/make_home_clip.py, gitignored
+CONTAINER_TOOLS="$CONTAINER_WS/tools"             # docker-compose.yml mounts ../tools read-only
 SIDES="none left right both"
 
 usage() {
     cat <<EOF
 usage: scripts/replay.sh [clips/safe/<clip>] [--arms none|left|right|both] [--hands none|left|right|both]
-                         [--speed S] [--check] [--sim] [-h]
+                         [--speed S] [--check] [--home [--from SPEC]] [--sim] [-h]
 
 Plays one prepared clip on the rig: starts the G1 node in its own container (unless --arms none),
 runs replay.launch.py in the teleop container (hand drivers for the selected sides + the publisher),
@@ -65,7 +79,14 @@ and stops the G1 container on exit. Run on the host with the containers up (cd d
   --hands SIDE       hand driver topics the publisher writes (default both); none skips the hand drivers
   --speed S          0 < S <= 1 (default: the clip's fastest safe speed); a faster one is refused by the publisher
   --check            connection check only: drivers and G1 node with replay_check, no publisher; exits 0 when
-                     every selected source reported within 20 s, 1 otherwise
+                     every selected source reported within 30 s, 1 otherwise
+  --home             rehome: capture the measured arm pose, generate and audit a slow clip to the home
+                     pose, then play it with ramp:=0 (the clip already starts at the measured pose).
+                     Takes no clip and no --speed, and starts no hand driver.
+                     NOT an e-stop: it takes the duration the generator prints. Design: docs/spec/spec1_1.md
+  --from SPEC        --home only: start pose instead of reading it off the robot. One of stand, zeros,
+                     clip:<dir>[@first|@last], or 14 numbers. Required with --sim, because a dry-run
+                     G1 node has no arm_ctrl and never publishes /{side}_arm/joint_states
   --sim              G1 node with dry_run:=true, no hand drivers, MuJoCo viewer on the composed model
   -h, --help         this text
 
@@ -87,6 +108,9 @@ HANDS="both"
 SPEED=""
 CHECK=0
 SIM=0
+HOME_MODE=0
+FROM=""
+HANDS_SET=0    # --home forces hands none, so an explicit --hands has to be refused rather than ignored
 PRINT_PLAN=0   # hidden: print the resolved plan and exit 0 without touching docker (tests)
 
 while [[ $# -gt 0 ]]; do
@@ -94,11 +118,14 @@ while [[ $# -gt 0 ]]; do
         -h|--help) usage; exit 0 ;;
         --arms) need_value "$@"; ARMS="$2"; shift 2 ;;
         --arms=*) ARMS="${1#--arms=}"; shift ;;
-        --hands) need_value "$@"; HANDS="$2"; shift 2 ;;
-        --hands=*) HANDS="${1#--hands=}"; shift ;;
+        --hands) need_value "$@"; HANDS="$2"; HANDS_SET=1; shift 2 ;;
+        --hands=*) HANDS="${1#--hands=}"; HANDS_SET=1; shift ;;
         --speed) need_value "$@"; SPEED="$2"; shift 2 ;;
         --speed=*) SPEED="${1#--speed=}"; shift ;;
         --check) CHECK=1; shift ;;
+        --home) HOME_MODE=1; shift ;;
+        --from) need_value "$@"; FROM="$2"; shift 2 ;;
+        --from=*) FROM="${1#--from=}"; shift ;;
         --sim) SIM=1; shift ;;
         --print-plan) PRINT_PLAN=1; shift ;;
         -*) die_usage "unknown flag '$1'" ;;
@@ -107,6 +134,20 @@ while [[ $# -gt 0 ]]; do
             CLIP_ARG="$1"; shift ;;
     esac
 done
+
+# --home is its own mode: it generates the clip it plays, sizes its own duration, and never
+# starts a hand driver. Every flag it cannot honour is refused rather than quietly dropped.
+if [[ $HOME_MODE == 1 ]]; then
+    [[ $CHECK == 0 ]] || die_usage "--home and --check are separate modes; run one at a time"
+    [[ -z $CLIP_ARG ]] || die_usage "--home takes no clip: it generates the one it plays (got '$CLIP_ARG')"
+    [[ -z $SPEED ]] || die_usage "--home takes no --speed: the duration is in the clip it generates"
+    [[ $HANDS_SET == 0 ]] || die_usage "--home takes no --hands: it starts no hand driver. The hands are limp; if the fingers are interlocked, separate them first (docs/replay.md)"
+    [[ $ARMS != none ]] || die_usage "--home --arms none moves nothing"
+    [[ $SIM == 0 || -n $FROM ]] || die_usage "--home --sim needs --from: a dry-run G1 node publishes no /{side}_arm/joint_states to capture"
+    HANDS=none
+elif [[ -n $FROM ]]; then
+    die_usage "--from is only meaningful with --home"
+fi
 
 is_side "$ARMS" || die_usage "--arms must be one of: $SIDES (got '$ARMS')"
 is_side "$HANDS" || die_usage "--hands must be one of: $SIDES (got '$HANDS')"
@@ -146,23 +187,58 @@ if [[ -n $CLIP_ARG ]]; then
     if [[ $CHECK == 0 && ! -d "$HOST_SAFE_CLIPS/$CLIP_NAME" ]]; then
         die "no clip directory $HOST_SAFE_CLIPS/$CLIP_NAME (see: ls clips/safe)"
     fi
-elif [[ $CHECK == 0 ]]; then
-    die_usage "a clip is required unless --check"
+elif [[ $CHECK == 0 && $HOME_MODE == 0 ]]; then
+    die_usage "a clip is required unless --check or --home"
 fi
 
 # ---------------------------------------------------------------- the plan
 
 # `ros2 launch` rejects `name:=` with an empty value as malformed, so clip and speed are passed
 # only when set; the launch file's defaults ('') cover the rest.
+# --home names its clip before anything runs, so the plan below is complete and the
+# container steps never have to parse a path back out of a program's output.
+HOME_STAMP=""
+HOME_CLIP_NAME=""
+HOME_POSE_JSON=""
+HOME_START_SPEC=""
+CLIP_CONTAINER_PATH=""
+if [[ $HOME_MODE == 1 ]]; then
+    HOME_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+    HOME_CLIP_NAME="home_$HOME_STAMP"
+    # Inside the teleop container only: both steps run there and neither output
+    # outlives the run. tools/ is mounted read-only, so nothing can be written next to it.
+    HOME_POSE_JSON="/tmp/home_pose_$HOME_STAMP.json"
+    if [[ -n $FROM ]]; then HOME_START_SPEC="$FROM"; else HOME_START_SPEC="json:$HOME_POSE_JSON"; fi
+    CLIP_CONTAINER_PATH="$CONTAINER_HOME_CLIPS/$HOME_CLIP_NAME"
+elif [[ -n $CLIP_NAME ]]; then
+    CLIP_CONTAINER_PATH="$CONTAINER_SAFE_CLIPS/$CLIP_NAME"
+fi
+
 LAUNCH_ARGS=()
-[[ -z $CLIP_NAME ]] || LAUNCH_ARGS+=("clip:=$CONTAINER_SAFE_CLIPS/$CLIP_NAME")
+[[ -z $CLIP_CONTAINER_PATH ]] || LAUNCH_ARGS+=("clip:=$CLIP_CONTAINER_PATH")
 LAUNCH_ARGS+=("arms:=$ARMS" "hands:=$HANDS")
 [[ -z $SPEED ]] || LAUNCH_ARGS+=("speed:=$SPEED")
+# A rehome clip's frame 0 is the pose the arms are already in, so the publisher's
+# approach to frame 0 would be a 2 s move to where they already are, on top of the
+# duration the generator printed. Everything else keeps the publisher's default.
+[[ $HOME_MODE == 0 ]] || LAUNCH_ARGS+=("ramp:=0")
 LAUNCH_ARGS+=("check:=$(as_bool "$CHECK")" "sim:=$(as_bool "$SIM")")
 
 INNER="source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash && cd ~/ros2_ws"
 INNER+=" && exec ros2 launch wuji_teleop_bringup replay.launch.py"
 for arg in "${LAUNCH_ARGS[@]}"; do INNER+=" $(printf '%q' "$arg")"; done
+
+# The two --home steps, each a short-lived process in the teleop container. Neither creates a
+# publisher, so neither can move the robot; the generator also refuses to file a clip its MuJoCo
+# audit rejected, and this script stops on its exit code before the publisher would start.
+CAPTURE_INNER="source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash && cd ~/ros2_ws"
+CAPTURE_INNER+=" && exec ros2 run replay capture_arm_pose --"
+CAPTURE_INNER+=" --out $(printf '%q' "$HOME_POSE_JSON") --arms $(printf '%q' "$ARMS")"
+
+GENERATE_INNER="source /opt/ros/humble/setup.bash && cd ~/ros2_ws"
+GENERATE_INNER+=" && exec python3 $(printf '%q' "$CONTAINER_TOOLS/make_home_clip.py")"
+GENERATE_INNER+=" --start-pose $(printf '%q' "$HOME_START_SPEC")"
+GENERATE_INNER+=" --out clips --name $(printf '%q' "$HOME_CLIP_NAME")"
 
 # A pty is what carries Ctrl-C into the container to the launch (docker exec forwards no signals);
 # without a terminal on stdin the trap below asks the launch to shut down instead.
@@ -172,10 +248,20 @@ if [[ $SIM == 1 && -n ${DISPLAY:-} ]]; then EXEC_CMD+=(-e "DISPLAY=$DISPLAY"); f
 EXEC_CMD+=("$TELEOP_CONTAINER" bash -lc "$INNER")
 
 [[ $SIM == 0 ]] || G1_LAUNCH+=(dry_run:=true)
-G1_CMD=(docker compose -f "$COMPOSE_FILE" run -d --rm --name "$G1_CONTAINER" "$G1_SERVICE" "${G1_LAUNCH[@]}")
+G1_CMD=(docker compose -f "$COMPOSE_FILE" run -d --rm --pull never --name "$G1_CONTAINER" "$G1_SERVICE" "${G1_LAUNCH[@]}")
 
 if [[ $PRINT_PLAN == 1 ]]; then
-    if [[ -n $CLIP_NAME ]]; then
+    if [[ $HOME_MODE == 1 ]]; then
+        echo "mode:              home (docs/spec/spec1_1.md)"
+        echo "start pose:        $HOME_START_SPEC"
+        echo "clip (container):  $CLIP_CONTAINER_PATH"
+        if [[ -z $FROM ]]; then
+            echo "step capture:      docker exec $TELEOP_CONTAINER bash -lc $CAPTURE_INNER"
+        else
+            echo "step capture:      skipped (--from $FROM)"
+        fi
+        echo "step generate:     docker exec $TELEOP_CONTAINER bash -lc $GENERATE_INNER"
+    elif [[ -n $CLIP_NAME ]]; then
         echo "clip (host):       $HOST_SAFE_CLIPS/$CLIP_NAME"
         echo "clip (container):  $CONTAINER_SAFE_CLIPS/$CLIP_NAME"
     else
@@ -189,6 +275,8 @@ if [[ $PRINT_PLAN == 1 ]]; then
     echo "teleop launch:     ${EXEC_CMD[*]}"
     if [[ $CHECK == 1 ]]; then
         echo "exit status:       replay_check's, read from the launch output"
+    elif [[ $HOME_MODE == 1 ]]; then
+        echo "exit status:       the capture's or the generator's if either fails, else replay_publisher's"
     else
         echo "exit status:       replay_publisher's, read from the launch output"
     fi
@@ -239,6 +327,9 @@ if [[ $ARMS != none ]]; then
         *)  # a stopped leftover (a run without --rm); its name would block ours
             docker rm -f "$G1_CONTAINER" >/dev/null ;;
     esac
+    docker image inspect g1-world-output:latest >/dev/null 2>&1 \
+        || die "image g1-world-output:latest is missing; build it once with:" \
+               "cd docker && COMPOSE_BAKE=false docker compose build g1_world_output"
     echo "replay.sh: starting $G1_CONTAINER: ${G1_LAUNCH[*]}" >&2
     G1_ID="$("${G1_CMD[@]}")"
     G1_STARTED=1
@@ -247,6 +338,41 @@ fi
 
 if [[ $SIM == 1 && -n ${DISPLAY:-} ]]; then
     xhost +local:docker >/dev/null 2>&1 || true   # once per host session (docs/usage.md); harmless to repeat
+fi
+
+# ------------------------------------------------------------- home: capture and generate
+
+# Run one short-lived step in the teleop container and stop the whole run on its exit code.
+# Its own stderr has already told the operator what went wrong; this only names the step and
+# passes the code through, so the shell sees the generator's 2 for a rejected audit rather
+# than a generic 1. cleanup() stops the G1 container on the way out.
+run_home_step() {
+    local label="$1" inner="$2" rc=0
+    echo "replay.sh: $label" >&2
+    set +e
+    docker exec "$TELEOP_CONTAINER" bash -lc "$inner"
+    rc=$?
+    set -e
+    if [[ $rc -ne 0 ]]; then
+        echo "replay.sh: $label failed (exit $rc); nothing was published and the arms did not move" >&2
+        exit "$rc"
+    fi
+}
+
+if [[ $HOME_MODE == 1 ]]; then
+    # The G1 node is up and holding the pose it measured at startup, so this reads the pose the
+    # clip's frame 0 will carry. With --from the operator has named a start pose instead, which
+    # is how --sim rehearses the path and how the audit matrix is driven.
+    if [[ -z $FROM ]]; then
+        run_home_step "capturing the measured arm pose" "$CAPTURE_INNER"
+    else
+        echo "replay.sh: start pose given as $FROM; not reading the robot" >&2
+    fi
+    run_home_step "generating and auditing the home clip" "$GENERATE_INNER"
+    if [[ ! -d "$REPO_ROOT/clips/home/$HOME_CLIP_NAME" ]]; then
+        die "the generator reported success but $REPO_ROOT/clips/home/$HOME_CLIP_NAME is not there"
+    fi
+    echo "replay.sh: playing $CLIP_CONTAINER_PATH once, then holding the home pose until Ctrl-C" >&2
 fi
 
 # ---------------------------------------------------------------- the launch

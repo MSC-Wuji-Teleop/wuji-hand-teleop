@@ -7,6 +7,8 @@ What starts, per flag combination (docs/spec/spec1.md "Launch and the single ter
                          (publisher waits for those drivers, then approaches frame 0)
     hands:=none          no hand driver; the publisher writes no hand topic
     check:=true          replay_check --arms <arms> --hands <hands> in place of the publisher
+    ramp:=0              no approach to frame 0; what scripts/replay.sh --home passes, because a
+                         rehome clip already starts at the measured pose
     sim:=true            no hand driver; publisher --ready-timeout 0; mujoco_visualizer.py
                          on g1_29_wuji2_fixed.xml next to the publisher (the viewer
                          mirrors the G1 node's arm commands and the publisher's hand commands)
@@ -20,12 +22,15 @@ form in docs/replay.md shows the `docker compose run` line it uses. Exact operat
     ros2 launch wuji_teleop_bringup replay.launch.py clip:=clips/safe/<clip> sim:=true
     ros2 launch wuji_teleop_bringup replay.launch.py check:=true arms:=left hands:=none
 
-Arguments: `clip` (default '', a directory under clips/safe/, resolved against the launch cwd),
+Arguments: `clip` (default '', a directory under clips/safe/ or clips/home/, resolved against the
+launch cwd),
 `arms` and `hands` (none|left|right|both, default both), `speed` ('' means the clip's fastest safe
 speed), `check` and `sim` (true|false, default false). An OpaqueFunction reads them and refuses a
 bad combination -- no clip without check, an unknown side, arms none with hands none -- before any
 process starts. hand.launch.py's own defaults (0.6 A effort, 2 rad/s slew, home on start, ten
-connect attempts) are the driver's business; only `side` is passed to it.
+connect attempts) are the driver's business. `side` is always passed; the two
+serials from `wujihand_ik.yaml` are passed when they are set, so both drivers
+do not race for the first hand the scan returns.
 
 The publisher and the check node carry on_exit=Shutdown(): when either ends -- a refused clip,
 the check's verdict -- the launch takes the drivers down with it instead of leaving them running.
@@ -91,23 +96,50 @@ def _as_bool(name: str, value: str) -> bool:
         raise RuntimeError(f"{name}:={value!r} is not a boolean; use true or false") from None
 
 
+def _configured_serials() -> tuple[str, str]:
+    """Serials from wujihand_ik.yaml, or empty if that file is still placeholders / missing.
+
+    Imported lazily so this launch file still loads in tests that have no
+    wujihand_output share directory.
+    """
+    try:
+        from wuji_teleop_bringup.hand_defaults import LEFT_HAND_SERIAL, RIGHT_HAND_SERIAL
+    except Exception:
+        return "", ""
+    left = "" if not LEFT_HAND_SERIAL or LEFT_HAND_SERIAL.startswith("YOUR_") else LEFT_HAND_SERIAL
+    right = "" if not RIGHT_HAND_SERIAL or RIGHT_HAND_SERIAL.startswith("YOUR_") else RIGHT_HAND_SERIAL
+    return left, right
+
+
 def hand_drivers(hands: str) -> IncludeLaunchDescription:
-    """hand.launch.py for the selected side(s), with nothing but `side` passed."""
+    """hand.launch.py for the selected side(s), with serials when they are configured."""
+    left, right = _configured_serials()
+    arguments = {"side": hands}
+    if left:
+        arguments["left_serial_number"] = left
+    if right:
+        arguments["right_serial_number"] = right
     return IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory(HAND_DRIVER_PACKAGE), HAND_DRIVER_LAUNCH)
         ),
-        launch_arguments={"side": hands}.items(),
+        launch_arguments=arguments.items(),
     )
 
 
-def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool) -> Node:
+def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool, ramp: str) -> Node:
     """replay_publisher on the clip; its exit ends the launch."""
     # Absolute, so the path in the log and in the publisher's refusal message is unambiguous
     # whatever cwd the node process ends up with.
     arguments = ["--clip", os.path.abspath(clip), "--arms", arms, "--hands", hands]
     if speed:
         arguments += ["--speed", speed]
+    # Empty keeps the publisher's own default. A rehome clip passes 0: its frame 0
+    # is the measured pose already, so an approach to frame 0 is an approach to
+    # where the arms are, and the 2 s it takes is not in the duration the
+    # generator printed (docs/spec/spec1_1.md).
+    if ramp:
+        arguments += ["--ramp", ramp]
     # sim starts no hand drivers and may have no G1 state yet; waiting on
     # /{side}/wuji_hand/connected would hang until --ready-timeout.
     if sim:
@@ -158,11 +190,12 @@ def replay_actions(context: LaunchContext) -> list:
     speed = LaunchConfiguration("speed").perform(context)
     check = _as_bool("check", LaunchConfiguration("check").perform(context))
     sim = _as_bool("sim", LaunchConfiguration("sim").perform(context))
+    ramp = LaunchConfiguration("ramp").perform(context)
 
     if arms == "none" and hands == "none":
         raise RuntimeError("arms:=none with hands:=none selects nothing to play or check")
     if not clip and not check:
-        raise RuntimeError("clip:=<dir under clips/safe> is required unless check:=true")
+        raise RuntimeError("clip:=<dir under clips/safe or clips/home> is required unless check:=true")
 
     actions: list = []
     if hands != "none" and not sim:
@@ -170,7 +203,7 @@ def replay_actions(context: LaunchContext) -> list:
     if check:
         actions.append(connection_check(arms, hands))
     else:
-        actions.append(publisher(clip, arms, hands, speed, sim))
+        actions.append(publisher(clip, arms, hands, speed, sim, ramp))
     if sim:
         actions.append(viewer())
     return actions
@@ -184,7 +217,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "clip",
                 default_value="",
-                description="Clip directory under clips/safe/ (relative to the launch cwd, or absolute). "
+                description="Clip directory under clips/safe/ or clips/home/ (relative to the launch cwd, or absolute). "
                 "Required unless check:=true.",
             ),
             DeclareLaunchArgument(
@@ -208,6 +241,14 @@ def generate_launch_description() -> LaunchDescription:
                 "check",
                 default_value="false",
                 description="Connection check: hand drivers and replay_check, no publisher.",
+            ),
+            DeclareLaunchArgument(
+                "ramp",
+                default_value="",
+                description=(
+                    "Seconds of min-jerk approach from the measured pose to frame 0; "
+                    "empty means the publisher's default. scripts/replay.sh --home passes 0."
+                ),
             ),
             DeclareLaunchArgument(
                 "sim",

@@ -108,8 +108,9 @@ HAND_TOPIC = "/{side}/wuji_hand/joint_command"
 # command rather than a staircase at rate_hz * speed.
 PUBLISH_HZ = 100.0
 
-# Seconds to wait for selected consumers before the first command. Hand
-# scan plus the 3 s home can exceed replay_check's 20 s give-up.
+# Seconds to wait for selected consumers before the first command. Same
+# window as replay_check: two-hand UDP scan plus the driver's blocking 3 s
+# home, after which the ROS state topics first appear.
 DEFAULT_READY_TIMEOUT_S = 30.0
 
 # Seconds of quintic approach from the measured pose to clip frame 0.

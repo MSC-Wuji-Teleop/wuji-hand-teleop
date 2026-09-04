@@ -50,11 +50,11 @@ from typing import Iterable, Optional
 
 from replay.clip import HAND_JOINTS_PER_SIDE, HAND_NAME_PREFIX, SIDES, parse_sides
 
-# The hand driver gives up on an absent hand after max_connect_attempts (10)
-# tries at reconnect_interval (2 s): starport_wuji_hand hand_node.py parameter
-# defaults. The check waits at least that long so a driver still retrying is
-# not called missing before it has decided for itself.
-DEFAULT_TIMEOUT_S = 20.0
+# Two-hand UDP scan is ~16 s on the rig, then the driver homes for 3 s
+# inside the connect callback and publishes no ROS state until that sweep
+# ends. 30 s matches replay_publisher's --ready-timeout so a check that
+# passes is the same wait a clip run uses.
+DEFAULT_TIMEOUT_S = 30.0
 
 # Topic patterns. The arm pattern is what g1_world_output publishes its
 # measured state on; the hand patterns follow starport hand.launch.py, which
