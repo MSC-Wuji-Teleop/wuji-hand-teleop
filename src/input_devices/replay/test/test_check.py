@@ -83,9 +83,9 @@ def test_bad_timeout_is_refused():
         ConnectionCheck("both", "both", timeout_s=0.0)
 
 
-def test_timeout_default_is_twenty_seconds():
-    assert DEFAULT_TIMEOUT_S == 20.0
-    assert ConnectionCheck("left", "none").timeout_s == 20.0
+def test_timeout_default_is_thirty_seconds():
+    assert DEFAULT_TIMEOUT_S == 30.0
+    assert ConnectionCheck("left", "none").timeout_s == 30.0
 
 
 # --- rate counter ------------------------------------------------------------
@@ -300,7 +300,7 @@ def test_table_single_message_has_no_rate_yet():
 
 def test_node_parse_args_defaults_and_refusals():
     args = parse_args([])
-    assert (args.arms, args.hands, args.timeout) == ("both", "both", 20.0)
+    assert (args.arms, args.hands, args.timeout) == ("both", "both", 30.0)
     args = parse_args(["--arms", "left", "--hands", "none", "--timeout", "3"])
     assert (args.arms, args.hands, args.timeout) == ("left", "none", 3.0)
     with pytest.raises(SystemExit) as exc:

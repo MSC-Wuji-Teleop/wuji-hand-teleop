@@ -79,7 +79,7 @@ and stops the G1 container on exit. Run on the host with the containers up (cd d
   --hands SIDE       hand driver topics the publisher writes (default both); none skips the hand drivers
   --speed S          0 < S <= 1 (default: the clip's fastest safe speed); a faster one is refused by the publisher
   --check            connection check only: drivers and G1 node with replay_check, no publisher; exits 0 when
-                     every selected source reported within 20 s, 1 otherwise
+                     every selected source reported within 30 s, 1 otherwise
   --home             rehome: capture the measured arm pose, generate and audit a slow clip to the home
                      pose, then play it with ramp:=0 (the clip already starts at the measured pose).
                      Takes no clip and no --speed, and starts no hand driver.

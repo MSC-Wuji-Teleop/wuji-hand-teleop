@@ -299,10 +299,10 @@ container detached unless `--arms none`, runs the teleop launch in the
 foreground, stops the G1 container on exit. Its flags are the publisher's
 plus `--check` and `--sim`. `--check` starts the drivers and the G1 node
 with no publisher and runs `replay_check` in place of it: it waits up to
-20 s for state from every selected source (the driver gives up on an absent
-hand after ten connect attempts at 2 s), prints the topic rates, and exits 0
-when all reported, 1 otherwise; `--arms` and `--hands` narrow what is
-started and checked. `--sim` runs the G1 node with `dry_run`, starts no hand
+30 s for state from every selected source (two-hand UDP scan plus the
+driver's blocking 3 s home; same window as the publisher's `--ready-timeout`),
+prints the topic rates, and exits 0 when all reported, 1 otherwise;
+`--arms` and `--hands` narrow what is started and checked. `--sim` runs the G1 node with `dry_run`, starts no hand
 driver, and opens `mujoco_visualizer.py` on the composed model, which
 mirrors the G1 node's arm commands and the publisher's hand commands. Exact
 commands: [replay.md](../replay.md).

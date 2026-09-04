@@ -300,10 +300,11 @@ scripts/replay.sh --check --arms none --hands left
 scripts/replay.sh --check --arms none --hands right
 ```
 
-Starts the selected drivers with no publisher, waits up to 20 s for state
-from each, prints the rates, and exits 0 when every source reported, 1
-otherwise. `--arms none` skips the G1 container; `--hands none` skips the
-hand drivers. Expected lines for a full check:
+Starts the selected drivers with no publisher, waits up to 30 s for state
+from each (two-hand UDP scan plus the driver's blocking 3 s home; same
+window as the publisher's ready wait), prints the rates, and exits 0 when
+every source reported, 1 otherwise. `--arms none` skips the G1 container;
+`--hands none` skips the hand drivers. Expected lines for a full check:
 
 ```
 /left_arm/joint_states        ~100 Hz    G1 node writing, arms holding measured pose
@@ -386,36 +387,6 @@ scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours --arms none  
 scripts/replay.sh clips/safe/<clip>                    # --arms both --hands both, fastest safe speed
 scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower -- only if 0.25 is in the clip's safe_speeds
 ```
-
-<details>
-
-<summary>Copy-paste: full replay, each safe clip</summary>
-
-Host, repo root. `--arms both --hands both`. A `--speed` line is listed only when that speed is in the clip's `safe_speeds`.
-
-```bash
-# 90_sweep_joints_GT — safe at 1.0, 0.5, 0.25
-scripts/replay.sh clips/safe/90_sweep_joints_GT
-scripts/replay.sh clips/safe/90_sweep_joints_GT --speed 0.5
-scripts/replay.sh clips/safe/90_sweep_joints_GT --speed 0.25
-
-# 15_val_x-f1_kdl050s_10-1-rgb_front_Ours — safe at 1.0, 0.5, 0.25
-scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours
-scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --speed 0.5
-scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --speed 0.25
-
-# 15_val_x-f1_kdl050s_10-1-rgb_front_GT — safe at 0.5, 0.25 (default 0.5)
-scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT
-scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --speed 0.25
-
-# 05_test_G42xKICVj9U_5-5-rgb_front_GT — only 0.5; do not pass --speed 0.25
-scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT
-
-# 13_val_39FN42e41r0_0-1-rgb_front_Ours — only 0.25
-scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours
-```
-
-</details>
 
 `--speed` takes one of the clip's `safe_speeds` and nothing else. A speed the
 audit did not pass is refused even when it is slower than the default, because

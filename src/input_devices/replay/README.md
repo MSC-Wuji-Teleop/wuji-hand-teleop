@@ -81,9 +81,9 @@ ros2 run replay replay_check -- [--arms none|left|right|both] \
 ```
 
 When every source has reported it prints the rates and exits 0. At
-`--timeout` (default 20 s: the hand driver gives up on an absent hand after
-ten connect attempts at 2 s) it prints the table with the missing rows
-marked and exits 1.
+`--timeout` (default 30 s, matching the publisher's ready wait: two-hand
+scan plus the driver's blocking 3 s home) it prints the table with the
+missing rows marked and exits 1.
 
 ```
 /left_arm/joint_states        ~250 Hz    G1 node writing, arms holding measured pose
@@ -93,9 +93,9 @@ marked and exits 1.
 /right/wuji_hand/connected    true
 ```
 
-A missing row reads `missing    no message in 20.0 s` (or `no r_* names in
-20.0 s` when `/joint_states` is alive but one hand's names never appeared, or
-`false      never true in 20.0 s` for a driver that is up without its hand).
+A missing row reads `missing    no message in 30.0 s` (or `no r_* names in
+30.0 s` when `/joint_states` is alive but one hand's names never appeared, or
+`false      never true in 30.0 s` for a driver that is up without its hand).
 
 ## Layout and tests
 
