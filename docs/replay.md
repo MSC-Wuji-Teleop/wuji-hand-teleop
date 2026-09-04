@@ -87,6 +87,60 @@ interface`, which is the intended failure: it never quietly binds Wi-Fi. The
 robot's address and subnet are in
 [spec/hardware_spec.md](spec/hardware_spec.md).
 
+**One NIC, G1 and both hands.** A switch on a single host Ethernet port is
+enough. Match the G1: the robot is fixed at `192.168.123.161` on
+`192.168.123.0/24`, and the hands' static IPs are what you change.
+Discovery is a UDP broadcast, so a hand left on `192.168.1.0/24` with the
+host only on `192.168.123.0/24` is invisible. Do not try to move the G1
+onto the hands' old subnet. Do not give the host `.161`.
+
+| device | address |
+|---|---|
+| G1 | `192.168.123.161` (fixed) |
+| host, this NIC | `192.168.123.222/24`, no gateway |
+| left hand | `192.168.123.110` |
+| right hand | `192.168.123.111` |
+
+Give the host `192.168.123.222/24` on that NIC if it is not there already.
+Before `--execute`, the host must already have an address on **both** the
+hands' current subnet and `192.168.123.0/24`, or the hand reboots onto an
+address you cannot scan. A bad move needs a factory reset. Dry-run first; name the
+hand with `--serial` when more than one answers.
+
+```bash
+# host: confirm the G1 address is up, then keep the hands' current subnet
+# reachable during the move (example: they are still on 192.168.1.0/24)
+ip -br addr
+ping -c 1 192.168.123.161
+sudo ip addr add 192.168.1.100/24 dev '<enx…>'
+```
+
+```bash
+# teleop container: see what is there, then move one hand at a time
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py \
+    --serial <LEFT_SN> --ip 192.168.123.110
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py \
+    --serial <LEFT_SN> --ip 192.168.123.110 --execute
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py \
+    --serial <RIGHT_SN> --ip 192.168.123.111
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py \
+    --serial <RIGHT_SN> --ip 192.168.123.111 --execute
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+```
+
+```bash
+# host: after --list shows both hands on 192.168.123.x, drop the old subnet
+sudo ip addr del 192.168.1.100/24 dev '<enx…>'
+ping -c 1 192.168.123.161
+ping -c 1 192.168.123.110
+ping -c 1 192.168.123.111
+```
+
+If `--list` showed a subnet other than `192.168.1.0/24`, add and later
+delete that `/24` on the NIC instead. `192.168.1.100` / `.101` are the
+glove factory addresses; do not park a hand on those two.
+
 **The hand serial numbers.** `wujihand_ik.yaml` is gitignored and seeded from
 its template on first container start, with placeholders. Left as
 `YOUR_LEFT_HAND_SERIAL` the driver scans, finds no hand with that serial, and
