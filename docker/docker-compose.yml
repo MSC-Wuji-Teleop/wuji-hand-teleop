@@ -124,6 +124,7 @@ services:
       context: ..
       dockerfile: src/output_devices/g1_world_output/docker/Dockerfile
     image: g1-world-output:latest
+    pull_policy: never
     container_name: g1-world-output
     restart: unless-stopped
 

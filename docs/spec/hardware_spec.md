@@ -35,7 +35,11 @@ joints removed.
 
 Network and firmware, measured on the rig 2026-09-01: the robot answers at
 `192.168.123.161` and the host NIC sits on the `192.168.123.0/24` subnet,
-pinned by `g1_robot.yaml` `network_interface` (currently `enx00051bc62afa`).
+pinned by `g1_robot.yaml` `network_interface`:
+
+- black diamond linux `enx00e04c3a0398`
+- nathan linux `enx00051bc62afa`.
+
 The Unitree SDK builds its own CycloneDDS config and ignores `CYCLONEDDS_URI`,
 so that parameter is the only thing that binds the robot link to the right
 interface on a multi-NIC host; left empty, the SDK takes the first interface

@@ -65,8 +65,23 @@ against this model is the fix. See
 
 ## 0. Per-machine setup, once per host
 
-Two values are not in git, because they name this host's hardware rather than
-the robot's. Both must be right before section 2 can pass.
+The G1 image, the G1 NIC name, and the hand serials. The last two are not
+in git because they name this host's hardware rather than the robot's. All
+three must be right before section 2 can pass.
+
+**The G1 image.** `g1_world_output` is a separate image (Pinocchio + CasADi
+need NumPy 1.x). A bare `docker compose up -d` never builds it. First time
+on a host:
+
+```bash
+# host, from docker/
+COMPOSE_BAKE=false docker compose build g1_world_output
+```
+
+`COMPOSE_BAKE=false` is required on hosts whose Docker has no `buildx`
+(Ubuntu's `docker.io` package). Without the image, compose tries to pull
+`g1-world-output` from Docker Hub, which does not exist, and the check
+never starts.
 
 **The G1's network interface.** The Unitree SDK builds its own CycloneDDS
 config and ignores `CYCLONEDDS_URI`, so this parameter is the only thing that
@@ -87,12 +102,102 @@ interface`, which is the intended failure: it never quietly binds Wi-Fi. The
 robot's address and subnet are in
 [spec/hardware_spec.md](spec/hardware_spec.md).
 
-**One NIC, G1 and both hands.** A switch on a single host Ethernet port is
-enough. Match the G1: the robot is fixed at `192.168.123.161` on
-`192.168.123.0/24`, and the hands' static IPs are what you change.
-Discovery is a UDP broadcast, so a hand left on `192.168.1.0/24` with the
-host only on `192.168.123.0/24` is invisible. Do not try to move the G1
-onto the hands' old subnet. Do not give the host `.161`.
+<details>
+
+<summary>Finding the USB Ethernet adapter and setting the host IP</summary>
+
+The G1 is a local Ethernet peer, not an internet host. It answers at
+`192.168.123.161` on `192.168.123.0/24`. The host needs a **different**
+address on that subnet, on the NIC the Unitree cable is actually plugged
+into. Per-host adapter names: [hardware_spec.md](spec/hardware_spec.md).
+
+**Find the adapter.** Linux names USB Ethernet dongles `enx` plus the MAC
+with the colons stripped (`00:e0:4c:3a:03:98` → `enx00e04c3a0398`).
+Onboard copper is `eno1` / `enp…`; Wi-Fi is `wl…`. Pin the dongle, never
+Wi-Fi.
+
+```bash
+# host: every NIC, its state, and its MAC
+ip -br link
+ip link
+```
+
+The robot's dongle is the `enx*` row that is `UP` with `LOWER_UP` (carrier:
+cable in, robot powered). `ip -br addr | grep 192.168.123.` is the check
+*after* the host has an IPv4. An empty grep while that `enx*` is UP means
+the address is missing, not that the cable is unplugged; `ip link` with no
+`enx*` at all means the adapter is unplugged.
+
+Write that `enx…` name into `g1_robot.yaml` `network_interface`. The G1
+container bind-mounts the file, so no image rebuild.
+
+**Set the host IP.** The robot owns `.161`. Any other unused address on
+`/24` works. `192.168.123.222` is not a random pick: it is Unitree's usual
+example PC address, and this host already had a NetworkManager profile
+named `G1` at that address (previously bound to onboard `eno1`). Reuse it.
+Do not assign `.161` to the host — that collides with the robot.
+
+```bash
+# host: which NM profile owns the USB dongle, and which IPv4 it claims
+nmcli -f NAME,DEVICE connection show --active
+nmcli connection show '<profile>' | grep -E 'connection.interface-name|ipv4.addresses'
+
+# durable: put 192.168.123.222/24 on the dongle you just found
+sudo nmcli connection modify '<profile>' \
+    connection.interface-name '<enx…>' \
+    ipv4.method manual ipv4.addresses 192.168.123.222/24 ipv4.gateway ""
+sudo nmcli connection up '<profile>'
+
+# one-shot, until reboot / NM overwrites it
+sudo ip addr add 192.168.123.222/24 dev '<enx…>'
+```
+
+Confirm before section 2:
+
+```bash
+# host
+ip -br addr | grep 192.168.123.     # host .222 on the enx… dongle, not .161
+ping -c 1 192.168.123.161           # robot
+```
+
+</details>
+
+<details>
+
+<summary>The hand serial numbers</summary>
+
+`wujihand_ik.yaml` is gitignored and seeded from its template on first
+container start, with placeholders. Left as `YOUR_LEFT_HAND_SERIAL` the
+driver scans, finds no hand with that serial, and gives up after ten
+attempts. Record the serials here before moving IPs: the one-NIC steps
+name each hand with `--serial`.
+
+```bash
+# teleop container: what is on the hands' subnet right now
+python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
+```
+
+Write the two serials into `left_hand.serial_number` and
+`right_hand.serial_number` in
+`src/output_devices/wujihand_output/config/wujihand_ik.yaml`, then
+`colcon build --symlink-install --packages-select wujihand_output` so the
+launch files read the new values. Leaving a serial empty makes the driver take
+the first Hand 2 that answers, which is only safe with one hand connected: with
+both, each node refuses the hand whose reported handedness does not match its
+side.
+
+</details>
+
+<details>
+
+<summary>One NIC, G1 and both hands</summary>
+
+A switch on a single host Ethernet port is enough. Match the G1: the robot
+is fixed at `192.168.123.161` on `192.168.123.0/24`, and the hands' static
+IPs are what you change. Discovery is a UDP broadcast, so a hand left on
+`192.168.1.0/24` with the host only on `192.168.123.0/24` is invisible. Do
+not try to move the G1 onto the hands' old subnet. Do not give the host
+`.161`.
 
 | device | address |
 |---|---|
@@ -104,8 +209,8 @@ onto the hands' old subnet. Do not give the host `.161`.
 Give the host `192.168.123.222/24` on that NIC if it is not there already.
 Before `--execute`, the host must already have an address on **both** the
 hands' current subnet and `192.168.123.0/24`, or the hand reboots onto an
-address you cannot scan. A bad move needs a factory reset. Dry-run first; name the
-hand with `--serial` when more than one answers.
+address you cannot scan. A bad move needs a factory reset. Dry-run first;
+name the hand with `--serial` when more than one answers.
 
 ```bash
 # host: confirm the G1 address is up, then keep the hands' current subnet
@@ -141,24 +246,7 @@ If `--list` showed a subnet other than `192.168.1.0/24`, add and later
 delete that `/24` on the NIC instead. `192.168.1.100` / `.101` are the
 glove factory addresses; do not park a hand on those two.
 
-**The hand serial numbers.** `wujihand_ik.yaml` is gitignored and seeded from
-its template on first container start, with placeholders. Left as
-`YOUR_LEFT_HAND_SERIAL` the driver scans, finds no hand with that serial, and
-gives up after ten attempts.
-
-```bash
-# teleop container: what is on the hands' subnet right now
-python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
-```
-
-Write the two serials into `left_hand.serial_number` and
-`right_hand.serial_number` in
-`src/output_devices/wujihand_output/config/wujihand_ik.yaml`, then
-`colcon build --symlink-install --packages-select wujihand_output` so the
-launch files read the new values. Leaving a serial empty makes the driver take
-the first Hand 2 that answers, which is only safe with one hand connected: with
-both, each node refuses the hand whose reported handedness does not match its
-side.
+</details>
 
 ## 1. Prepare clips (offline, no hardware)
 
@@ -201,18 +289,21 @@ contact reaction the wrist cannot hold, and no speed will clear it.
 
 ## 2. Check hardware connections
 
-Robot powered, host NIC on the hands' subnet, `cd docker && docker compose
-up -d` done.
+Robot powered, G1 Ethernet up (and the hands' subnet if checking a hand),
+`cd docker && docker compose up -d` done.
 
 ```bash
 # host, repo root
-scripts/replay.sh --check
+scripts/replay.sh --check                                    # G1 + both hands
+scripts/replay.sh --check --hands none                       # G1 only
+scripts/replay.sh --check --arms none --hands left
+scripts/replay.sh --check --arms none --hands right
 ```
 
-Starts the G1 node and the hand drivers with no publisher, waits up to 20 s
-for state from each, prints the rates, and exits 0 when every source
-reported, 1 otherwise. `--arms` and `--hands` narrow what is started and
-checked:
+Starts the selected drivers with no publisher, waits up to 20 s for state
+from each, prints the rates, and exits 0 when every source reported, 1
+otherwise. `--arms none` skips the G1 container; `--hands none` skips the
+hand drivers. Expected lines for a full check:
 
 ```
 /left_arm/joint_states        ~100 Hz    G1 node writing, arms holding measured pose
@@ -248,6 +339,46 @@ scripts/replay.sh clips/safe/<clip> --arms none  --hands left
 scripts/replay.sh clips/safe/<clip> --arms none  --hands right
 ```
 
+<details>
+
+<summary>Copy-paste: one device, each safe clip</summary>
+
+Host, repo root. Fastest safe speed for that clip.
+
+```bash
+# 90_sweep_joints_GT — generated; first hardware clip. 0.2 rad arm ramps.
+scripts/replay.sh clips/safe/90_sweep_joints_GT --arms left  --hands none
+scripts/replay.sh clips/safe/90_sweep_joints_GT --arms right --hands none
+scripts/replay.sh clips/safe/90_sweep_joints_GT --arms none  --hands left
+scripts/replay.sh clips/safe/90_sweep_joints_GT --arms none  --hands right
+
+# 15_val_x-f1_kdl050s_10-1-rgb_front_Ours
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --arms left  --hands none
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --arms right --hands none
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --arms none  --hands left
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --arms none  --hands right
+
+# 15_val_x-f1_kdl050s_10-1-rgb_front_GT — default speed 0.5
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --arms left  --hands none
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --arms right --hands none
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --arms none  --hands left
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --arms none  --hands right
+
+# 05_test_G42xKICVj9U_5-5-rgb_front_GT — only 0.5 is safe; 0.25 is refused
+scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT --arms left  --hands none
+scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT --arms right --hands none
+scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT --arms none  --hands left
+scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT --arms none  --hands right
+
+# 13_val_39FN42e41r0_0-1-rgb_front_Ours — only 0.25 is safe
+scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours --arms left  --hands none
+scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours --arms right --hands none
+scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours --arms none  --hands left
+scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours --arms none  --hands right
+```
+
+</details>
+
 ## 4. Full replay
 
 ```bash
@@ -255,6 +386,36 @@ scripts/replay.sh clips/safe/<clip> --arms none  --hands right
 scripts/replay.sh clips/safe/<clip>                    # --arms both --hands both, fastest safe speed
 scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower -- only if 0.25 is in the clip's safe_speeds
 ```
+
+<details>
+
+<summary>Copy-paste: full replay, each safe clip</summary>
+
+Host, repo root. `--arms both --hands both`. A `--speed` line is listed only when that speed is in the clip's `safe_speeds`.
+
+```bash
+# 90_sweep_joints_GT — safe at 1.0, 0.5, 0.25
+scripts/replay.sh clips/safe/90_sweep_joints_GT
+scripts/replay.sh clips/safe/90_sweep_joints_GT --speed 0.5
+scripts/replay.sh clips/safe/90_sweep_joints_GT --speed 0.25
+
+# 15_val_x-f1_kdl050s_10-1-rgb_front_Ours — safe at 1.0, 0.5, 0.25
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --speed 0.5
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_Ours --speed 0.25
+
+# 15_val_x-f1_kdl050s_10-1-rgb_front_GT — safe at 0.5, 0.25 (default 0.5)
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT
+scripts/replay.sh clips/safe/15_val_x-f1_kdl050s_10-1-rgb_front_GT --speed 0.25
+
+# 05_test_G42xKICVj9U_5-5-rgb_front_GT — only 0.5; do not pass --speed 0.25
+scripts/replay.sh clips/safe/05_test_G42xKICVj9U_5-5-rgb_front_GT
+
+# 13_val_39FN42e41r0_0-1-rgb_front_Ours — only 0.25
+scripts/replay.sh clips/safe/13_val_39FN42e41r0_0-1-rgb_front_Ours
+```
+
+</details>
 
 `--speed` takes one of the clip's `safe_speeds` and nothing else. A speed the
 audit did not pass is refused even when it is slower than the default, because

@@ -248,7 +248,7 @@ if [[ $SIM == 1 && -n ${DISPLAY:-} ]]; then EXEC_CMD+=(-e "DISPLAY=$DISPLAY"); f
 EXEC_CMD+=("$TELEOP_CONTAINER" bash -lc "$INNER")
 
 [[ $SIM == 0 ]] || G1_LAUNCH+=(dry_run:=true)
-G1_CMD=(docker compose -f "$COMPOSE_FILE" run -d --rm --name "$G1_CONTAINER" "$G1_SERVICE" "${G1_LAUNCH[@]}")
+G1_CMD=(docker compose -f "$COMPOSE_FILE" run -d --rm --pull never --name "$G1_CONTAINER" "$G1_SERVICE" "${G1_LAUNCH[@]}")
 
 if [[ $PRINT_PLAN == 1 ]]; then
     if [[ $HOME_MODE == 1 ]]; then
@@ -327,6 +327,9 @@ if [[ $ARMS != none ]]; then
         *)  # a stopped leftover (a run without --rm); its name would block ours
             docker rm -f "$G1_CONTAINER" >/dev/null ;;
     esac
+    docker image inspect g1-world-output:latest >/dev/null 2>&1 \
+        || die "image g1-world-output:latest is missing; build it once with:" \
+               "cd docker && COMPOSE_BAKE=false docker compose build g1_world_output"
     echo "replay.sh: starting $G1_CONTAINER: ${G1_LAUNCH[*]}" >&2
     G1_ID="$("${G1_CMD[@]}")"
     G1_STARTED=1
