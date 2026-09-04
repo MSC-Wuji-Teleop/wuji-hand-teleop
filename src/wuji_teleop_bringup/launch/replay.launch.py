@@ -4,11 +4,12 @@ What starts, per flag combination (docs/spec/spec1.md "Launch and the single ter
 
     default              hand.launch.py side:=<hands> (starport_wuji_hand, one hand_node per side)
                          + replay_publisher --clip <clip> --arms <arms> --hands <hands> [--speed S]
+                         (publisher waits for those drivers, then approaches frame 0)
     hands:=none          no hand driver; the publisher writes no hand topic
     check:=true          replay_check --arms <arms> --hands <hands> in place of the publisher
-    sim:=true            no hand driver; mujoco_visualizer.py on g1_29_wuji2_fixed.xml next to the
-                         publisher (the viewer mirrors the G1 node's arm commands and the publisher's
-                         hand commands)
+    sim:=true            no hand driver; publisher --ready-timeout 0; mujoco_visualizer.py
+                         on g1_29_wuji2_fixed.xml next to the publisher (the viewer
+                         mirrors the G1 node's arm commands and the publisher's hand commands)
 
 The G1 node is never in this file: g1_world_output runs in its own container (CLAUDE.md), so
 scripts/replay.sh on the host starts it before this launch and stops it after. The two-terminal
@@ -101,13 +102,17 @@ def hand_drivers(hands: str) -> IncludeLaunchDescription:
     )
 
 
-def publisher(clip: str, arms: str, hands: str, speed: str) -> Node:
+def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool) -> Node:
     """replay_publisher on the clip; its exit ends the launch."""
     # Absolute, so the path in the log and in the publisher's refusal message is unambiguous
     # whatever cwd the node process ends up with.
     arguments = ["--clip", os.path.abspath(clip), "--arms", arms, "--hands", hands]
     if speed:
         arguments += ["--speed", speed]
+    # sim starts no hand drivers and may have no G1 state yet; waiting on
+    # /{side}/wuji_hand/connected would hang until --ready-timeout.
+    if sim:
+        arguments += ["--ready-timeout", "0"]
     return Node(
         package=REPLAY_PACKAGE,
         executable=PUBLISHER_EXECUTABLE,
@@ -166,7 +171,7 @@ def replay_actions(context: LaunchContext) -> list:
     if check:
         actions.append(connection_check(arms, hands))
     else:
-        actions.append(publisher(clip, arms, hands, speed))
+        actions.append(publisher(clip, arms, hands, speed, sim))
     if sim:
         actions.append(viewer())
     return actions

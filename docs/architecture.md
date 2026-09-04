@@ -272,15 +272,16 @@ directory ([spec/spec1.md](spec/spec1.md#clip-directory)):
   speed, and files the clip under `clips/safe/` or `clips/rejected/` with
   every audit number in `clip.json`. The bundle's precomputed hand joints
   target the legacy hand model and are never used.
-- **Online**, `replay_publisher`: reads a safe clip and publishes named
-  `JointState` targets on one timer at `rate_hz * speed`, arms to
+- **Online**, `replay_publisher`: reads a safe clip, waits for the selected
+  consumers, approaches frame 0 from the measured pose, then publishes named
+  `JointState` targets at 100 Hz (clip frames interpolated), arms to
   `g1_world_output` and hand joints straight to the two `starport_wuji_hand`
   drivers. The hand controller is not on this path. Nothing else runs.
 
 ```mermaid
 graph LR
     CLIP[("clips/safe/&lt;clip&gt;/<br/>arm_q.npz, hand_q20.npz, clip.json")]
-    PUB["replay_publisher<br/>one timer, plays once, holds"]
+    PUB["replay_publisher<br/>100 Hz, wait + approach + lerp"]
     G1O["g1_world_output<br/>mode=joint_replay, arm_type=G1_29<br/>(own container)"]
     HN["hand_node x2<br/>(starport_wuji_hand, Ethernet)"]
     VIZ["mujoco_visualizer.py<br/>(sim only)"]

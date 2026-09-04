@@ -40,11 +40,11 @@ essentially zero contact force, and passes at all three speeds.
 
 Two things to expect. The 0.2 rad amplitude cap is on the **arm** joints; the
 hands start the clip already curled, with the middle, ring and pinky PIP joints
-near 1.4 rad, so the first hand command is about 1.4 rad from the pose the
-driver homes to and the fingers close over roughly 0.7 s at the driver's slew
-limit. And only the thumbs move after that, deliberately: whole-hand motion on
-this donor pose presses adjacent fingers into each other, which the generator's
-docstring explains. Regenerating it:
+near 1.4 rad. The publisher approaches that pose from the measured (homed)
+joints over 2 s with a min-jerk ramp before clip time starts, so the first
+command is no longer a 1.4 rad step. And only the thumbs move after that,
+deliberately: whole-hand motion on this donor pose presses adjacent fingers
+into each other, which the generator's docstring explains. Regenerating it:
 [SOURCE.md](../clips/safe/90_sweep_joints_GT/SOURCE.md).
 
 The sign-language clips are a different proposition. Of the bundle's 30
@@ -178,9 +178,13 @@ driver homes its hand to the zero pose over 3 s on connect.
 
 ## 3. Single-device replays
 
-One command, four scopes. Each plays the clip once on one device and holds
-the last frame. Nothing else is started: with `--arms none` the G1
-container does not run, with `--hands none` no hand driver runs.
+One command, four scopes. The publisher waits until the selected devices
+have reported state (so one terminal is enough: drivers can still be
+scanning and homing when launch starts), approaches frame 0 from the
+measured pose over 2 s, then plays the clip once at 100 Hz with
+interpolated frames and holds the last. Nothing else is started: with
+`--arms none` the G1 container does not run, with `--hands none` no hand
+driver runs.
 
 ```bash
 # host, repo root

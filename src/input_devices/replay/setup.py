@@ -19,11 +19,7 @@ setup(
     maintainer='Nathan Jew',
     maintainer_email='nathan.jew@berkeley.edu',
     description=(
-        'Plays a prepared clip directory (clips/safe/<clip>/, written by tools/prepare_clip.py) '
-        'on one timer: named arm joint targets to g1_world_output in joint_replay mode and named '
-        'hand joints to the starport_wuji_hand drivers, once, then holds the last frame. Also the '
-        'connection check that waits for state from those nodes before a run, and the '
-        'one-shot arm pose capture the rehome command reads (docs/spec/spec1_1.md).'
+        'Plays a prepared clip directory (clips/safe/<clip>/, written by tools/prepare_clip.py, or clips/home/<clip>/, written by tools/make_home_clip.py): waits for consumers, approaches frame 0, then named arm joint targets to g1_world_output in joint_replay mode and named hand joints to the starport_wuji_hand drivers at 100 Hz, once, then holds the last frame. Also the connection check that waits for state from those nodes before a run, and the one-shot arm pose capture the rehome command reads (docs/spec/spec1_1.md).'
     ),
     license='MIT',
     tests_require=['pytest'],
