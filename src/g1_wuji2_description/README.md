@@ -3,8 +3,9 @@
 Composed Unitree G1 + dual Wuji Hand 2 models, in both G1 DoF variants.
 Self-contained: every referenced mesh lives under `meshes/`.
 
-Which variant the rig ends up as is unsettled, possibly both, so both are
-carried here. See [hardware_spec.md](../../docs/spec/hardware_spec.md).
+The rig is the 29-DoF G1 (resolved 2026-08-27); the 23-DoF variant is a
+supported secondary target, so both are carried here. See
+[hardware_spec.md](../../docs/spec/hardware_spec.md).
 
 | File | Variant | What |
 |---|---|---|
@@ -39,9 +40,11 @@ Facts:
   axis) and a cropped mesh. The Wuji hand mounts at the ICP-located palm
   flange, wrist_roll + [0.1220, +-0.003, 0]. The 29-DoF model mounts on
   `wrist_yaw_link` instead.
-- The wrist-to-hand transform is provisional in both variants: the physical
-  G1-to-Hand2 adapter is not designed yet (zero plate thickness). The models
-  regenerate when the adapter CAD exists.
+- The wrist-to-hand transform carries the physical G1-to-Hand2 adapter as a
+  pure transform with zero plate thickness. The adapter is built and in
+  service, and its orientation (R_y(-90 deg), clock 0) is confirmed against the
+  rig; its stack height along wrist +x is not measured. See
+  [hardware_spec.md](../../docs/spec/hardware_spec.md#mounting-adapter).
 - Generated files. Do not hand-edit; regenerate from the composition build
   scripts.
 

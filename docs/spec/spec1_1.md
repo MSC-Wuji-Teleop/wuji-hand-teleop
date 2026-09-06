@@ -1,6 +1,8 @@
 # Spec 1.1: operator-initiated rehome
 
-**Status:** built 2026-09-03, not run on the rig. The audit matrix that decides
+**Status:** built 2026-09-03, still not run on the rig. It is the one part of
+the replay stack that has not: everything in [replay.md](../replay.md) except
+this was validated on hardware 2026-09-05. The audit matrix that decides
 the home pose has run: [home-audit-matrix-2026-09-03.md](../issues/home-audit-matrix-2026-09-03.md).
 Extends
 [spec1.md](spec1.md), which is unchanged: the replay path stays exactly as it
@@ -219,4 +221,4 @@ agrees with the model, which nothing offline can settle.
 | `scripts/replay.sh --home` | written; 25 tests through `--print-plan`, no Docker | run on the rig |
 | the audit matrix | run: 16 rows, home pose confirmed, retract waypoint measured and dropped | none |
 | the whole path in sim | not run: needs Docker | `scripts/replay.sh --home --sim --from clip:...@last` |
-| anything on the rig | not run | |
+| anything on the rig | not run | the rest of the replay stack was validated on hardware 2026-09-05; this command was not part of it |

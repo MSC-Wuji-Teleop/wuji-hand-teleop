@@ -95,20 +95,39 @@ wrist pitch/yaw) are real joints. On a 23-DoF robot they are absent, and
 | Property | Value |
 |---|---|
 | Model | Wuji Hand 2, 20 actuated DoF per hand |
-| Connection | **Ethernet** (decided 2026-09-02): each hand has a static IP on its own subnet, is discovered by UDP broadcast, and is selected by serial number; driver `starport_wuji_hand` over `wuji_sdk` ([spec1.md](spec1.md)). The tree still runs the USB driver (`wujihandros2`, VID:PID `0483:2000`) until the swap lands. IPs, subnet, and firmware versions: unrecorded |
+| Connection | **Ethernet** (decided 2026-09-02): each hand has a static IP on its own subnet, is discovered by UDP broadcast, and is selected by serial number; driver `starport_wuji_hand` over `wuji_sdk` ([spec1.md](spec1.md)). This is the driver the replay path uses, and the one that has run on the rig |
+| USB driver, still in the tree | The teleop launches (`wuji_teleop_hand.launch.py`, `pico_teleop.launch.py`) still spawn `wujihand_driver` from the `wujihandros2` submodule (VID:PID `0483:2000`), and the Dockerfile still installs `wujihandcpp` for it. Only the replay path has moved to Ethernet; the teleop path has not |
 | Serial numbers, IPs, revision (Beta 1 or Beta 2), firmware | unrecorded; fill from the rig |
 
-### Mounting adapter: does not exist yet
+### Mounting adapter
 
-Measured 2026-08-22: the vendor's `unitree-g1-docking-adapter.stl` is a **Wuji
-Hand v1 part and does not fit Hand 2**. A Hand 2 adapter redesign is pending;
-printing is on hold. Until the CAD lands, `g1_wuji2_description` uses a
-provisional mount: hand at the ICP-located palm flange on the wrist-roll link
-(the 23's terminal arm link), wrist_roll + [0.1220, +-0.003, 0], zero plate
-thickness. The flange is per variant: the terminal arm link is `wrist_roll` on
-the 23-DoF arm and `wrist_yaw_link` on the 29-DoF arm (earlier mount there:
-x = 0.0415 m). A composed model for either variant needs its own mount
-transform.
+**Built and in service.** A Hand 2 adapter exists for this rig, is bolted to
+both wrists, and every hardware replay listed in [replay.md](../replay.md) ran
+through it. It supersedes the vendor's `unitree-g1-docking-adapter.stl`, which
+was measured on 2026-08-22 as a Wuji Hand v1 part that does not fit Hand 2.
+
+Its CAD is not in this repo. What is in the repo is the transform the composed
+models use for it, matching between MJCF and URDF in each variant:
+
+| | 29-DoF (this rig) | 23-DoF (secondary) |
+|---|---|---|
+| parent link | `{side}_wrist_yaw_link` | `{side}_wrist_roll_rubber_hand` |
+| offset | `[0.0415, 0, 0]` m | `[0.1220, +-0.003, 0]` m, ICP-located |
+| rotation | R_y(-90 deg), clock 0 | R_y(-90 deg), clock 0 |
+
+**Only the 29-DoF column is confirmed against hardware**, that being the rig:
+clock 0 is correct there, and the hands sit the way the model says they do. The
+23-DoF numbers are the derived ones and have never been on a robot.
+
+`meshes/wuji/{left,right}/{l,r}_mount.STL` in `g1_wuji2_description` is the
+**vendor Hand 2 mount** that ships inside the `*_with_mount` models (0.069 kg,
+41.84 mm tall), not this adapter.
+
+**One constant is still unmeasured: the plate's own thickness along wrist +x**,
+modelled as zero. If the physical adapter has stack height, the model's hands
+sit that much closer to the wrist than the rig's, and every contact distance in
+a clip audit is short by the same amount. The plate's mass is not modelled
+either, which is the smaller error of the two.
 
 ### Input devices
 

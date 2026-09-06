@@ -80,7 +80,9 @@ scripts/replay.sh clips/safe/<clip>            # the rig
 ```
 
 Runbook: [docs/replay.md](docs/replay.md); design: [spec1.md](docs/spec/spec1.md).
-The online half has not yet run in the container or on the rig.
+**Validated on the rig 2026-09-05:** the connection check, every safe clip one
+arm and one hand at a time, and the full both-arms both-hands replay. The
+rehome (`scripts/replay.sh --home`) is the one part that has not run there.
 
 ---
 
@@ -145,11 +147,11 @@ repo and a pull never conflicts with local values.
 Finding the serials:
 
 ```bash
-# Wuji Hands, Ethernet driver: scan the hands' subnet; prints serial, IP, side.
-# (path valid once starport_wuji_hand is vendored into src/)
+# Wuji Hands, Ethernet driver (the replay path): scan the hands' subnet;
+# prints serial, IP, side.
 python3 src/starport_wuji_hand/scripts/set_hand_ip.py --list
 
-# Wuji Hands, USB driver (current tree)
+# Wuji Hands, USB driver (still what the teleop launches use)
 lsusb -v -d 0483:2000 | grep iSerial
 
 # Wuji Gloves — printed on the device, and shown in Wuji Studio
@@ -288,9 +290,10 @@ Hand output contract, ~120 Hz:
 **Invariants**
 
 - The hand controller never opens the hand link. Only the separate hand
-  driver process does: `starport_wuji_hand` `hand_node` over Ethernet
-  ([docs/spec/spec1.md](docs/spec/spec1.md)); the USB `wujihand_driver`
-  until the swap lands.
+  driver process does. The replay path uses `starport_wuji_hand` `hand_node`
+  over Ethernet ([docs/spec/spec1.md](docs/spec/spec1.md)), which is what has
+  run on the rig; the teleop launches (Flows 1 and 2) still spawn the USB
+  `wujihand_driver`.
 - No launch file in the `teleop` container can start the G1 arms.
 - `src/input_devices/pico_input/vendor/` is pinned upstream code under its own
   licenses. Do not modify it as first-party.
@@ -331,12 +334,16 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
 - **EE frames** `L_ee` / `R_ee` sit on the wrist-roll links with a +0.20 m
   forward offset (an xr_teleoperate convention), which shifts the achieved palm
   pose by a constant wrist-frame vector.
-- **Hand 2 mounting adapter does not exist yet.** The vendor STL is a Hand v1
-  part. `g1_wuji2_description` uses a provisional flange.
-- **Hardware replay is unverified from this branch.** `arm_type:=G1_29` drives
-  DDS through `G1ArmController` and pose-mode IK stays `G1_23`-only; the clip
-  replay graph (publisher, G1 node, Ethernet hand drivers) has not been run in
-  the container or on the rig.
+- **The mount plate's thickness is not modelled.** The Hand 2 adapter is built
+  and bolted on, and its orientation is confirmed against the rig, but the
+  models carry it as a zero-thickness transform. Every contact distance in a
+  clip audit is short by whatever stack height the physical plate adds.
+  [hardware_spec.md](docs/spec/hardware_spec.md#mounting-adapter).
+- **The rehome has not run on the rig.** Everything else on the replay path
+  has. `scripts/replay.sh --home` is built and tested offline only.
+- **Pose-mode IK is still `G1_23`-only.** `arm_type:=G1_29` drives DDS through
+  `G1ArmController` and is what the validated replay path uses, but the
+  target-pose path (Flow 2) has no G1_29 IK.
 - **Monitor cannot start the G1**, and the **joint panel still shows 7 arm
   columns** (Tianji's DoF count; the G1_23 has 5 per side).
 

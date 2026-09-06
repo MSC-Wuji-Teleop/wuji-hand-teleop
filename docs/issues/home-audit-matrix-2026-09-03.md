@@ -84,9 +84,11 @@ behaviour, not a gap.
 ## What this does not establish
 
 The audit's own limits, unchanged from spec1: fixed base, our gains, no harness
-or tether, no knowledge of real contact stiffness or of the unconfirmed Hand 2
-mount adapter. The two hand poses are stand-ins, not measurements, and the hands
-are limp during a real rehome rather than actuated as modelled. The synthetic
+or tether, no knowledge of real contact stiffness, and a Hand 2 mount plate
+modelled at zero thickness
+([hardware_spec.md](../spec/hardware_spec.md#mounting-adapter)). The two hand
+poses are stand-ins, not measurements, and the hands are limp during a real
+rehome rather than actuated as modelled. The synthetic
 folded pose is one pose, chosen to be bad; it says what happens from a start
 already in hard contact, not how likely that start is.
 

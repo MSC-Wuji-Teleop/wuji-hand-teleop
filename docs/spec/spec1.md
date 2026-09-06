@@ -1,9 +1,11 @@
 # Spec 1: clip replay on the G1 and two Wuji Hand 2
 
-**Status:** built 2026-09-02, verified 2026-09-03. The offline half has run on
-the whole bundle in the container (30 trajectories: 4 safe, 23 rejected, 3
-refused) and the online half has run in sim end to end. Nothing has run on the
-rig. Per-piece state: [build status](#build-status); what the runs showed:
+**Status:** built 2026-09-02, verified in sim 2026-09-03, **validated on the
+rig 2026-09-05**. The offline half has run on the whole bundle in the container
+(30 trajectories: 4 safe, 23 rejected, 3 refused). The online half has run in
+sim end to end and then on the hardware: the connection check, every safe clip
+one arm and one hand at a time, and the full both-arms both-hands replay.
+Per-piece state: [build status](#build-status); what the runs showed:
 [the handoff note](../issues/replay-handoff-2026-09-02.md#verified-2026-09-03).
 Operator commands: [replay.md](../replay.md).
 
@@ -185,9 +187,11 @@ shell may do is not something the simulation knows.
 
 **Where the audit is honest and where it is not.** It uses our gains, our
 model with the wrist contact-exclude, and actuated Hand 2 units. It does not
-know real contact stiffness, the hand mount adapter's strength (still an
-unconfirmed part), harness snags, or the G1 firmware's behaviour at a torque
-clamp. Read `peak_contact_pair` as much as the number.
+know real contact stiffness, the mount plate's thickness (modelled as zero, so
+every contact distance is short by whatever the physical plate adds:
+[hardware_spec.md](hardware_spec.md#mounting-adapter)), harness snags, or the
+G1 firmware's behaviour at a torque clamp. Read `peak_contact_pair` as much as
+the number.
 
 **If every clip is rejected.** Expected for some of the 30: on the corrected
 model, 29 of 30 penetrate deeper than 10 mm somewhere when the hands are
@@ -322,24 +326,25 @@ never sets it.
 
 ## Build status
 
-Verified 2026-09-03 in the teleop container unless a row says otherwise.
+Verified 2026-09-03 in the teleop container. Rows that say "on the rig" were
+validated there on 2026-09-05; the rest are container-only.
 
 | piece | state | remaining |
 |---|---|---|
 | `tools/prepare_clip.py`, `tools/clip_audit.py` | run on the whole bundle: 30 trajectories in 6 min, `clips/summary.md` written; 69 tests | none |
 | `scipy` in the teleop image | present (`scipy==1.14.1`, Dockerfile section 5) | none |
 | `clips/`, `tools/` mounts | built and in use | none |
-| `replay_publisher`, `replay_check` | both run; publisher waits for consumers, approaches frame 0, interpolates at 100 Hz and holds the last frame; check exits 1 naming its missing sources | run the check against real hardware |
+| `replay_publisher`, `replay_check` | both run; publisher waits for consumers, approaches frame 0, interpolates at 100 Hz and holds the last frame; check exits 1 naming its missing sources; both run on the rig | none |
 | `g1_world_output` `joint_replay` | measured on the live graph: 250 Hz command stream advancing 1/20 of a frame step per tick at `--speed 0.25`; 29 tests | none |
-| `starport_wuji_hand` driver | `wuji_sdk` import check passes on the 2026.8.31 pin; `colcon build` and 268 tests pass; shutdown no longer raises on SIGINT | run against a hand |
+| `starport_wuji_hand` driver | `wuji_sdk` import check passes on the 2026.8.31 pin; `colcon build` and 268 tests pass; shutdown no longer raises on SIGINT; run against both hands on the rig | none |
 | Humble `launch_ros` and `list[float]` | accepted: `is_typing_list` checks `__origin__ in (list, List)` | none |
-| `replay.launch.py`, `scripts/replay.sh` | one host command brings up the G1 container, the publisher and the viewer, and stops the G1 container on exit; 20 tests | run on the rig |
+| `replay.launch.py`, `scripts/replay.sh` | one host command brings up the G1 container, the publisher and the viewer, and stops the G1 container on exit; 20 tests; run on the rig for every safe clip | `--home` is still unrun ([spec1_1.md](spec1_1.md)) |
 | model fix | cherry-picked (`2a76a4f`) | none |
 | G1 image CRC libraries | present after a `--no-cache` rebuild (`utils/lib/crc_{amd64,aarch64}.so`) | none |
-| G1 DDS NIC pin | `g1_robot.yaml` `network_interface` is read and reaches `ChannelFactoryInitialize`; verified live (the node names the NIC and refuses to start when it is absent) | confirm the adapter's name on the rig |
+| G1 DDS NIC pin | `g1_robot.yaml` `network_interface` is read and reaches `ChannelFactoryInitialize`; verified live (the node names the NIC and refuses to start when it is absent); both rig NIC names recorded in [hardware_spec.md](hardware_spec.md) | none |
 | build context | `.dockerignore` added; the context was 2.9 GB and is now a few hundred MB | none |
 | `wuji-sdk` pin | `docker/Dockerfile` moved to 2026.8.31 (2026.5.26 has neither `DeviceType` nor `JointCommand`) and the image is rebuilt: the SDK is on the system path, not a `pip --user` install | none |
-| `wujihandros2` (USB driver) | present; teleop launches still use it | remove the submodule and the `wujihandcpp` deb once the Ethernet driver runs on the rig |
+| `wujihandros2` (USB driver) | present; teleop launches still use it | the Ethernet driver has now run on the rig, so the submodule and the `wujihandcpp` deb can go; the teleop launches move with them |
 | `wujihand_controller` | built, teleop only | none |
 | `mujoco_visualizer.py` | mirrors the driver command topics by name and the controller's positional ones; verified live on both forms | none |
 | `--check` in sim | cannot pass: with `dry_run` the G1 controller has no `arm_ctrl`, so `/{side}_arm/joint_states` is never published | hardware-only command, by nature |

@@ -76,6 +76,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   device nodes: [docs/usage.md](docs/usage.md#hardware-replay),
   [docs/architecture.md](docs/architecture.md#sot-bundle-replay).
   hardware_spec.md records the 29-DoF variant decision (2026-08-27).
+- **Clip replay validated on the rig (2026-09-05).** `scripts/replay.sh --check`,
+  every clip in `clips/safe/` played one arm and one hand at a time, and the
+  full both-arms both-hands replay all ran on the hardware. The rehome
+  (`scripts/replay.sh --home`) is the one command on that path that has not.
+  Docs that carried "nothing has run on the rig" are updated:
+  [docs/replay.md](docs/replay.md), [docs/spec/spec1.md](docs/spec/spec1.md),
+  [docs/spec/spec1_1.md](docs/spec/spec1_1.md).
+- **The Hand 2 mount adapter is built and in service.** It supersedes the
+  vendor `unitree-g1-docking-adapter.stl`, which is a Hand v1 part. The
+  composed models carry it as a pure transform on `{side}_wrist_yaw_link`,
+  `[0.0415, 0, 0]` with R_y(-90 deg) and clock 0, confirmed against the rig.
+  The plate's own thickness along wrist +x is still modelled as zero, so clip
+  audit contact distances are short by whatever stack height it adds:
+  [docs/spec/hardware_spec.md](docs/spec/hardware_spec.md#mounting-adapter).
 
 ## [2026.6.13]
 

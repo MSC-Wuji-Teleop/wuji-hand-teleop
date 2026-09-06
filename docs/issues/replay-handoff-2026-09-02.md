@@ -6,7 +6,12 @@ Where the spec1 build stands. Design and clip format:
 **Updated 2026-09-03.** Every piece is now written and the whole offline and sim
 path has been run end to end on the real bundle. What is verified, and the three
 findings that change what an operator should expect, are in
-[Verified 2026-09-03](#verified-2026-09-03). Nothing has run on the rig.
+[Verified 2026-09-03](#verified-2026-09-03).
+
+**Superseded 2026-09-05.** The replay path has since run on the rig, `--home`
+excepted. This note is kept as the record of where the build stood on
+2026-09-03; current status is in [spec1.md](../spec/spec1.md) and
+[replay.md](../replay.md).
 
 ## Committed
 

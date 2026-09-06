@@ -2,8 +2,9 @@
 
 Exact commands for preparing and playing clips on the rig. Design, clip
 format, and build status: [spec/spec1.md](spec/spec1.md). Everything below is
-built, and everything except the hardware sections has been run: the offline
-half on the whole bundle, the online half in sim. Nothing has run on the rig.
+built and has run on the rig, except `--home`: the offline half on the whole
+bundle, the connection check, every safe clip one arm and one hand at a time,
+and the full both-arms both-hands replay (2026-09-05).
 On a host that has not run this before, start at
 [Per-machine setup](#0-per-machine-setup-once-per-host); otherwise start at
 [Which clip to run first](#which-clip-to-run-first).
@@ -392,16 +393,26 @@ scripts/replay.sh clips/safe/<clip> --speed 0.25       # slower -- only if 0.25 
 audit did not pass is refused even when it is slower than the default, because
 slower is not reliably safer here (see [Flags](#flags)).
 
-Ctrl-C stops the publisher and the hand drivers, then the G1 container. The
-G1 node releases the `arm_sdk` weight on shutdown, so the onboard controller
-takes the arms back. The hands go limp after the driver's idle timeout (5 s
-without commands).
+Ctrl-C stops the publisher and the hand drivers, then the G1 container. Each
+hand driver disables its hand as it tears down, so the hands go limp at once.
+The G1 node ramps the `arm_sdk` weight 1 to 0 over about 1 s, still commanding
+the last frame while it blends, and the onboard controller then owns the arms.
+Where the arms settle after that is the firmware's behaviour, not ours: nothing
+here commands them downward.
 
 ## 5. Rehome the arms
 
 Brings the arms slowly to a known pose. Use it when a clip has ended with the
 arms somewhere awkward, when you stopped one mid-clip, or before powering down.
 Design: [spec/spec1_1.md](spec/spec1_1.md).
+
+**This is the one section that has not run on the rig.** Everything else here
+has. It is also not the only way the arms come to rest: an ordinary Ctrl-C
+hands them back to the onboard controller (section 4), and on this rig the arms
+have been observed coming down to the sides on their own after that. The
+difference is that the hand-back trajectory is the firmware's and is not
+audited, while `--home` is a motion we choose, audit in MuJoCo, and refuse if
+the numbers are bad.
 
 ```bash
 # host, repo root. The G1 container must not already be running.
@@ -457,9 +468,11 @@ main power ([spec/hardware_spec.md](spec/hardware_spec.md)).
   rising to 133 N during the motion. No slower speed or path shape changes that.
   Damp from the remote and move the arms by hand.
 - **The audit behind it models a fixed base, our gains, an assumed hand pose,
-  and no harness.** It does not know real contact stiffness, the unconfirmed
-  Hand 2 mount adapter, or the firmware's behaviour at a torque clamp. Read
-  `peak_contact_pair` as much as the number.
+  and no harness.** It does not know real contact stiffness, the mount plate's
+  own thickness (modelled as zero, see
+  [hardware_spec.md](spec/hardware_spec.md#mounting-adapter)), or the
+  firmware's behaviour at a torque clamp. Read `peak_contact_pair` as much as
+  the number.
 - **It commands the arms for the whole motion.** If the audit was wrong about
   contact, the arms will push, and only the remote stops that.
 - **If the arms are moved by hand between the capture and the play**, frame 0 is
