@@ -1,7 +1,7 @@
 # Spec 1.2: interactive replay session
 
-**Status:** plan, 2026-09-08. Stage 1 (removing the rehome) is done; stages 2
-to 5 are not built. Extends
+**Status:** plan, 2026-09-08. Stages 1 (removing the rehome) and 2
+(decoupling the drivers) are done; stages 3 to 5 are not built. Extends
 [spec1.md](spec1.md), which is unchanged: the graph that plays a clip stays
 exactly as it is, and this spec adds a layer above it. Supersedes `spec1_1.md`,
 which it deletes ([Removing the rehome](#removing-the-rehome)). Operator
@@ -140,17 +140,21 @@ In order:
 
 1. Refuse a bad flag combination before anything starts, the way `replay.sh`
    does.
-2. Unless `--hands none`, start `hand.launch.py` for the selected sides in the
-   teleop container, detached, and wait up to 30 s for
-   `/{side}/wuji_hand/connected`. This is the same 30 s window the publisher's
-   ready wait and `replay_check` already use. A side that does not report is a
+2. Unless `--hands none`, start `hand_drivers.launch.py side:=<hands>` in the
+   teleop container, detached, then wait for the hands with
+   `replay_check --arms none --hands <hands>`. A side that does not report is a
    startup failure: exit non-zero and say which, rather than entering the loop
    half-connected.
-3. Unless `--arms none`, verify the G1 once: start its container, wait for
-   `/{side}_arm/joint_states` on the selected sides, then stop it. This takes
-   and releases the arms once before the first clip, which is what
-   `replay.sh --check` already does, and it means an unreachable robot or a
-   wrong `network_interface` fails at startup rather than on the first clip.
+3. Unless `--arms none`, verify the G1 once: start its container, run
+   `replay_check --arms <arms> --hands none`, then stop the container. This
+   takes and releases the arms once before the first clip, and it means an
+   unreachable robot or a wrong `network_interface` fails at startup rather
+   than on the first clip.
+
+The readiness waits are `replay_check`, not new code in the session.
+It already waits the 30 s the publisher waits, on the same sources, and exits
+0 or 1 naming what did not report. Two of those runs replace a wait loop the
+session would otherwise own.
 4. Enter the clip loop.
 
 `--arms none --hands none` connects nothing and enters the loop with no
@@ -318,7 +322,24 @@ scripts/
     terminal.py                 prompt loop, completer, command registry
   lib/
     g1_container.sh             shared start/stop, sourced by replay.sh
+
+src/wuji_teleop_bringup/launch/
+  replay.launch.py              unchanged: hand drivers + the deciding node
+  hand_drivers.launch.py        hand drivers alone, no Shutdown  (stage 2)
 ```
+
+`hand_drivers.launch.py` is a separate file rather than a `drivers_only` mode
+of `replay.launch.py`. Six of that file's seven arguments mean nothing without
+a publisher, and a mode whose flags are mostly inert is exactly where the
+rehome's `--home --arms left` bug lived. This file takes one argument and
+cannot have that class of bug.
+
+Its serial lookup duplicates `_configured_serials()` in `replay.launch.py`
+rather than sharing it. `test_replay_launch.py` monkeypatches
+`get_package_share_directory` in that module's own namespace, so the lookup
+cannot move out of it without breaking tests that need a container to run. The
+duplicated rule is small (empty or `YOUR_`-prefixed means unset) and both
+copies carry a comment naming the other.
 
 `scripts/` and not a new top-level directory, because the session runs on the
 host, outside every container. That is what distinguishes `scripts/` from the
@@ -510,10 +531,10 @@ working.
    [Deletion list](#deletion-list). The test suites for the deleted pieces go
    with them; `test_replay_sh.py`, `test_replay_launch.py` and `test_clip.py`
    lose their rehome cases and must still pass.
-2. **Decouple the drivers from the publisher.** A hands-only path in
-   `replay.launch.py` (or a second small launch file) that starts the hand
-   drivers with no publisher and no `on_exit=Shutdown()`. Verifiable with
-   `--arms none` and no robot.
+2. **Decouple the drivers from the publisher.** Done 2026-09-08:
+   `hand_drivers.launch.py` plus `test_hand_drivers_launch.py`. Starts the hand
+   drivers for one side and nothing else, with no `on_exit=Shutdown()`
+   anywhere, which the test asserts directly.
 3. **The session.** `scripts/replay_interactive.py`: argument parsing,
    startup, the loop, the prompt, the completer, the command parser, the
    ordered teardown, in the two files of [Layout](#layout). Confirm GNU
