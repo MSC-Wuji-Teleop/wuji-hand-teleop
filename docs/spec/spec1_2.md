@@ -361,16 +361,16 @@ path.
 | the read and dispatch loop, empty line and EOF | startup: hand drivers, then the G1 verification |
 | command registry: name to handler, help text, candidates | session state and the rules in [State rules](#state-rules) |
 | rendering `help` | the clip candidate list it hands to the completer |
-| installing a SIGINT handler that calls a supplied callback | starting and stopping the G1 container and the publisher, and the teardown order |
+| installing the fatal-signal handler, which records the signal and raises | starting and stopping the G1 container and the publisher, and the teardown order |
 
 The reason to split is testability, not reuse. The loop, the completer and the
 dispatch table can be unit-tested with no TTY, no Docker and no robot, which
 is a surface the orchestration half will never have. A second consumer later
 is a bonus and should not shape the interface now.
 
-**The generic layer must not own teardown.** It installs the signal handler
-and calls a callback. The order in [Ctrl-C](#ctrl-c) is safety-relevant and
-stays in `replay_interactive.py`. A reusable terminal that knows how to stop
+**The generic layer must not own teardown.** It installs the signal handler,
+which records the signal and raises; the stopping is `replay_interactive.py`'s
+`finally`. The order in [Ctrl-C](#ctrl-c) is safety-relevant and stays there. A reusable terminal that knows how to stop
 things would hand the next consumer replay's shutdown semantics by accident.
 
 ## Sharing the container lifecycle with replay.sh
@@ -537,14 +537,13 @@ working.
    drivers for one side and nothing else, with no `on_exit=Shutdown()`
    anywhere, which the test asserts directly.
 3. **The session.** Done 2026-09-08: `scripts/replay_interactive.py`,
-   `scripts/interactive/terminal.py`, and 111 tests under `scripts/tests/`
+   `scripts/interactive/terminal.py`, and the tests under `scripts/tests/`,
    which need no TTY, no Docker and no ROS. `--dry-run` prints every command
-   instead of running it. An adversarial review of this stage found 15 issues,
-   most of them in signal handling and remote process control; what was fixed
-   and what remains open is in
-   [issues/interactive-session-teardown-2026-09-08.md](../issues/interactive-session-teardown-2026-09-08.md),
-   which also carries the case for reusing `replay.sh` per clip instead of the
-   duplicated container lifecycle here.
+   instead of running it. The teardown was then restructured after review:
+   the signal handler does no work, one teardown runs in `main()`'s
+   `finally`, and every child runs in its own session. Why, and what it
+   replaced, is in
+   [issues/interactive-session-teardown-2026-09-08.md](../issues/interactive-session-teardown-2026-09-08.md).
 4. **Run it in sim.** `--arms none --hands none` first, then against the
    dry-run G1 node.
 5. **Run it on the rig.** One clip, then several, then the toggles. Time the

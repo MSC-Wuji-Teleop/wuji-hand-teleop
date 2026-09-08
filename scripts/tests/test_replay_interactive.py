@@ -10,6 +10,8 @@ The teardown order is the safety-relevant part (docs/spec/spec1_2.md,
 from __future__ import annotations
 
 import io
+import signal
+import subprocess
 
 import pytest
 
@@ -30,7 +32,7 @@ class Recorder(ri.Session):
         super().__init__(*args, **kwargs)
         self.ran: list[list[str]] = []
 
-    def _call(self, command, *, label):
+    def _call(self, command, *, label, **kwargs):
         self.ran.append(command)
         return 0
 
@@ -49,7 +51,7 @@ def _labels(ran: list[list[str]]) -> list[str]:
     out = []
     for command in ran:
         text = " ".join(command)
-        if "hand_drivers.launch.py" in text and "pkill" in text:
+        if ri.DRIVERS_PATTERN in text:
             out.append("stop drivers")
         elif "hand_drivers.launch.py" in text:
             out.append("start drivers")
@@ -59,7 +61,7 @@ def _labels(ran: list[list[str]]) -> list[str]:
             out.append("start g1")
         elif "docker kill" in text:
             out.append("stop g1")
-        elif "replay_publisher" in text and "pkill" in text:
+        elif ri.PUBLISHER_PATTERN in text:
             out.append("stop publisher")
         elif "replay_publisher" in text:
             out.append("start publisher")
@@ -186,27 +188,37 @@ def test_the_driver_launch_uses_the_connected_side_not_the_live_one():
     assert "side:=both" in " ".join(session.hand_drivers_command())
 
 
-def test_the_publisher_records_its_pid_so_the_stop_is_exact():
-    """`exec` replaces the shell in place, so the PID echoed before it is the
-    PID of the process exec becomes."""
-    inner = _session().publisher_command("x")[-1]
-    assert inner.startswith(f"echo $$ > {ri.PUBLISHER_PID_FILE} && ")
-    assert " && exec ros2 run replay replay_publisher" in inner
-
-
-def test_the_publisher_stop_is_by_pid_with_a_pattern_fallback():
+def test_the_publisher_is_stopped_by_pattern_not_pid():
+    """`ros2 run` forks the node (ros2run/api, Humble) and swallows SIGINT while
+    it waits, so a PID recorded before the exec would name a wrapper the signal
+    never gets past. The pattern reaches wrapper and node alike."""
     stop = _session().publisher_stop_command()[-1]
-    assert f"kill -INT" in stop and ri.PUBLISHER_PID_FILE in stop
-    assert "||" in stop, "the PID file can be missing; there has to be a fallback"
+    assert f"pkill -INT -f '{ri.PUBLISHER_PATTERN}'" in stop
+    assert "$pid" not in stop
+    assert "echo $$" not in _session().publisher_command("x")[-1]
 
 
-def test_the_fallback_pattern_does_not_assume_ros2_run_is_in_the_command_line():
-    """`ros2 run` may exec the node, after which "ros2 run" is gone from the
-    command line and a pattern written against it matches nothing."""
-    stop = _session().publisher_stop_command()[-1]
-    fallback = stop.split("||", 1)[1]
-    assert "ros2 run" not in fallback
-    assert "replay_publisher.*--clip" in fallback
+def test_the_stop_patterns_cannot_match_the_stop_itself():
+    """Each stop runs under `bash -lc` and its own command line carries the
+    pattern text. procps pgrep skips only its own PID, so a plain pattern
+    matches that shell, the loop never sees a clean check, and every stop
+    reports failure after the grace. Checked the way pgrep checks: the
+    pattern as a regex against the stop's own command line."""
+    import re
+
+    session = _session()
+    for pattern in (ri.PUBLISHER_PATTERN, ri.DRIVERS_PATTERN):
+        assert re.search(pattern, pattern) is None, f"{pattern} matches its own text"
+        for command in (session.publisher_stop_command(), session.publisher_kill_command(),
+                        session.drivers_stop_command()):
+            assert re.search(pattern, " ".join(command)) is None, command
+    # And they do match the processes they are for, wrapper and node alike.
+    assert re.search(ri.PUBLISHER_PATTERN,
+                     "python3 /opt/ros/humble/bin/ros2 run replay replay_publisher -- --clip /x")
+    assert re.search(ri.PUBLISHER_PATTERN,
+                     "python3 /home/wuji/ros2_ws/install/replay/lib/replay/replay_publisher --clip /x")
+    assert re.search(ri.DRIVERS_PATTERN,
+                     "python3 /opt/ros/humble/bin/ros2 launch wuji_teleop_bringup hand_drivers.launch.py side:=both")
 
 
 def test_the_publisher_is_stopped_with_int_never_term():
@@ -247,7 +259,7 @@ def test_startup_with_no_arms_never_starts_the_g1():
 
 def test_a_failed_hand_check_stops_before_touching_the_arms():
     session = _recorder()
-    session._call = lambda command, *, label: (session.ran.append(command), 1)[1]
+    session._call = lambda command, *, label, **kwargs: (session.ran.append(command), 1)[1]
     assert session.start() is False
     assert "start g1" not in _labels(session.ran)
 
@@ -257,7 +269,7 @@ def test_a_failed_arm_check_still_releases_the_g1():
     session = _recorder()
     calls = {"n": 0}
 
-    def call(command, *, label):
+    def call(command, *, label, **kwargs):
         session.ran.append(command)
         calls["n"] += 1
         return 1 if "replay_check" in " ".join(command) and "--arms both" in " ".join(command) else 0
@@ -389,7 +401,7 @@ def test_the_arms_are_not_released_until_the_publisher_is_confirmed_stopped():
     session._wait = lambda message: None
     order: list[str] = []
 
-    def call(command, *, label):
+    def call(command, *, label, **kwargs):
         text = " ".join(command)
         if "pgrep" in text:
             order.append("publisher stop returned")
@@ -410,7 +422,7 @@ def test_a_publisher_that_refuses_sigint_is_killed_before_the_arms_release():
     session._wait = lambda message: None
     order: list[str] = []
 
-    def call(command, *, label):
+    def call(command, *, label, **kwargs):
         text = " ".join(command)
         session.ran.append(command)
         if "pgrep" in text:
@@ -436,30 +448,6 @@ def test_the_publisher_stop_verifies_rather_than_assuming():
     assert "exit 1" in stop, "and report failure when the publisher survives"
 
 
-def test_the_pid_kill_does_not_short_circuit_the_pattern_kill():
-    """`ros2 run` may fork rather than exec, making the recorded PID the
-    wrapper and the node a separate process. Short-circuiting on the wrapper's
-    exit status would skip the kill that reaches the node."""
-    stop = _session().publisher_stop_command()[-1]
-    lines = [line.strip() for line in stop.splitlines() if line.strip()]
-    pid_kills = [line for line in lines if line.startswith("kill -INT")]
-    pattern_kills = [line for line in lines if line.startswith("pkill -INT")]
-    assert len(pid_kills) == 1 and len(pattern_kills) == 1
-    # Separate statements. `|| true` inside either one only swallows its own
-    # failure; what must not happen is the pattern kill being the right-hand
-    # side of the PID kill's success.
-    assert "pkill" not in pid_kills[0]
-    assert lines.index(pattern_kills[0]) > lines.index(pid_kills[0])
-
-
-def test_a_recycled_pid_is_not_signalled():
-    """The teleop container is long-lived, so a stale PID can belong to
-    something else entirely by the time the file is read."""
-    stop = _session().publisher_stop_command()[-1]
-    assert "/proc/$pid/cmdline" in stop
-    assert "grep -q replay_publisher" in stop
-
-
 def test_a_publisher_that_died_during_the_hold_is_reported():
     """It waits up to 30 s for consumers and exits 1, which is longer than the
     grace after starting it, so the session can have called it playing."""
@@ -476,7 +464,7 @@ def test_a_publisher_that_died_during_the_hold_is_reported():
         def wait(self, timeout=None):
             return 1
 
-    session._popen = lambda command, *, label: (session.ran.append(command), Dead())[1]
+    session._popen = lambda command, *, label, **kwargs: (session.ran.append(command), Dead())[1]
     session.play("90_sweep_joints_GT")
     assert "had already exited 1" in session.out.getvalue()
 
@@ -524,7 +512,7 @@ def test_a_g1_container_that_fails_to_start_is_not_a_thirty_second_wait(monkeypa
     report; check network_interface", which is a misdiagnosis."""
     session = _recorder()
 
-    def call(command, *, label):
+    def call(command, *, label, **kwargs):
         session.ran.append(command)
         return 1 if "docker compose" in " ".join(command) else 0
 
@@ -543,7 +531,7 @@ def test_a_driver_launch_that_dies_at_once_is_noticed(monkeypatch):
         def poll(self):
             return 2
 
-    session._popen = lambda command, *, label: (session.ran.append(command), Dead())[1]
+    session._popen = lambda command, *, label, **kwargs: (session.ran.append(command), Dead())[1]
     assert session.start() is False
     assert "exited 2" in session.out.getvalue()
     assert "check" not in _labels(session.ran)
@@ -757,3 +745,223 @@ def test_a_refused_preflight_never_reaches_startup(monkeypatch):
         state, dry_run=True, out=io.StringIO(), wait=lambda message: None))
     assert ri.main(["--dry-run"]) == 1
     assert started == []
+
+
+# ---------------------------------------------------------------- how the children run
+
+
+class FakeProcess:
+    """A Popen whose wait() follows a script: each entry is a return code, or an
+    exception instance to raise on that call."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.waits = 0
+        self.killed = False
+        self.returncode = None
+
+    def wait(self, timeout=None):
+        self.waits += 1
+        step = self.script.pop(0) if self.script else 0
+        if isinstance(step, BaseException):
+            raise step
+        self.returncode = step
+        return step
+
+    def poll(self):
+        return self.returncode
+
+    def kill(self):
+        self.killed = True
+
+
+def test_every_child_runs_in_its_own_session(monkeypatch):
+    """The terminal delivers Ctrl-C to its whole foreground process group. A
+    docker exec client in that group dies with it, and the session would then
+    be waiting on nothing and reporting a live publisher as exited."""
+    spawned = []
+
+    class Spy(FakeProcess):
+        def __init__(self, command, **kwargs):
+            super().__init__([0])
+            spawned.append(kwargs)
+
+    monkeypatch.setattr(ri.subprocess, "Popen", Spy)
+    session = _session()
+    session.dry_run = False
+    session._popen(["docker", "exec", "x"], label="popen")
+    session._run(["docker", "wait", "x"], quiet=True)
+    assert len(spawned) == 2
+    for kwargs in spawned:
+        assert kwargs["start_new_session"] is True
+        assert kwargs["stdin"] is subprocess.DEVNULL
+
+
+def test_an_interrupt_during_a_docker_command_is_deferred_until_it_returns():
+    """What bash does with a trap while a foreground command runs. A compose
+    run or a docker wait is never left half done; the interrupt is raised once
+    the command has returned."""
+    process = FakeProcess([KeyboardInterrupt(), 0])
+    with pytest.raises(KeyboardInterrupt):
+        ri.Session._finish(process)
+    assert process.waits == 2, "kept waiting after the interrupt"
+    assert process.killed is False
+
+
+def test_an_interruptible_call_kills_the_client_and_unwinds_now():
+    """The 30 s replay_check: the operator wants out, and the check in the
+    container is a subscriber that exits 1 on its own."""
+    process = FakeProcess([KeyboardInterrupt(), 0])
+    with pytest.raises(KeyboardInterrupt):
+        ri.Session._finish(process, interruptible=True)
+    assert process.killed is True
+
+
+def test_a_wait_that_times_out_kills_the_client_and_returns_none():
+    process = FakeProcess([subprocess.TimeoutExpired("cmd", 1.0), 0])
+    assert ri.Session._finish(process, timeout=1.0) is None
+    assert process.killed is True
+
+
+def test_the_g1_stop_falls_back_to_docker_stop_when_the_wait_times_out():
+    """Same shape as replay.sh's stop_g1: SIGINT, `timeout 10 docker wait`,
+    then `docker stop -t 2`."""
+    session = _recorder()
+    session.dry_run = False
+    runs: list[list[str]] = []
+
+    def run(command, *, timeout=None, quiet=False, interruptible=False):
+        runs.append(command)
+        return None if "wait" in command else 0
+
+    session._run = run
+    session._g1_started = True
+    session._stop_g1()
+    assert _labels(session.ran) == ["stop g1"]
+    assert runs == [["docker", "wait", ri.G1_CONTAINER],
+                    ["docker", "stop", "-t", "2", ri.G1_CONTAINER]]
+    assert session._g1_started is False
+
+
+def test_release_waits_on_the_publisher_client_after_the_stop_returned():
+    """With the client in its own session it exits only when the publisher
+    does, so waiting on it is the wait for the publisher; and it comes after
+    the in-container stop, which is what confirms the process is gone."""
+    session = _recorder()
+    order: list[str] = []
+    process = FakeProcess([0])
+    process.wait = lambda timeout=None: order.append("client closed") or 0
+
+    def call(command, *, label, **kwargs):
+        if ri.PUBLISHER_PATTERN in " ".join(command):
+            order.append("stop returned")
+        session.ran.append(command)
+        return 0
+
+    session._call = call
+    session._publisher_started = True
+    session._publisher = process
+    session._g1_started = True
+    session.release("released")
+    assert order == ["stop returned", "client closed"]
+    assert _labels(session.ran)[-1] == "stop g1"
+
+
+def test_the_drivers_stop_waits_for_the_launch_to_exit():
+    """The launch exits after its nodes have, and a hand node's teardown is what
+    de-energizes the hand. The stop checks with pgrep for up to
+    DRIVERS_STOP_GRACE_S and exits 1 if the launch survives."""
+    stop = _session().drivers_stop_command()[-1]
+    assert f"pkill -INT -f '{ri.DRIVERS_PATTERN}'" in stop
+    assert f"pgrep -f '{ri.DRIVERS_PATTERN}'" in stop
+    assert f"seq {ri.DRIVERS_STOP_GRACE_S * 2}" in stop
+    assert "exit 1" in stop
+
+
+def test_a_driver_launch_that_survives_the_stop_is_reported():
+    session = _recorder()
+    session._drivers_started = True
+    session._call = lambda command, *, label, **kwargs: (
+        1 if ri.DRIVERS_PATTERN in " ".join(command) else 0)
+    session.teardown()
+    assert "did not exit" in session.out.getvalue()
+    assert session._drivers_started is False
+
+
+def test_teardown_output_cannot_abort_the_teardown():
+    """After SIGHUP every write to the terminal raises EIO. The stop commands
+    must run anyway; output is not what a teardown is for."""
+    class Gone(io.StringIO):
+        def write(self, s):
+            raise OSError(5, "Input/output error")
+
+    class Talking(Recorder):
+        def _call(self, command, *, label, **kwargs):
+            self.say(f"  {label}")  # the real _call prints before it runs
+            return super()._call(command, label=label, **kwargs)
+
+    state = ri.State(connected_arms="both", connected_hands="both", arms="both", hands="both")
+    session = Talking(state, dry_run=True, out=Gone(), wait=lambda message: None)
+    session._publisher_started = True
+    session._g1_started = True
+    session._drivers_started = True
+    session.teardown()
+    assert _labels(session.ran) == ["stop publisher", "stop g1", "stop drivers"]
+
+
+def test_quit_only_stops_the_loop():
+    """One teardown path. quit ends the loop and main()'s finally does the
+    stopping, the same as Ctrl-C and Ctrl-D."""
+    session = _recorder()
+    session._drivers_started = True
+    terminal = ri.build_terminal(session)
+    terminal.dispatch("quit")
+    assert terminal._stopped is True
+    assert session.ran == []
+    assert session._torn_down is False
+
+
+def test_main_ignores_fatal_signals_while_tearing_down(monkeypatch):
+    """A second Ctrl-C during the teardown reaches nothing in this process."""
+    seen = {}
+
+    class Fake(ri.Session):
+        def preflight(self):
+            return True
+
+        def start(self):
+            return True
+
+        def teardown(self):
+            seen["sigint"] = signal.getsignal(signal.SIGINT)
+
+    monkeypatch.setattr(ri, "Session", lambda state, *, dry_run, out=None: Fake(
+        state, dry_run=True, out=io.StringIO(), wait=lambda message: None))
+    monkeypatch.setattr(ri.Terminal, "run", lambda self: None)
+    before = signal.getsignal(signal.SIGINT)
+    assert ri.main(["--dry-run"]) == 0
+    assert seen["sigint"] is signal.SIG_IGN
+    assert signal.getsignal(signal.SIGINT) is before, "restored after the teardown"
+
+
+def test_main_reports_130_when_a_signal_ended_the_session(monkeypatch):
+    torn = []
+
+    class Fake(ri.Session):
+        def preflight(self):
+            return True
+
+        def start(self):
+            return True
+
+        def teardown(self):
+            torn.append(True)
+
+    def run(self):
+        self._handle_signal(signal.SIGINT, None)  # what Ctrl-C does, anywhere
+
+    monkeypatch.setattr(ri, "Session", lambda state, *, dry_run, out=None: Fake(
+        state, dry_run=True, out=io.StringIO(), wait=lambda message: None))
+    monkeypatch.setattr(ri.Terminal, "run", run)
+    assert ri.main(["--dry-run"]) == 130
+    assert torn == [True]

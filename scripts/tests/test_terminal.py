@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import signal
+import textwrap
 
 import pytest
 
@@ -19,7 +20,7 @@ from interactive.terminal import Command, CommandError, Terminal
 
 
 def _terminal(**overrides):
-    calls: dict[str, list] = {"arms": [], "ls": [], "fallback": [], "interrupt": []}
+    calls: dict[str, list] = {"arms": [], "ls": [], "fallback": []}
 
     def record(key):
         def handler(words):
@@ -40,7 +41,6 @@ def _terminal(**overrides):
         commands=commands,
         fallback=fallback,
         fallback_candidates=lambda: ["90_sweep_joints_GT", "05_test_GT", "15_val_Ours"],
-        on_interrupt=lambda: calls["interrupt"].append(True),
         stream=io.StringIO(),
     )
     kwargs.update(overrides)
@@ -190,7 +190,7 @@ def test_an_empty_line_does_nothing():
     terminal, calls = _terminal()
     terminal.dispatch("")
     terminal.dispatch("   ")
-    assert calls == {"arms": [], "ls": [], "fallback": [], "interrupt": []}
+    assert calls == {"arms": [], "ls": [], "fallback": []}
 
 
 def test_surrounding_whitespace_is_ignored():
@@ -225,19 +225,11 @@ def test_a_handler_raising_something_else_is_not_swallowed():
         terminal.dispatch("arms left")
 
 
-# ---------------------------------------------------------------- Ctrl-C
-
-
-def test_interrupt_runs_the_callers_teardown_once():
-    """Idempotent: a second Ctrl-C during a slow teardown must not re-enter it."""
-    terminal, calls = _terminal()
-    terminal.interrupt()
-    terminal.interrupt()
-    assert calls["interrupt"] == [True]
+# ---------------------------------------------------------------- fatal signals
 
 
 def test_the_terminal_runs_no_command_of_its_own():
-    """It calls a callback and nothing more; the teardown order is the caller's
+    """It records a signal and raises; the stopping is the caller's
     (docs/spec/spec1_2.md, "Ctrl-C").
 
     Asserted over the module's imports rather than its text, so it fails if
@@ -263,13 +255,25 @@ def test_the_terminal_runs_no_command_of_its_own():
                         "typing", "__future__"}, f"unexpected imports: {imported}"
 
 
-def test_a_fatal_signal_outside_input_tears_down_stops_and_reraises():
-    terminal, calls = _terminal()
+def test_the_handler_does_no_work():
+    """Python runs the handler at the next bytecode boundary of whatever the
+    main thread was doing: readline, a docker command, a release half done.
+    Anything it did would run nested inside that state. So its body assigns
+    and raises, and calls nothing."""
+    import ast
+    import inspect
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(Terminal._handle_signal)))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    assert calls == [], f"the handler calls: {[ast.unparse(c) for c in calls]}"
+
+
+def test_a_fatal_signal_records_stops_and_raises():
+    terminal, _ = _terminal()
     with pytest.raises(KeyboardInterrupt):
         terminal._handle_signal(signal.SIGINT, None)
-    assert calls["interrupt"] == [True]
-    assert terminal._stopped is True
     assert terminal.interrupted is True
+    assert terminal._stopped is True
 
 
 @pytest.mark.parametrize("number", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
@@ -287,35 +291,24 @@ def test_every_fatal_signal_is_handled_not_just_sigint(number):
         terminal.restore_signal_handlers()
 
 
-def test_a_second_signal_cannot_abort_a_teardown_in_progress():
-    """The teardown stops a robot and takes seconds. A second Ctrl-C part-way
-    through used to unwind it and leave the arms held at weight 1."""
-    seen = []
+def test_ignore_fatal_signals_survives_a_signal():
+    """What a second Ctrl-C does during the teardown: nothing. The caller sets
+    this before stopping anything and restores its handlers after."""
+    import os
 
-    def slow_teardown():
-        # What a second Ctrl-C would do, delivered mid-teardown.
-        seen.append(signal.getsignal(signal.SIGINT))
-        import os
-        os.kill(os.getpid(), signal.SIGINT)
-        seen.append("survived the second signal")
+    from interactive.terminal import FATAL_SIGNALS, ignore_fatal_signals
 
-    terminal, _ = _terminal(on_interrupt=slow_teardown)
-    terminal.install_signal_handlers()
+    before = {number: signal.getsignal(number) for number in FATAL_SIGNALS}
     try:
-        terminal.interrupt()
+        ignore_fatal_signals()
+        for number in FATAL_SIGNALS:
+            assert signal.getsignal(number) is signal.SIG_IGN
+        os.kill(os.getpid(), signal.SIGINT)
+        survived = True
     finally:
-        terminal.restore_signal_handlers()
-    assert seen[0] is signal.SIG_IGN, "fatal signals must be ignored during teardown"
-    assert seen[-1] == "survived the second signal"
-
-
-def test_handlers_are_restored_after_a_teardown():
-    terminal, _ = _terminal()
-    terminal.install_signal_handlers()
-    installed = signal.getsignal(signal.SIGINT)
-    terminal.interrupt()
-    assert signal.getsignal(signal.SIGINT) == installed
-    terminal.restore_signal_handlers()
+        for number, handler in before.items():
+            signal.signal(number, handler)
+    assert survived
 
 
 def test_install_is_idempotent_so_a_callers_handlers_win():
@@ -333,35 +326,35 @@ def test_stop_ends_the_loop_after_the_current_line():
     assert terminal._stopped is True
 
 
-def test_ctrl_c_at_the_prompt_tears_down_and_returns(monkeypatch):
-    terminal, calls = _terminal()
+def test_ctrl_c_at_the_prompt_raises_out_of_run(monkeypatch):
+    """run() catches nothing: the caller's finally is the one teardown path."""
+    terminal, _ = _terminal()
     monkeypatch.setattr("builtins.input", lambda prompt: (_ for _ in ()).throw(KeyboardInterrupt))
     monkeypatch.setattr(terminal, "bind_tab", lambda: None)
-    terminal.run()
-    assert calls["interrupt"] == [True]
+    with pytest.raises(KeyboardInterrupt):
+        terminal.run()
 
 
-def test_ctrl_c_while_a_clip_plays_tears_down_and_returns(monkeypatch):
-    """The signal arrives inside the handler, not at input(), so run() has to
-    catch it around dispatch as well."""
+def test_ctrl_c_while_a_clip_plays_raises_out_of_run(monkeypatch):
+    """The signal arrives inside the line's handler, not at input()."""
     def play(line):
         raise KeyboardInterrupt
 
-    terminal, calls = _terminal(fallback=play)
+    terminal, _ = _terminal(fallback=play)
     monkeypatch.setattr(terminal, "bind_tab", lambda: None)
     lines = iter(["90_sweep_joints_GT"])
     monkeypatch.setattr("builtins.input", lambda prompt: next(lines))
-    terminal.run()
-    assert calls["interrupt"] == [True]
+    with pytest.raises(KeyboardInterrupt):
+        terminal.run()
 
 
-def test_ctrl_d_leaves_without_tearing_down_twice(monkeypatch):
-    """EOF is `quit`, and main() tears down after run() returns either way."""
-    terminal, calls = _terminal()
+def test_ctrl_d_returns_normally(monkeypatch):
+    """EOF is `quit`: run() returns and main()'s finally tears down."""
+    terminal, _ = _terminal()
     monkeypatch.setattr("builtins.input", lambda prompt: (_ for _ in ()).throw(EOFError))
     monkeypatch.setattr(terminal, "bind_tab", lambda: None)
     terminal.run()
-    assert calls["interrupt"] == []
+    assert terminal.interrupted is False
 
 
 def test_run_restores_the_previous_sigint_handler(monkeypatch):
@@ -371,6 +364,30 @@ def test_run_restores_the_previous_sigint_handler(monkeypatch):
     before = signal.getsignal(signal.SIGINT)
     terminal.run()
     assert signal.getsignal(signal.SIGINT) is before
+
+
+def test_run_restores_handlers_when_interrupted(monkeypatch):
+    terminal, _ = _terminal()
+    monkeypatch.setattr(terminal, "bind_tab", lambda: None)
+    monkeypatch.setattr("builtins.input", lambda prompt: (_ for _ in ()).throw(KeyboardInterrupt))
+    before = signal.getsignal(signal.SIGINT)
+    with pytest.raises(KeyboardInterrupt):
+        terminal.run()
+    assert signal.getsignal(signal.SIGINT) is before
+
+
+def test_a_hung_up_terminal_does_not_change_the_exit_path(monkeypatch):
+    """After SIGHUP every write fails with EIO. The newline run() prints on the
+    way out must not turn the KeyboardInterrupt into an OSError."""
+    class Gone(io.StringIO):
+        def write(self, s):
+            raise OSError(5, "Input/output error")
+
+    terminal, _ = _terminal(stream=Gone())
+    monkeypatch.setattr(terminal, "bind_tab", lambda: None)
+    monkeypatch.setattr("builtins.input", lambda prompt: (_ for _ in ()).throw(KeyboardInterrupt))
+    with pytest.raises(KeyboardInterrupt):
+        terminal.run()
 
 
 # ---------------------------------------------------------------- misc

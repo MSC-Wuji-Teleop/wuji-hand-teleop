@@ -31,23 +31,38 @@ the publisher, then the G1 container for its weight ramp, then the hand
 drivers. There is no mid-clip abort that keeps the session alive; that is the
 deliberate trade for one unambiguous Ctrl-C.
 
+**How stopping is driven.** The signal handler does no work: it records the
+signal and raises KeyboardInterrupt, and the one teardown runs in main()'s
+`finally`, whatever the exit path (Ctrl-C, SIGTERM, SIGHUP, quit, Ctrl-D, an
+exception), with fatal signals ignored for its duration. A handler that did
+the stopping itself would run nested inside whatever the session was doing
+(readline, a `docker compose run`, a release already half done) and re-enter
+that state part-way through. This is the shape scripts/replay.sh has: bash
+holds a trap while a foreground command runs, and its cleanup runs once,
+afterwards, on settled state.
+
+Every child runs in its own session (`start_new_session`), so the terminal's
+Ctrl-C reaches this process and nothing else. Two things follow. The `docker
+exec` clients for the publisher and the drivers stay open until the process
+in the container exits, so waiting on them is the wait for that process. And
+short docker commands (compose run, kill, wait, the stops) are never left
+half done: an interrupt during one is deferred until it returns, then raised.
+
 **Why the publisher runs in the background.** It holds the last frame until it
 is killed and never exits on its own. In the foreground it would own the
 terminal and this process could not read the Enter that ends the clip.
 
-**How the publisher is stopped.** Not by signalling the local `docker exec`:
-that forwards nothing without a pty, which is the same reason
-scripts/replay.sh carries a `pkill -INT` fallback. The signal has to be sent
-inside the container.
-
-Two mechanisms, primary and fallback, because pattern matching alone is not
-safe to rely on here. The inner command writes its own PID before `exec`
-replaces the shell, so the file holds the PID of the process that `exec`
-became; `kill -INT` on it is exact. The fallback is a pattern, needed because
-`ros2 run` may or may not `exec` the node depending on version: if it does,
-the command line no longer contains "ros2 run" at all, so a pattern written
-against that would silently match nothing. `replay_publisher.*--clip` matches
-either shape.
+**How the publisher and the drivers are stopped.** Not by signalling the local
+`docker exec`: that forwards nothing without a pty, which is the same reason
+scripts/replay.sh carries a `pkill -INT` fallback. Each stop is a new `docker
+exec` that SIGINTs by pattern inside the container and waits, with pgrep,
+until nothing matches. By pattern and not by PID: `ros2 run` forks the node
+rather than exec'ing it (ros2run/api, Humble), so a PID recorded before the
+`exec` names a wrapper that swallows SIGINT and keeps waiting; the pattern
+reaches wrapper and node alike. The patterns are written `[r]eplay_publisher`:
+the stop runs under `bash -lc` and its own command line contains the pattern
+text, and procps pgrep skips only its own PID, so the plain form would match
+the stop's own shell and never report clean.
 
 The prompt loop, the completer and the command registry are in
 scripts/interactive/terminal.py, which has no Docker and no ROS in it.
@@ -60,11 +75,12 @@ import json
 import shlex
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from interactive.terminal import Command, CommandError, Terminal  # noqa: E402
+from interactive.terminal import Command, CommandError, Terminal, ignore_fatal_signals  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SAFE_CLIPS = REPO_ROOT / "clips" / "safe"
@@ -89,9 +105,21 @@ CLIP_FILES = ("clip.json", "arm_q.npz", "hand_q20.npz")
 # clip it will not play, or a speed the audit did not pass).
 PUBLISHER_GRACE_S = 3.0
 
-# Where the publisher records its own PID inside the teleop container, so the
-# stop is exact. In the container's /tmp, which no host path is mounted over.
-PUBLISHER_PID_FILE = "/tmp/wuji_replay_publisher.pid"
+# What the stops match inside the teleop container; the brackets are explained
+# in the module docstring. The publisher pattern matches the `ros2 run` wrapper
+# and the node; the driver pattern matches the launch, which stops its own nodes.
+PUBLISHER_PATTERN = "[r]eplay_publisher.*--clip"
+DRIVERS_PATTERN = "[h]and_drivers.launch.py"
+
+# How long a stop waits for the last matching process to exit before it reports
+# failure. The publisher is one node and quick. The driver launch escalates
+# SIGINT, SIGTERM, SIGKILL over 5 s windows of its own before it exits.
+PUBLISHER_STOP_GRACE_S = 5
+DRIVERS_STOP_GRACE_S = 15
+
+# Once the process in the container has exited, how long its docker exec client
+# is given to close before it is killed.
+CLIENT_CLOSE_S = 5
 
 # The G1 container is stopped with SIGINT, never `docker stop`'s SIGTERM:
 # `ros2 launch` shuts its nodes down on SIGINT but only cancels itself on
@@ -106,6 +134,16 @@ def _inner(command: str) -> str:
         f"source /opt/ros/humble/setup.bash && "
         f"source {CONTAINER_WS}/install/setup.bash && "
         f"cd {CONTAINER_WS} && exec {command}"
+    )
+
+
+def _stop_script(pattern: str, grace_s: int) -> str:
+    """SIGINT every process matching `pattern`, then wait up to `grace_s` for the
+    last one to exit. Exits 0 once nothing matches, 1 if something survives."""
+    return (
+        f"pkill -INT -f '{pattern}' 2>/dev/null || true; "
+        f"for _ in $(seq {grace_s * 2}); do "
+        f"pgrep -f '{pattern}' >/dev/null 2>&1 || exit 0; sleep 0.5; done; exit 1"
     )
 
 
@@ -159,15 +197,20 @@ class Session:
     # ---------------------------------------------------------------- output
 
     def say(self, message: str = "") -> None:
-        print(message, file=self.out, flush=True)
+        try:
+            print(message, file=self.out, flush=True)
+        except OSError:
+            # A hung-up terminal (SIGHUP) fails every write with EIO. Output is
+            # not what a teardown is for; the commands still run.
+            pass
 
-    def _call(self, command: list[str], *, label: str) -> int:
+    def _call(self, command: list[str], *, label: str, interruptible: bool = False) -> int:
         if self.dry_run:
             self.say(f"  [dry run] {label}")
             self.say(f"            {shlex.join(command)}")
             return 0
         self.say(f"  {label}")
-        return subprocess.call(command)
+        return self._run(command, interruptible=interruptible)
 
     def _popen(self, command: list[str], *, label: str) -> subprocess.Popen | None:
         if self.dry_run:
@@ -177,8 +220,57 @@ class Session:
         self.say(f"  {label}")
         # stdin closed so a background child can never compete with this
         # process for the terminal; stdout and stderr are inherited so driver
-        # and publisher logs stay visible.
-        return subprocess.Popen(command, stdin=subprocess.DEVNULL)
+        # and publisher logs stay visible. Its own session, so the terminal's
+        # Ctrl-C does not reach the docker exec client: it then exits only when
+        # the process in the container does, and waiting on it means something.
+        return subprocess.Popen(command, stdin=subprocess.DEVNULL, start_new_session=True)
+
+    def _run(self, command: list[str], *, timeout: float | None = None, quiet: bool = False,
+             interruptible: bool = False) -> int | None:
+        """Run a host command to completion. Its exit code, or None on timeout."""
+        sink = subprocess.DEVNULL if quiet else None
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=sink, stderr=sink,
+                                   start_new_session=True)
+        return self._finish(process, timeout=timeout, interruptible=interruptible)
+
+    @staticmethod
+    def _finish(process: subprocess.Popen, *, timeout: float | None = None,
+                interruptible: bool = False) -> int | None:
+        """Wait for a child. Its exit code, or None if `timeout` ran out first.
+
+        An interrupt arriving here is deferred, not acted on: the handler has
+        raised KeyboardInterrupt, this catches it, keeps waiting, and raises it
+        again once the child has returned. So a `docker compose run` or a
+        `docker wait` is never left half done, which is what bash does with a
+        trap while a foreground command runs. `interruptible` is for the one
+        long call, the 30 s replay_check: kill the client and unwind now; the
+        check in the container is a subscriber and exits on its own.
+
+        On timeout the client is killed. For a docker exec that ends the local
+        client only, never the process in the container; the caller's stop
+        command is what reaches that.
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        interrupted = False
+        while True:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            try:
+                code = process.wait(timeout=remaining)
+                break
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                code = None
+                break
+            except KeyboardInterrupt:
+                if interruptible:
+                    process.kill()
+                    process.wait()
+                    raise
+                interrupted = True
+        if interrupted:
+            raise KeyboardInterrupt
+        return code
 
     # ---------------------------------------------------------------- commands built
 
@@ -210,52 +302,34 @@ class Session:
         run += f" --arms {self.state.arms} --hands {self.state.hands}"
         if self.state.speed != "auto":
             run += f" --speed {self.state.speed}"
-        # `echo $$` before `exec`: exec replaces this shell in place, so the
-        # PID written here is the PID of whatever it becomes. That is what
-        # makes the stop exact rather than a pattern guess.
-        return ["docker", "exec", TELEOP_CONTAINER, "bash", "-lc",
-                f"echo $$ > {PUBLISHER_PID_FILE} && " + _inner(run)]
+        return ["docker", "exec", TELEOP_CONTAINER, "bash", "-lc", _inner(run)]
 
     def publisher_stop_command(self) -> list[str]:
         """SIGINT the publisher inside the container, then prove it is gone.
 
-        Both mechanisms run, sequenced with `;` and not `||`. The PID kill can
-        succeed while leaving the node alive: `ros2 run` may fork rather than
-        exec, in which case the recorded PID is the wrapper and the node is a
-        separate process. Short-circuiting on the wrapper's exit status would
-        then skip the pattern kill, which is the one that reaches the node, and
-        the session would ramp the arm_sdk weight with a live publisher still
-        writing joint targets.
-
-        The PID is checked against /proc before use, because this container is
-        long-lived and a recycled PID would otherwise be signalled instead.
-
         Exits non-zero while any publisher survives, which is the only signal
-        the session has that the stop did not take.
+        the session has that the stop did not take. The G1 weight ramp is
+        gated on this returning, not on having asked.
         """
-        stop = f"""
-        pid=$(cat {PUBLISHER_PID_FILE} 2>/dev/null || true)
-        if [ -n "$pid" ] && tr '\\0' ' ' < /proc/$pid/cmdline 2>/dev/null | grep -q replay_publisher; then
-            kill -INT "$pid" 2>/dev/null || true
-        fi
-        pkill -INT -f 'replay_publisher.*--clip' 2>/dev/null || true
-        for _ in 1 2 3 4 5 6 7 8 9 10; do
-            pgrep -f 'replay_publisher.*--clip' >/dev/null 2>&1 || exit 0
-            sleep 0.5
-        done
-        exit 1
-        """
-        return ["docker", "exec", TELEOP_CONTAINER, "bash", "-lc", stop]
+        return ["docker", "exec", TELEOP_CONTAINER, "bash", "-lc",
+                _stop_script(PUBLISHER_PATTERN, PUBLISHER_STOP_GRACE_S)]
 
     def publisher_kill_command(self) -> list[str]:
         """Last resort when SIGINT did not take. A SIGKILLed publisher stops
         writing, and the hands idle-release; a live one racing the weight ramp
         is worse."""
-        return ["docker", "exec", TELEOP_CONTAINER, "pkill", "-KILL", "-f",
-                "replay_publisher.*--clip"]
+        return ["docker", "exec", TELEOP_CONTAINER, "pkill", "-KILL", "-f", PUBLISHER_PATTERN]
 
     def drivers_stop_command(self) -> list[str]:
-        return ["docker", "exec", TELEOP_CONTAINER, "pkill", "-INT", "-f", "hand_drivers.launch.py"]
+        """SIGINT the driver launch, then wait for it to exit.
+
+        The launch exits only after its nodes have, and a hand node's teardown
+        is what de-energizes the hand and closes its link. So this returning 0
+        is the session's evidence that the hands are down, the way
+        `docker exec -it` returning is scripts/replay.sh's.
+        """
+        return ["docker", "exec", TELEOP_CONTAINER, "bash", "-lc",
+                _stop_script(DRIVERS_PATTERN, DRIVERS_STOP_GRACE_S)]
 
     # ---------------------------------------------------------------- clips
 
@@ -353,7 +427,7 @@ class Session:
             return ""
         result = subprocess.run(
             ["docker", "ps", "-a", "--filter", f"name=^{name}$", "--format", "{{.State}}"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, start_new_session=True,
         )
         return result.stdout.strip()
 
@@ -383,10 +457,8 @@ class Session:
             if state:
                 # A stopped leftover from a run without --rm; its name would
                 # block ours.
-                subprocess.run(["docker", "rm", "-f", G1_CONTAINER],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if subprocess.run(["docker", "image", "inspect", "g1-world-output:latest"],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                self._run(["docker", "rm", "-f", G1_CONTAINER], quiet=True)
+            if self._run(["docker", "image", "inspect", "g1-world-output:latest"], quiet=True) != 0:
                 self.say("  the image g1-world-output:latest is missing. Build it once with:")
                 self.say("  cd docker && COMPOSE_BAKE=false docker compose build g1_world_output")
                 return False
@@ -416,7 +488,8 @@ class Session:
                          f"immediately; not waiting for hands that will never report")
                 return False
             if self._call(self.check_command("none", self.state.connected_hands),
-                          label="wait for the hands (replay_check, up to 30 s)") != 0:
+                          label="wait for the hands (replay_check, up to 30 s)",
+                          interruptible=True) != 0:
                 self.say("  the hands did not report; nothing is playable")
                 return False
 
@@ -428,7 +501,8 @@ class Session:
                 self._stop_g1()
                 return False
             ok = self._call(self.check_command(self.state.connected_arms, "none"),
-                            label="wait for the arms (replay_check, up to 30 s)") == 0
+                            label="wait for the arms (replay_check, up to 30 s)",
+                            interruptible=True) == 0
             self._stop_g1()
             if not ok:
                 self.say("  the arms did not report; check the robot and g1_robot.yaml network_interface")
@@ -485,10 +559,10 @@ class Session:
         it to stop.
         """
         if self._publisher_started:
-            # A publisher that died on its own is the ready-timeout case: it
-            # waits up to 30 s for consumers and exits 1, which is longer than
-            # the grace after starting it, so the session can have reported the
-            # clip as playing.
+            # The client exits only when the publisher does (it runs in its own
+            # session, out of the terminal's reach), so an early exit here is
+            # the publisher's own: the ready-timeout case, 30 s waiting for
+            # consumers then exit 1, longer than the grace after starting it.
             if self._publisher is not None and self._publisher.poll() is not None:
                 self.say(f"  the publisher had already exited {self._publisher.returncode}; "
                          f"the clip did not finish")
@@ -497,14 +571,9 @@ class Session:
                          "the arms")
                 self._call(self.publisher_kill_command(), label="kill replay_publisher")
             if self._publisher is not None:
-                try:
-                    self._publisher.wait(timeout=G1_STOP_GRACE_S)
-                except subprocess.TimeoutExpired:
-                    # Killing this handle would only end the local docker exec
-                    # client, never the process in the container, so there is
-                    # nothing further to do here. The in-container kill above
-                    # is the mechanism that matters.
-                    self.say("  the docker exec client for the publisher is still open")
+                # The stop confirmed the process is gone; this is its client closing.
+                if self._finish(self._publisher, timeout=CLIENT_CLOSE_S) is None:
+                    self.say("  the docker exec client for the publisher did not close; killed it")
                 self._publisher = None
             self._publisher_started = False
         self._stop_g1()
@@ -517,48 +586,56 @@ class Session:
         self._call(self.g1_stop_command(),
                    label=f"stop {G1_CONTAINER}: arm_sdk weight 1 to 0 over 1.02 s")
         if not self.dry_run:
-            try:
-                subprocess.call(["docker", "wait", G1_CONTAINER],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                timeout=G1_STOP_GRACE_S)
-            except subprocess.TimeoutExpired:
+            # Started with --rm, so the container removes itself when the launch
+            # exits, which is what `docker wait` sees.
+            if self._run(["docker", "wait", G1_CONTAINER], timeout=G1_STOP_GRACE_S, quiet=True) is None:
                 self.say(f"  {G1_CONTAINER} did not exit in {G1_STOP_GRACE_S}s; stopping it")
-                subprocess.call(["docker", "stop", "-t", "2", G1_CONTAINER],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._run(["docker", "stop", "-t", "2", G1_CONTAINER], quiet=True)
         self._g1_started = False
 
     # ---------------------------------------------------------------- teardown
 
     def teardown(self) -> None:
-        """Ctrl-C or quit, from any state. Publisher, then G1, then the drivers."""
+        """Publisher, then G1, then the drivers. Once, from main()'s finally.
+
+        Runs with the fatal signals ignored and every command in its own
+        session, so nothing the operator does at the keyboard can cut it
+        short. The order is the safety property (docs/spec/spec1_2.md,
+        "Ctrl-C").
+        """
         if self._torn_down:
             return
-        self._torn_down = True
         self.say("\n  stopping")
         try:
             self.release("arms released")
         finally:
             # Reached even if releasing the arms raised. Leaving the hands
             # energized because an earlier step failed is not an option.
-            if self._drivers_started:
-                self._call(self.drivers_stop_command(),
-                           label="stop the hand drivers: hands de-energize and disconnect")
-                if self._drivers is not None:
-                    try:
-                        self._drivers.wait(timeout=G1_STOP_GRACE_S)
-                    except subprocess.TimeoutExpired:
-                        # As with the publisher, this handle is a docker exec
-                        # client; killing it would not touch the drivers.
-                        self.say("  the docker exec client for the drivers is still open")
-                    self._drivers = None
-                self._drivers_started = False
+            try:
+                self._stop_drivers()
+            finally:
+                self._torn_down = True
+
+    def _stop_drivers(self) -> None:
+        if not self._drivers_started:
+            return
+        if self._call(self.drivers_stop_command(),
+                      label="stop the hand drivers: hands de-energize and disconnect") != 0:
+            self.say(f"  the hand driver launch did not exit in {DRIVERS_STOP_GRACE_S}s; look in the "
+                     f"container: docker exec {TELEOP_CONTAINER} pgrep -af hand_drivers")
+        if self._drivers is not None:
+            if self._finish(self._drivers, timeout=CLIENT_CLOSE_S) is None:
+                self.say("  the docker exec client for the drivers did not close; killed it")
+            self._drivers = None
+        self._drivers_started = False
 
 
 def build_terminal(session: Session) -> Terminal:
     state = session.state
 
     def quit_(words: list[str]) -> None:
-        session.teardown()
+        # Only ends the loop. The teardown is main()'s finally: one path for
+        # quit, Ctrl-D, Ctrl-C and every other exit.
         terminal.stop()
 
     commands = [
@@ -576,7 +653,6 @@ def build_terminal(session: Session) -> Terminal:
         commands=commands,
         fallback=session.play,
         fallback_candidates=session.clip_names,
-        on_interrupt=session.teardown,
         history_file=HISTORY_FILE,
     )
     return terminal
@@ -614,11 +690,11 @@ def main(argv: list[str] | None = None) -> int:
 
     terminal = build_terminal(session)
 
-    # The handlers go on before start(), not after. start() brings the G1
-    # container up to verify the arms and can sit in a 30 s replay_check, and a
-    # Ctrl-C in that window used to reach the default handler and leave the
-    # arms held at weight 1. The whole of main() is inside the try so that no
-    # exception, from any source, can exit without a teardown.
+    # The handlers go on before start(), which brings the G1 container up to
+    # verify the arms and can sit in a 30 s replay_check. They only record the
+    # signal and raise; the teardown is the finally below, once, whatever the
+    # exit path. It runs with the fatal signals ignored, and every command it
+    # issues runs in its own session, so a second Ctrl-C reaches nothing.
     terminal.install_signal_handlers()
     try:
         if not session.preflight():
@@ -633,8 +709,11 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        terminal.restore_signal_handlers()
-        session.teardown()
+        ignore_fatal_signals()
+        try:
+            session.teardown()
+        finally:
+            terminal.restore_signal_handlers()
     return 130 if terminal.interrupted else 0
 
 
