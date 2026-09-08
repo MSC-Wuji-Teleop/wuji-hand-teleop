@@ -1,7 +1,7 @@
 # Spec 1.2: interactive replay session
 
-**Status:** plan, 2026-09-08. Stages 1 (removing the rehome) and 2
-(decoupling the drivers) are done; stages 3 to 5 are not built. Extends
+**Status:** 2026-09-08. Stages 1 to 3 are done and tested off-hardware;
+stages 4 (sim) and 5 (the rig) are not run. Extends
 [spec1.md](spec1.md), which is unchanged: the graph that plays a clip stays
 exactly as it is, and this spec adds a layer above it. Supersedes `spec1_1.md`,
 which it deletes ([Removing the rehome](#removing-the-rehome)). Operator
@@ -286,7 +286,8 @@ Two behaviours, both on Tab:
 - **Partial input**: complete it, against the union of the command names and
   the clip directory names under `clips/safe`. Ambiguous prefixes list the
   candidates, as a shell does.
-- **Empty input**: list the available commands.
+- **Empty input**: list everything that can be typed, commands and clip names
+  together, so an operator never has to know a clip name in advance.
 
 **This is what decides the language.** Bash's `read -e` does use readline, but
 readline's completer there is bash's own filename completer and there is no
@@ -535,14 +536,15 @@ working.
    `hand_drivers.launch.py` plus `test_hand_drivers_launch.py`. Starts the hand
    drivers for one side and nothing else, with no `on_exit=Shutdown()`
    anywhere, which the test asserts directly.
-3. **The session.** `scripts/replay_interactive.py`: argument parsing,
-   startup, the loop, the prompt, the completer, the command parser, the
-   ordered teardown, in the two files of [Layout](#layout). Confirm GNU
-   readline's display hook on the rig host first. `interactive/terminal.py`
-   gets unit tests that need no TTY and no Docker; the orchestration half is
-   covered by a `--print-plan` equivalent the way `replay.sh` is, plus
-   `--arms none --hands none` for the loop itself. Extract
-   `scripts/lib/g1_container.sh` as part of this stage.
+3. **The session.** Done 2026-09-08: `scripts/replay_interactive.py`,
+   `scripts/interactive/terminal.py`, and 111 tests under `scripts/tests/`
+   which need no TTY, no Docker and no ROS. `--dry-run` prints every command
+   instead of running it. An adversarial review of this stage found 15 issues,
+   most of them in signal handling and remote process control; what was fixed
+   and what remains open is in
+   [issues/interactive-session-teardown-2026-09-08.md](../issues/interactive-session-teardown-2026-09-08.md),
+   which also carries the case for reusing `replay.sh` per clip instead of the
+   duplicated container lifecycle here.
 4. **Run it in sim.** `--arms none --hands none` first, then against the
    dry-run G1 node.
 5. **Run it on the rig.** One clip, then several, then the toggles. Time the

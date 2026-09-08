@@ -83,6 +83,12 @@ Runbook: [docs/replay.md](docs/replay.md); design: [spec1.md](docs/spec/spec1.md
 **Validated on the rig 2026-09-05:** the connection check, every safe clip one
 arm and one hand at a time, and the full both-arms both-hands replay.
 
+For several clips in one sitting, `scripts/replay_interactive.py` connects to
+the hands once and keeps them up across clips, which removes the 10 to 30 s
+reconnect per clip. Not yet run on hardware:
+[replay.md section 5](docs/replay.md#5-interactive-session-several-clips-one-connection),
+design [spec1_2.md](docs/spec/spec1_2.md).
+
 ---
 
 <details id="install">

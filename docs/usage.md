@@ -184,6 +184,16 @@ offline, checking the G1 and both hand connections, single-device replays
 terminals as the two-container layout allows. Design and build status:
 [spec/spec1.md](spec/spec1.md). All of that has run on the rig (2026-09-05).
 
+`scripts/replay_interactive.py` plays several clips without reconnecting to the
+hands between them ([replay.md](replay.md#5-interactive-session-several-clips-one-connection),
+[spec/spec1_2.md](spec/spec1_2.md)). Not yet run on hardware. Its two halves
+are tested on any machine, no Docker needed:
+
+```bash
+python3 -m pytest scripts/tests/            # 111 tests, host-side, no ROS
+scripts/replay_interactive.py --dry-run     # the loop, printing what it would run
+```
+
 ## Verify
 
 ```bash

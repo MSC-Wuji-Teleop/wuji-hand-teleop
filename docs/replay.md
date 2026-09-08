@@ -404,6 +404,75 @@ from, the answer is the remote's damp command and moving them by hand: there is
 no audited motion for it. A rehome command existed until 2026-09-08 and was
 removed, having never run ([spec/spec1_2.md](spec/spec1_2.md#removing-the-rehome)).
 
+## 5. Interactive session (several clips, one connection)
+
+Connects once and keeps the hand drivers up across clips, so playing a second
+clip does not pay the hand connection again. Otherwise it does exactly what
+sections 3 and 4 do. Design: [spec/spec1_2.md](spec/spec1_2.md).
+
+```bash
+# host, repo root, containers up
+scripts/replay_interactive.py                            # both arms, both hands
+scripts/replay_interactive.py --hands left               # left hand, both arms
+scripts/replay_interactive.py --arms right --hands none  # right arm, no hand driver
+```
+
+`--arms` and `--hands` mean what they mean everywhere else, and here they also
+decide what the session connects to. Startup brings up the hand drivers, waits
+for the hands, then brings the G1 up, waits for the arms, and releases them
+again. Then you get a prompt:
+
+```
+[both|both] clip>
+```
+
+Press Tab to see every clip and every command. Type a clip name and press
+Enter to play it. The clip plays once and holds its last frame, arms stiff.
+**Press Enter to release the arms** and pick the next clip.
+
+```
+[both|both] clip> 90_sweep_joints_GT        <- Tab completes this
+  playing 90_sweep_joints_GT  (arms both, hands both, speed auto)
+  ...
+  Enter to release the arms and choose another clip:
+  released
+
+[both|both] clip>
+```
+
+| command | effect |
+|---|---|
+| `arms none\|left\|right\|both` | which arm topics the next clip writes |
+| `hands none\|left\|right\|both` | which hand topics the next clip writes |
+| `speed S` / `speed auto` | speed for the next clip; `auto` is the clip's fastest safe speed |
+| `ls` | the clips, with each one's safe speeds |
+| `state` | what is connected, what is driving, and the speed |
+| `help` | the table above |
+| `quit` | stop everything and leave |
+
+`arms` and `hands` choose among the sides you connected at startup. To drive a
+side you did not connect, quit and restart with the flag for it.
+
+**Ctrl-C stops everything and exits**, from the prompt or mid-clip. It releases
+the arms the same way section 4 does, then de-energizes the hands.
+
+Between clips the fingers go limp, which is the hand drivers idling rather than
+disconnecting. The next clip takes them back.
+
+<details>
+
+<summary>Trying the prompt without a robot</summary>
+
+`--dry-run` prints every command instead of running it, and needs no Docker
+and no hardware. Useful for learning the prompt, or for reading the exact
+commands a real run would issue.
+
+```bash
+scripts/replay_interactive.py --dry-run
+```
+
+</details>
+
 ## Flags
 
 | flag | values | meaning |
