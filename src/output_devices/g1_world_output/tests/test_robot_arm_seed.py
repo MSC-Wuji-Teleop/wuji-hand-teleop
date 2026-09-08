@@ -153,7 +153,7 @@ def test_simulation_mode_moves_the_dds_domain(robot_arm, make_controller):
 
 
 def test_a_second_controller_is_refused_the_writer_lock(robot_arm, make_controller):
-    """Only one process may write rt/arm_sdk. Also what stops a rehome from
+    """Only one process may write rt/arm_sdk. Also what stops a second writer from
     running while a replay holds the arms."""
     make_controller()
     with pytest.raises(RuntimeError, match="lowcmd writer lock"):

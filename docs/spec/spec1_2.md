@@ -1,11 +1,11 @@
 # Spec 1.2: interactive replay session
 
-**Status:** plan, 2026-09-08. Nothing is built. Extends
+**Status:** plan, 2026-09-08. Stage 1 (removing the rehome) is done; stages 2
+to 5 are not built. Extends
 [spec1.md](spec1.md), which is unchanged: the graph that plays a clip stays
-exactly as it is, and this spec adds a layer above it. Supersedes
-[spec1_1.md](spec1_1.md), which is scheduled for deletion
-([Removing the rehome](#removing-the-rehome)). Operator commands once built:
-[replay.md](../replay.md).
+exactly as it is, and this spec adds a layer above it. Supersedes `spec1_1.md`,
+which it deletes ([Removing the rehome](#removing-the-rehome)). Operator
+commands once built: [replay.md](../replay.md).
 
 Play several clips in one sitting without paying the hand connection cost
 between them, and change which arm and which hand are driven without
@@ -446,9 +446,9 @@ pinned at its 1.972 rad stop in all four clips, and wrist pitch, at its
 trajectories and is not the same thing as the wrist pitch and yaw torque that
 rejects 23 of the 30: different joints, different mechanism. So the arms end
 hanging, with the wrists cranked over. That is
-not the folded-across-the-torso pose the audit matrix measured 42.6 N of
-contact from, and every one of these clips has now been Ctrl-C'd out of on the
-rig with the firmware bringing the arms down.
+not the folded-across-the-torso pose that measured 42.6 N of contact before
+anything moved, and every one of these clips has now been Ctrl-C'd out of on
+the rig with the firmware bringing the arms down.
 
 **The residual risk, stated once.** After this deletion nothing audited brings
 the arms to a known pose. If a future clip does end folded, the only options
@@ -489,12 +489,12 @@ Edit:
   comment mentions a rehome; the test itself is about the DDS writer lock and
   stays
 
-Keep:
-
-- `docs/issues/home-audit-matrix-2026-09-03.md`. It is 16 rows of measurement
-  about the model and the robot, including the folded-pose contact numbers,
-  and those stay true whether or not `--home` exists. Add a superseded note
-  pointing here.
+Also deleted: `docs/issues/home-audit-matrix-2026-09-03.md`. Its 16 rows were
+measurements of the model and the robot rather than of the command, so keeping
+it was the first plan, but every row is a pose only the removed command would
+have driven through. It stays in git history. The one number worth carrying
+forward is quoted above: a start pose folded across the torso reads 42.6 N of
+contact before anything moves, rising to 133 N during the motion.
 
 Unrelated, do not touch: `--home` in
 `src/starport_wuji_hand/scripts/calibrate_joint_limits.py` is that tool's own
@@ -505,8 +505,8 @@ flag.
 All of it on `alex_dev`, one commit per stage. Each stage leaves the tree
 working.
 
-1. **Remove the rehome.** First, and on its own, so nothing new is ever
-   written against code that is going away. Full list in
+1. **Remove the rehome.** Done 2026-09-08. First, and on its own, so nothing
+   new is ever written against code that is going away. Full list in
    [Deletion list](#deletion-list). The test suites for the deleted pieces go
    with them; `test_replay_sh.py`, `test_replay_launch.py` and `test_clip.py`
    lose their rehome cases and must still pass.

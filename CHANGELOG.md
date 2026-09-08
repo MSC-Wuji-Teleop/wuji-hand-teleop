@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Removed
 
+- **The rehome, `scripts/replay.sh --home` (2026-09-08).** Removed without ever
+  having run, in sim or on the rig. Gone with it: `tools/make_home_clip.py`,
+  `replay.capture_arm_pose`, `clips/home/` as a playable directory
+  (`PLAYABLE_PARENT_DIR_NAMES` is now `("safe",)`), the `--from` flag, and
+  `docs/spec/spec1_1.md`. One documented combination, `--home --arms left`, had
+  never worked: the capture omits the unselected side and the generator refuses
+  a one-sided pose file. Measuring where the committed clips actually leave the
+  arms showed the case it was built for does not arise: shoulders and elbows
+  end near the home pose and the travel is almost all wrist roll sitting on its
+  stop. Reasoning and the numbers:
+  [docs/spec/spec1_2.md](docs/spec/spec1_2.md#removing-the-rehome). After a
+  clip, Ctrl-C hands the arms to the onboard controller from wherever they
+  ended. `docs/issues/home-audit-matrix-2026-09-03.md` went with it; its 16
+  rows measured only poses the removed command would have driven through, and
+  they remain in git history if ever wanted.
 - **Fork cleanse to the actual rig (2026-08-25).** Removed the upstream packages
   for hardware this lab does not have: `tianji_output`, `tianji_world_output`
   (Tianji arm), `openvr_input` (HTC Vive Tracker / SteamVR), and `manus_input`
@@ -78,11 +93,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   hardware_spec.md records the 29-DoF variant decision (2026-08-27).
 - **Clip replay validated on the rig (2026-09-05).** `scripts/replay.sh --check`,
   every clip in `clips/safe/` played one arm and one hand at a time, and the
-  full both-arms both-hands replay all ran on the hardware. The rehome
-  (`scripts/replay.sh --home`) is the one command on that path that has not.
-  Docs that carried "nothing has run on the rig" are updated:
-  [docs/replay.md](docs/replay.md), [docs/spec/spec1.md](docs/spec/spec1.md),
-  [docs/spec/spec1_1.md](docs/spec/spec1_1.md).
+  full both-arms both-hands replay all ran on the hardware. Docs that carried
+  "nothing has run on the rig" are updated: [docs/replay.md](docs/replay.md)
+  and [docs/spec/spec1.md](docs/spec/spec1.md).
 - **The Hand 2 mount adapter is built and in service.** It supersedes the
   vendor `unitree-g1-docking-adapter.stl`, which is a Hand v1 part. The
   composed models carry it as a pure transform on `{side}_wrist_yaw_link`,

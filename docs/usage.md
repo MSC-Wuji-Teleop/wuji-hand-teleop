@@ -182,8 +182,7 @@ Operator runbook: [replay.md](replay.md). It covers preparing a clip
 offline, checking the G1 and both hand connections, single-device replays
 (left arm, right arm, left hand, right hand), and the full run, in as few
 terminals as the two-container layout allows. Design and build status:
-[spec/spec1.md](spec/spec1.md). All of that has run on the rig (2026-09-05)
-except the rehome, `scripts/replay.sh --home`.
+[spec/spec1.md](spec/spec1.md). All of that has run on the rig (2026-09-05).
 
 ## Verify
 

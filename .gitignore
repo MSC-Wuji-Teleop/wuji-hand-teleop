@@ -61,8 +61,8 @@ RobotSTAR_demos/
 # scratch and rejected trees are not.
 clips/candidate/
 clips/rejected/
-# clips/home/ is generated per rehome invocation by tools/make_home_clip.py
-# and audited seconds before it plays (docs/spec/spec1_1.md). Nothing about it
-# is worth keeping after the run.
+# clips/home/ was written by the rehome, removed 2026-09-08
+# (docs/spec/spec1_2.md). Kept ignored so a leftover tree from before then
+# stays out of git.
 clips/home/
 *.mp4

@@ -2,9 +2,9 @@
 
 Exact commands for preparing and playing clips on the rig. Design, clip
 format, and build status: [spec/spec1.md](spec/spec1.md). Everything below is
-built and has run on the rig, except `--home`: the offline half on the whole
-bundle, the connection check, every safe clip one arm and one hand at a time,
-and the full both-arms both-hands replay (2026-09-05).
+built and has run on the rig: the offline half on the whole bundle, the
+connection check, every safe clip one arm and one hand at a time, and the full
+both-arms both-hands replay (2026-09-05).
 On a host that has not run this before, start at
 [Per-machine setup](#0-per-machine-setup-once-per-host); otherwise start at
 [Which clip to run first](#which-clip-to-run-first).
@@ -398,89 +398,11 @@ hand driver disables its hand as it tears down, so the hands go limp at once.
 The G1 node ramps the `arm_sdk` weight 1 to 0 over about 1 s, still commanding
 the last frame while it blends, and the onboard controller then owns the arms.
 Where the arms settle after that is the firmware's behaviour, not ours: nothing
-here commands them downward.
-
-## 5. Rehome the arms
-
-Brings the arms slowly to a known pose. Use it when a clip has ended with the
-arms somewhere awkward, when you stopped one mid-clip, or before powering down.
-Design: [spec/spec1_1.md](spec/spec1_1.md).
-
-**This is the one section that has not run on the rig.** Everything else here
-has. It is also not the only way the arms come to rest: an ordinary Ctrl-C
-hands them back to the onboard controller (section 4), and on this rig the arms
-have been observed coming down to the sides on their own after that. The
-difference is that the hand-back trajectory is the firmware's and is not
-audited, while `--home` is a motion we choose, audit in MuJoCo, and refuse if
-the numbers are bad.
-
-```bash
-# host, repo root. The G1 container must not already be running.
-scripts/replay.sh --home
-scripts/replay.sh --home --arms left                       # one arm at a time
-scripts/replay.sh --home --sim --from stand                # rehearsal, no hardware
-```
-
-What it does to the robot, in order. Note that the publisher's usual 2 s
-approach to frame 0 is switched off here (`ramp:=0`): a rehome clip already
-starts at the measured pose, so there is nothing to approach.
-
-1. Starts the G1 node exactly as a replay does. It takes the arms and holds the
-   pose it measured at startup.
-2. Reads that pose off `/{side}_arm/joint_states` and writes it to a file.
-   Commands nothing.
-3. Generates a clip: a half-cosine move from that pose to all-zeros, sized so no
-   joint exceeds 0.2 rad/s, and audits it in MuJoCo the same way
-   `prepare_clip.py` audits a recording. Prints the duration, the travel per
-   arm, the peak arm torque ratio and the peak contact force with its body pair.
-   If the audit rejects it the clip is filed under `clips/rejected/`, the
-   command exits non-zero, and **the arms do not move**.
-4. Plays that clip once with the ordinary publisher, then holds the home pose
-   until Ctrl-C. Duration is typically 3 to 16 s and is printed before it starts.
-
-All-zeros is the arms hanging straight down, wrists neutral. It is Unitree's own
-`arm_sdk` zero posture, so releasing the weight afterwards hands the arms back
-at the pose the onboard controller expects. No hand driver is started: the hands
-stay limp.
-
-`--from SPEC` skips reading the robot and uses a start pose you name (`stand`,
-`zeros`, `clip:<dir>@last`, or 14 numbers). Required with `--sim`, because a
-dry-run G1 node publishes no arm state to read. It is also how the audit matrix
-in [issues/home-audit-matrix-2026-09-03.md](issues/home-audit-matrix-2026-09-03.md)
-was produced.
-
-### What `--home` does not protect against
-
-**It is not an e-stop.** It is a slow deliberate motion and it takes the
-duration the generator printed. The fast stop is the remote's damp command or
-main power ([spec/hardware_spec.md](spec/hardware_spec.md)).
-
-- **It does not open the hands.** They are limp, which is the right rest state,
-  but if the fingers are interlocked, separate them before homing: damp from the
-  remote and part them by hand, or start the drivers with `scripts/replay.sh
-  --check`, which homes each hand to the zero pose over 3 s.
-- **It cannot run while a replay holds the arms.** `G1ArmController` takes an
-  exclusive lock on `/tmp/g1_lowcmd_writer.lock`, so a second writer is refused
-  at startup. Stop the replay first. Two things never command the arms at once.
-- **It refuses a start pose that is already in hard contact**, and that refusal
-  is the whole answer for that case. Measured from a pose folded across the
-  torso: 42.6 N of contact and a saturated wrist actuator before anything moves,
-  rising to 133 N during the motion. No slower speed or path shape changes that.
-  Damp from the remote and move the arms by hand.
-- **The audit behind it models a fixed base, our gains, an assumed hand pose,
-  and no harness.** It does not know real contact stiffness, the mount plate's
-  own thickness (modelled as zero, see
-  [hardware_spec.md](spec/hardware_spec.md#mounting-adapter)), or the
-  firmware's behaviour at a torque clamp. Read `peak_contact_pair` as much as
-  the number.
-- **It commands the arms for the whole motion.** If the audit was wrong about
-  contact, the arms will push, and only the remote stops that.
-- **If the arms are moved by hand between the capture and the play**, frame 0 is
-  no longer the measured pose and the first frame becomes a step. The capture
-  refuses a pose that moved more than 0.01 rad while it was being read, which
-  catches the arms drifting, not someone moving them a minute later.
-- **It does nothing about the legs, the waist, or an unstable robot.** Those
-  stay with the onboard controller.
+here commands them downward. On this rig they have been observed coming down to
+the sides. If a clip ever leaves them somewhere you would rather not hand back
+from, the answer is the remote's damp command and moving them by hand: there is
+no audited motion for it. A rehome command existed until 2026-09-08 and was
+removed, having never run ([spec/spec1_2.md](spec/spec1_2.md#removing-the-rehome)).
 
 ## Flags
 
@@ -490,8 +412,6 @@ main power ([spec/hardware_spec.md](spec/hardware_spec.md)).
 | `--hands` | `none` `left` `right` `both` (default `both`) | which hand driver topics the publisher writes; `none` skips the hand drivers |
 | `--speed S` | one of the clip's `safe_speeds`; default: the fastest | same frames published slower. Amplitudes do not change; peak velocity scales by `S`, acceleration by `S^2`. A speed the audit did not pass is refused, **including a slower one**: on `05_test_G42xKICVj9U_5-5-rgb_front_GT` the audit passes 0.5 and fails 0.25. To play a speed that is not listed, audit it first with `prepare_clip.py --speeds` |
 | `--check` | | connection check only (section 2) |
-| `--home` | | rehome the arms (section 5). Takes no clip, no `--speed` and no `--hands`, and starts no hand driver. Not an e-stop |
-| `--from` | a start pose | `--home` only: use this start pose instead of reading the robot. `stand`, `zeros`, `clip:<dir>[@first\|@last]`, or 14 numbers. Required with `--sim` |
 | `--sim` | | G1 node with `dry_run:=true`, no hand drivers, MuJoCo viewer on the composed model instead |
 
 ## Two-terminal form

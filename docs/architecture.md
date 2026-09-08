@@ -307,13 +307,12 @@ holds the last frame; clip quality is decided offline. Design:
 [spec/spec1.md](spec/spec1.md). Runbooks: [replay.md](replay.md) and
 [SOT bundle replay (sim)](usage.md#sot-bundle-replay-sim).
 
-**Rehome** (`scripts/replay.sh --home`, [spec/spec1_1.md](spec/spec1_1.md))
-reuses that graph rather than adding to it. `capture_arm_pose` reads the
-measured pose and exits, `tools/make_home_clip.py` writes and audits a slow
-clip from it to all-zeros under `clips/home/`, and the same `replay_publisher`
-plays it with no hand driver. The clip's frame 0 is the measured pose, so the
-first published frame is a no-op. It is a separate operator command and not an
-e-stop; the remote's damp command remains the fast stop.
+Nothing brings the arms to a chosen pose afterwards. On Ctrl-C the G1 node
+ramps the `arm_sdk` weight 1 to 0 and the onboard controller takes them from
+wherever the clip ended. A rehome command (`--home`) was built for that case
+and removed on 2026-09-08 without ever running; the reasoning, including where
+the committed clips actually leave the arms, is in
+[spec/spec1_2.md](spec/spec1_2.md#removing-the-rehome).
 
 ## Input devices
 

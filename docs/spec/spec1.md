@@ -317,12 +317,10 @@ Nothing runs between the publisher and the device nodes: no run-time checks
 or trip conditions (temperature, effort, contact), no e-stop logic. Teleop
 (glove, PICO) is untouched and shares only `g1_world_output` with this path.
 
-The rehome ([spec1_1.md](spec1_1.md)) does not change that. It is a separate
-operator command, `scripts/replay.sh --home`, which generates and audits a clip
-before it runs and then plays it through this same publisher and this same
-graph. It adds no runtime state, no mode and no second motion path, and nothing
-on the replay path can reach it: `--home` takes no clip and a replay invocation
-never sets it.
+A rehome command was added alongside this graph and later removed
+(2026-09-08, [spec1_2.md](spec1_2.md#removing-the-rehome)). It never ran. The
+graph above is unchanged by its removal, which is the point: it was a separate
+operator command that reused this publisher rather than adding to it.
 
 ## Build status
 
@@ -338,7 +336,7 @@ validated there on 2026-09-05; the rest are container-only.
 | `g1_world_output` `joint_replay` | measured on the live graph: 250 Hz command stream advancing 1/20 of a frame step per tick at `--speed 0.25`; 29 tests | none |
 | `starport_wuji_hand` driver | `wuji_sdk` import check passes on the 2026.8.31 pin; `colcon build` and 268 tests pass; shutdown no longer raises on SIGINT; run against both hands on the rig | none |
 | Humble `launch_ros` and `list[float]` | accepted: `is_typing_list` checks `__origin__ in (list, List)` | none |
-| `replay.launch.py`, `scripts/replay.sh` | one host command brings up the G1 container, the publisher and the viewer, and stops the G1 container on exit; 20 tests; run on the rig for every safe clip | `--home` is still unrun ([spec1_1.md](spec1_1.md)) |
+| `replay.launch.py`, `scripts/replay.sh` | one host command brings up the G1 container, the publisher and the viewer, and stops the G1 container on exit; 15 tests; run on the rig for every safe clip | none |
 | model fix | cherry-picked (`2a76a4f`) | none |
 | G1 image CRC libraries | present after a `--no-cache` rebuild (`utils/lib/crc_{amd64,aarch64}.so`) | none |
 | G1 DDS NIC pin | `g1_robot.yaml` `network_interface` is read and reaches `ChannelFactoryInitialize`; verified live (the node names the NIC and refuses to start when it is absent); both rig NIC names recorded in [hardware_spec.md](hardware_spec.md) | none |
