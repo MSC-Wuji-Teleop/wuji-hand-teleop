@@ -286,3 +286,34 @@ def rig():
 @pytest.fixture
 def bundle_root(tmp_path):
     return tmp_path / "bundle"
+
+
+# -- tools/sanitize: the real URDF and its 90 meshes, built once per session -
+
+
+@pytest.fixture(scope="session")
+def sanitize_model():
+    """SanitizeModel with kinematics only: the fast one, no meshes loaded."""
+    pytest.importorskip("pinocchio")
+    from sanitize.model import SanitizeModel
+    return SanitizeModel(build_geometry=False)
+
+
+@pytest.fixture(scope="session")
+def sanitize_model_geom():
+    """SanitizeModel with the collision geometry, for the pair set and coal."""
+    pytest.importorskip("pinocchio")
+    pytest.importorskip("coal")
+    from sanitize.model import SanitizeModel
+    return SanitizeModel()
+
+
+@pytest.fixture
+def sanitize_checker(sanitize_model_geom):
+    """A fresh CollisionChecker per test.
+
+    Not session-scoped: building one rewrites the geometry model's shared
+    collisionPairs list, which test_sanitize_collision.py pins.
+    """
+    from sanitize import collision as coll
+    return coll.CollisionChecker(sanitize_model_geom)
