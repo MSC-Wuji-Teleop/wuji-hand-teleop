@@ -65,4 +65,11 @@ clips/rejected/
 # (docs/spec/spec1_2.md). Kept ignored so a leftover tree from before then
 # stays out of git.
 clips/home/
+# Return segments, written per safe clip by an earlier prepare_clip.
+clips/neutral/
 *.mp4
+
+# Offline working data, regenerated from the bundle by the tools that read it.
+# wuji_runs/ alone reached 1.2 GB on one machine.
+wuji_clips/
+wuji_runs/
