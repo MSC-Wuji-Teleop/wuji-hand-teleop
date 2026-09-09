@@ -20,10 +20,13 @@ RELIABLE subscriber.
 
 Behaviour, in order:
 
-1. Wait until every selected consumer has reported state (the same sources
-   ``replay_check`` uses). Default ``--ready-timeout`` is 30 s so a hand
-   still scanning and homing is not a missed clip. ``0`` skips the wait
-   (required for ``sim:=true``, which starts no drivers).
+1. Wait until every selected consumer has reported state. Same topics as
+   ``replay_check``, but ``~/connected`` may be false: after 5 s idle the
+   driver drops the motors and publishes false while ``/joint_states``
+   still runs, and the first command re-enables. Waiting for true is a
+   deadlock on a session that already connected. Default ``--ready-timeout``
+   is 30 s so a hand still scanning and homing is not a missed clip. ``0``
+   skips the wait (required for ``sim:=true``, which starts no drivers).
 2. Approach frame 0 from the measured pose over ``--ramp`` seconds (default
    2) with a rest-to-start-velocity quintic (zero acceleration at both
    ends; rest-to-rest is min-jerk). Matching the clip's first-frame
@@ -237,6 +240,7 @@ class ReplayPublisher(Node):
                 sides_arg(hand_sides),
                 timeout_s=self._ready_timeout_s,
                 start_s=self._now(),
+                require_connected_true=False,
             )
             self._phase = PHASE_WAIT
         else:
