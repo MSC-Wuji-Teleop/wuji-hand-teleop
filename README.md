@@ -81,8 +81,13 @@ scripts/replay.sh clips/safe/<clip>            # the rig
 
 Runbook: [docs/replay.md](docs/replay.md); design: [spec1.md](docs/spec/spec1.md).
 **Validated on the rig 2026-09-05:** the connection check, every safe clip one
-arm and one hand at a time, and the full both-arms both-hands replay. The
-rehome (`scripts/replay.sh --home`) is the one part that has not run there.
+arm and one hand at a time, and the full both-arms both-hands replay.
+
+For several clips in one sitting, `scripts/replay_interactive.py` connects to
+the hands once and keeps them up across clips, which removes the 10 to 30 s
+reconnect per clip. Not yet run on hardware:
+[replay.md section 5](docs/replay.md#5-interactive-session-several-clips-one-connection),
+design [spec1_2.md](docs/spec/spec1_2.md).
 
 ---
 
@@ -339,8 +344,10 @@ Per-device setup: [docs/PICO.md](docs/PICO.md).
   models carry it as a zero-thickness transform. Every contact distance in a
   clip audit is short by whatever stack height the physical plate adds.
   [hardware_spec.md](docs/spec/hardware_spec.md#mounting-adapter).
-- **The rehome has not run on the rig.** Everything else on the replay path
-  has. `scripts/replay.sh --home` is built and tested offline only.
+- **Nothing returns the arms to a chosen pose after a clip.** Ctrl-C hands
+  them to the onboard controller from wherever the clip ended. The `--home`
+  command written for that case was removed on 2026-09-08 without ever having
+  run: [spec1_2.md](docs/spec/spec1_2.md#removing-the-rehome).
 - **Pose-mode IK is still `G1_23`-only.** `arm_type:=G1_29` drives DDS through
   `G1ArmController` and is what the validated replay path uses, but the
   target-pose path (Flow 2) has no G1_29 IK.

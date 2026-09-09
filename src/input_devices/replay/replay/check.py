@@ -14,13 +14,14 @@ Sources (docs/spec/spec1.md "Topics"; the table in docs/replay.md section 2):
                                              counts for a side only when 20
                                              distinct names with that side's
                                              prefix (l_ / r_) are present
-               /{side}/wuji_hand/connected   std_msgs/Bool; must have been true
-                                             at least once. The driver reports
-                                             false again once its idle release
-                                             (5 s without commands, always the
-                                             case during a check) drops the
-                                             motors, so the current value is not
-                                             the test.
+               /{side}/wuji_hand/connected   std_msgs/Bool. ``replay_check``
+                                             requires true at least once (motors
+                                             came up). The publisher only needs
+                                             the topic to have arrived: after
+                                             idle release the driver stays up
+                                             and publishes false, and the first
+                                             command re-enables. The current
+                                             value is never the test.
 
 A check is complete when every required source has reported. It times out
 after ``timeout_s`` (default DEFAULT_TIMEOUT_S) with the sources that have not
@@ -209,7 +210,15 @@ def format_row(topic: str, status: str, note: str = "") -> str:
 class ConnectionCheck:
     """State of one check: what arrived, from which source, when."""
 
-    def __init__(self, arms: str, hands: str, timeout_s: float = DEFAULT_TIMEOUT_S, start_s: float = 0.0):
+    def __init__(
+        self,
+        arms: str,
+        hands: str,
+        timeout_s: float = DEFAULT_TIMEOUT_S,
+        start_s: float = 0.0,
+        *,
+        require_connected_true: bool = True,
+    ):
         if not (timeout_s > 0.0):
             raise ValueError(f"timeout must be > 0 s, got {timeout_s}")
         self.arm_sides = parse_sides(arms)
@@ -217,6 +226,9 @@ class ConnectionCheck:
         self.sources = required_sources(arms, hands)
         self.timeout_s = float(timeout_s)
         self.start_s = float(start_s)
+        # True: replay_check, motors must have enabled. False: the publisher,
+        # which will command an idle driver and re-enable it.
+        self.require_connected_true = bool(require_connected_true)
         self._rates = RateCounter()
         self._connected_seen: set[str] = set()
         self._connected_true: set[str] = set()
@@ -248,7 +260,9 @@ class ConnectionCheck:
 
     def reported(self, source: Source) -> bool:
         if source.kind == HAND_CONNECTED:
-            return source.side in self._connected_true
+            if self.require_connected_true:
+                return source.side in self._connected_true
+            return source.side in self._connected_seen
         return self._rates.count(source.key) > 0
 
     def verdict(self, now: float) -> Verdict:
@@ -295,7 +309,7 @@ class ConnectionCheck:
     def _connected_lines(self, elapsed: float) -> list[str]:
         lines = []
         for source in (s for s in self.sources if s.kind == HAND_CONNECTED):
-            if self.reported(source):
+            if source.side in self._connected_true:
                 lines.append(format_row(source.topic, "true"))
             elif source.side in self._connected_seen:
                 lines.append(format_row(source.topic, NEVER_TRUE, f"never true in {elapsed:.1f} s"))

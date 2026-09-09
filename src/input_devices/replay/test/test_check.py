@@ -193,6 +193,17 @@ def test_connected_false_alone_does_not_count_but_true_once_does():
     assert check.verdict(5.0).complete
 
 
+def test_publisher_ready_treats_idle_connected_false_as_reported():
+    check = ConnectionCheck("none", "left", timeout_s=20.0, start_s=0.0, require_connected_true=False)
+    check.record_joint_states(L20, 1.0)
+    check.record_joint_states(L20, 1.01)
+    check.record_hand_connected("left", False, 1.0)
+    v = check.verdict(2.0)
+    assert v.complete
+    assert v.missing == ()
+    assert v.lines[1] == "/left/wuji_hand/connected     false      never true in 2.0 s"
+
+
 def test_joint_states_counts_only_for_selected_sides_with_all_names():
     check = ConnectionCheck("none", "both", timeout_s=20.0, start_s=0.0)
     assert check.record_joint_states(L20[:19], 1.0) == ()

@@ -218,20 +218,15 @@ def test_speed_is_passed_only_when_given(launch_module):
 
 
 def test_ramp_is_passed_only_when_given(launch_module):
-    """scripts/replay.sh --home passes ramp:=0, because a rehome clip's frame 0 is
-    already the measured pose and approaching it is a move to where the arms are
-    (docs/spec/spec1_1.md)."""
-    context, actions = _actions(launch_module, clip="clips/home/home_x", ramp="0")
+    """ramp is a general argument: it reaches the publisher when set, and the
+    publisher keeps its own default when it is not."""
+    context, actions = _actions(launch_module, clip="clips/safe/x", ramp="0")
     publisher = _node(context, actions, "replay_publisher")
     assert _flag(_texts(context, publisher.cmd), "--ramp") == "0"
 
-
-def test_a_home_clip_is_accepted_as_a_clip(launch_module):
-    context, actions = _actions(launch_module, clip="clips/home/home_x", hands="none", ramp="0")
+    context, actions = _actions(launch_module, clip="clips/safe/x")
     publisher = _node(context, actions, "replay_publisher")
-    arguments = _texts(context, publisher.cmd)
-    assert _flag(arguments, "--clip").endswith("clips/home/home_x")
-    assert _flag(arguments, "--hands") == "none"
+    assert "--ramp" not in _texts(context, publisher.cmd)
 
 
 def test_hands_none_starts_no_driver(launch_module):

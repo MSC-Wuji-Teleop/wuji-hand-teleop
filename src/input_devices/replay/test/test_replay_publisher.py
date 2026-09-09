@@ -186,6 +186,21 @@ def test_waits_for_consumers_before_publishing(clip_dir: Path):
     assert len(ready_logs) == 1
 
 
+def test_waits_for_idle_driver_without_connected_true(clip_dir: Path):
+    """After idle release the driver publishes connected=false; the publisher must still play."""
+    clip = load_clip(clip_dir)
+    node = ReplayPublisher(clip, 1.0, (), ("left",), ready_timeout_s=5.0, ramp_s=0.0)
+    timer = node.timers[0]
+    timer.fire()
+    assert node.publisher("/left/wuji_hand/joint_command").published == []
+
+    node.subscription("/joint_states").deliver(JointState(name=list(HAND_NAMES["left"]), position=[0.0] * 20))
+    node.subscription("/left/wuji_hand/connected").deliver(Bool(False))
+    timer.fire()
+    assert node.publisher("/left/wuji_hand/joint_command").published[0].position == clip.hand_q20["left"][0].tolist()
+    assert not node.ready_failed
+
+
 def test_ready_timeout_cancels_without_publishing(clip_dir: Path):
     node = ReplayPublisher(load_clip(clip_dir), 1.0, ("left",), (), ready_timeout_s=1.0, ramp_s=0.0)
     timer = node.timers[0]

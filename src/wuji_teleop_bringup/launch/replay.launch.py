@@ -7,8 +7,8 @@ What starts, per flag combination (docs/spec/spec1.md "Launch and the single ter
                          (publisher waits for those drivers, then approaches frame 0)
     hands:=none          no hand driver; the publisher writes no hand topic
     check:=true          replay_check --arms <arms> --hands <hands> in place of the publisher
-    ramp:=0              no approach to frame 0; what scripts/replay.sh --home passes, because a
-                         rehome clip already starts at the measured pose
+    ramp:=0              no approach to frame 0, for a clip whose frame 0 is already the
+                         measured pose
     sim:=true            no hand driver; publisher --ready-timeout 0; mujoco_visualizer.py
                          on g1_29_wuji2_fixed.xml next to the publisher (the viewer
                          mirrors the G1 node's arm commands and the publisher's hand commands)
@@ -22,7 +22,7 @@ form in docs/replay.md shows the `docker compose run` line it uses. Exact operat
     ros2 launch wuji_teleop_bringup replay.launch.py clip:=clips/safe/<clip> sim:=true
     ros2 launch wuji_teleop_bringup replay.launch.py check:=true arms:=left hands:=none
 
-Arguments: `clip` (default '', a directory under clips/safe/ or clips/home/, resolved against the
+Arguments: `clip` (default '', a directory under clips/safe/, resolved against the
 launch cwd),
 `arms` and `hands` (none|left|right|both, default both), `speed` ('' means the clip's fastest safe
 speed), `check` and `sim` (true|false, default false). An OpaqueFunction reads them and refuses a
@@ -134,10 +134,9 @@ def publisher(clip: str, arms: str, hands: str, speed: str, sim: bool, ramp: str
     arguments = ["--clip", os.path.abspath(clip), "--arms", arms, "--hands", hands]
     if speed:
         arguments += ["--speed", speed]
-    # Empty keeps the publisher's own default. A rehome clip passes 0: its frame 0
-    # is the measured pose already, so an approach to frame 0 is an approach to
-    # where the arms are, and the 2 s it takes is not in the duration the
-    # generator printed (docs/spec/spec1_1.md).
+    # Empty keeps the publisher's own default. 0 is for a clip whose frame 0 is
+    # already the measured pose, where an approach to frame 0 is an approach to
+    # where the arms already are.
     if ramp:
         arguments += ["--ramp", ramp]
     # sim starts no hand drivers and may have no G1 state yet; waiting on
@@ -195,7 +194,7 @@ def replay_actions(context: LaunchContext) -> list:
     if arms == "none" and hands == "none":
         raise RuntimeError("arms:=none with hands:=none selects nothing to play or check")
     if not clip and not check:
-        raise RuntimeError("clip:=<dir under clips/safe or clips/home> is required unless check:=true")
+        raise RuntimeError("clip:=<dir under clips/safe> is required unless check:=true")
 
     actions: list = []
     if hands != "none" and not sim:
@@ -217,7 +216,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "clip",
                 default_value="",
-                description="Clip directory under clips/safe/ or clips/home/ (relative to the launch cwd, or absolute). "
+                description="Clip directory under clips/safe/ (relative to the launch cwd, or absolute). "
                 "Required unless check:=true.",
             ),
             DeclareLaunchArgument(

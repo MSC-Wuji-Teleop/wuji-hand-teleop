@@ -23,6 +23,8 @@ inline there.
 | **Hardware spec**: G1 23-DoF and 29-DoF, Wuji Hand 2, gloves + PICO. What the code assumes vs. what exists. Source of truth | [spec/hardware_spec.md](spec/hardware_spec.md) |
 | **Clip replay design**: offline clip preparation vs online playback, topics, build status | [spec/spec1.md](spec/spec1.md) |
 | **Replay runbook**: prepare a clip, check connections, single-device and full replays | [replay.md](replay.md) |
+| **Clip sanitization**: re-solving a prepared clip's arms with collision checking, what each check reports, and why the output must be re-audited before it is filed | [sanitize.md](sanitize.md) |
+| **Interactive replay session** (planned): several clips in one sitting without reconnecting to the hands, and why the rehome was removed | [spec/spec1_2.md](spec/spec1_2.md) |
 | Daily developer commands: container lifecycle, build, test, launch, sim modes, SOT bundle replay, rebuild rules | [usage.md](usage.md) |
 | System architecture: data flow, per-package roles, replay path, process/container model, config convention, invariants | [architecture.md](architecture.md) |
 | **SOT handoff bundle** (recorded GT/Ours motion samples): file layout, from the bundle's authors. The bundle is gitignored and obtained separately | `RobotSTAR_demos/HANDOFF_README.md`, inside the bundle |
