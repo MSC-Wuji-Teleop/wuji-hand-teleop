@@ -61,6 +61,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Added **`tools/sanitize/`, an offline clip sanitizer**
+  ([docs/sanitize.md](docs/sanitize.md), spec
+  [docs/spec/RoboSTAR_dropin_fix.md](docs/spec/RoboSTAR_dropin_fix.md)). Takes a
+  prepared clip, re-solves its 14 arm joints against `g1_29_wuji2.urdf` and
+  writes the same npz arrays back, so the result drops into the replay path
+  unchanged. Three defects, from the spec: 2pi wraps and branch flips are
+  removed by solving each frame from the previous one, shoulder to elbow and
+  then the wrist; wrist drift is measured and reported, corrected only on
+  request (`--max-drift-deg`); and collisions are checked against all 3576
+  non-adjacent geometry pairs with coal, every pair found becoming a separation
+  row inside that frame's own IK. Hand joints pass through untouched — the
+  retargeter owns them — and legs and waist are read, never written. The tool
+  writes no verdict: `tools/clip_audit.py` must be re-run on its output before
+  a clip is filed, since `clip.json` still carries the input's. Measured on
+  `05_test_G42xKICVj9U_5-5-rgb_front_Ours`: cross-side touching pair-frames
+  1770 to 757, frames in contact 70 to 57, no new arm-to-body contact, worst
+  wrist residual 19.1 mm.
 - Added **Unitree G1 dual-arm support** (`src/output_devices/g1_world_output/`) as an
   alternative to the Tianji arm, consuming the same PICO topic contract as
   `tianji_world_output`. Pinocchio/CasADi IK + Unitree DDS LowCmd control; runs in
