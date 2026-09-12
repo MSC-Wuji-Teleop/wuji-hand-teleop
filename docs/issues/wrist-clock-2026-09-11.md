@@ -1,10 +1,11 @@
 # Replayed clips: hands rotated 90 deg about the forearm
 
-**Status:** 2026-09-11, `alex_dev`. Analysis done; the fix is in
-`tools/sanitize/reclock.py` and `tools/sanitize_clip.py --wrist-clock`
-([sanitize.md](../sanitize.md#wrist-clock)), with `prepare_clip.py` recording
-the bundle's `detected_hand_model`. The safe clips are being re-solved one at a
-time and re-audited; none has been re-filed yet. Not run on hardware.
+**Status:** 2026-09-12, `alex_dev`. Analysis done; the fix is committed
+(`32e8bf0`: `tools/sanitize/reclock.py`, `tools/sanitize_clip.py --wrist-clock`,
+[sanitize.md](../sanitize.md#wrist-clock), `prepare_clip.py` recording the
+bundle's `detected_hand_model`). All 18 safe bundle clips are re-solved into
+`clips/candidate/` with side-by-side videos ([results](#re-solve-results-2026-09-11));
+none is re-filed. Not run on hardware.
 
 ## What is wrong
 
@@ -144,6 +145,64 @@ The other 24 trajectories, including 16 of the 18 safe bundle clips, reach
 the corrected pose in at least 95 percent of sampled frames. The residual on
 the six above is 10 to 25 deg on the right hand for most of their frames;
 whether that is acceptable is a per-clip call at filing time, as now.
+
+## Re-solve results, 2026-09-11
+
+Every safe bundle clip was re-solved from its current `clips/safe/` contents
+with `tools/sanitize_clip.py --wrist-clock bundle` (collision on), re-audited
+at 1.0, 0.5 and 0.25x, and rendered. Each candidate sits in
+`clips/candidate/<clip>/` with `sanitize.json`, `reaudit.json`,
+`replay_1.0x_reclocked.mp4` and `side_by_side_1.0x.mp4` (source video, the
+bundle's own simulation, ours). Run on a Mac with MuJoCo 3.13 and Pinocchio
+4.1; the unchanged `05_test GT` re-audits to its recorded numbers there (0.5x
+passes at 0.736), so the version difference does not move the audit.
+
+| clip | filed speed | before: peak torque ratio, peak contact | after: peak torque ratio, peak contact | worst wrist residual | frames with a wrist joint at its limit, left / right |
+|---|---|---|---|---|---|
+| 02_test Ours | 0.25x | 0.65, 65 N | 1.00, 197 N | 279 mm, 160 deg | 11 / 655 of 760 |
+| 04_test GT | 0.25x | 1.00, 83 N | 1.00, 78 N | 29 mm, 4 deg | 0 / 0 of 150 |
+| 04_test Ours | 0.25x | 0.76, 31 N | 1.00, 37 N | 28 mm, 5 deg | 0 / 0 of 150 |
+| 05_test GT | 0.5x | 0.74, 35 N | 1.00, 16 N | 23 mm, 3 deg | 0 / 0 of 260 |
+| 05_test Ours | 0.25x | 1.00, 37 N | 1.00, 17 N | 32 mm, 9 deg | 0 / 0 of 260 |
+| 06_test GT | 0.25x | 1.00, 99 N | 1.00, 60 N | 33 mm, 6 deg | 0 / 0 of 390 |
+| 07_test GT | 0.25x | 1.00, 150 N | 1.00, 204 N | 29 mm, 7 deg | 0 / 0 of 260 |
+| 07_test Ours | 0.25x | 0.67, 96 N | 1.00, 133 N | 26 mm, 3 deg | 0 / 0 of 260 |
+| 08_trai GT | 0.25x | 1.00, 28 N | 1.00, 39 N | 26 mm, 19 deg | 5 / 0 of 210 |
+| 08_trai Ours | 0.25x | 1.00, 22 N | 1.00, 33 N | 27 mm, 4 deg | 0 / 0 of 210 |
+| 09_trai GT | 0.25x | 1.00, 143 N | 1.00, 164 N | 28 mm, 7 deg | 0 / 0 of 360 |
+| 10_val_ Ours | 0.25x | 0.84, 35 N | 1.00, 69 N | 31 mm, 26 deg | 0 / 245 of 590 |
+| 11_val_ GT | 0.25x | 1.00, 59 N | 1.00, 49 N | 51 mm, 49 deg | 0 / 17 of 190 |
+| 12_val_ GT | 0.25x | 1.00, 169 N | 1.00, 118 N | 29 mm, 8 deg | 0 / 0 of 350 |
+| 13_val_ Ours | 0.25x | 0.76, 17 N | 0.85, 47 N | 28 mm, 5 deg | 0 / 0 of 320 |
+| 14_val_ GT | 0.5x | 1.00, 128 N | 1.00, 86 N | 33 mm, 6 deg | 0 / 0 of 930 |
+| 15_val_ GT | 0.5x | 0.74, 16 N | 1.00, 26 N | 23 mm, 3 deg | 0 / 0 of 200 |
+| 15_val_ Ours | 1x | 0.78, 34 N | 1.00, 31 N | 24 mm, 17 deg | 0 / 0 of 200 |
+
+**Orientation.** 13 clips follow the bundle video with a worst wrist
+orientation residual under 10 deg. `08_train GT` and `15_val Ours` have short
+excursions under 20 deg. `10_val Ours` pins its right wrist roll on 245 of 590
+frames and is up to 26 deg off there; `11_val GT` on 17 frames, up to 49 deg.
+`02_test Ours` pins the right wrist roll on 655 of 760 frames and the solve
+breaks on some (279 mm, 160 deg): not usable as re-solved. This is the
+reachability the analysis predicted for those trajectories.
+
+**Audit.** Every candidate fails the 0.8 torque ratio at every speed
+(`13_val Ours` reads 0.85 at 0.25x). Before the re-clock, 11 of the 18 already
+read 1.00 at their filed speed and were filed by override. The saturating
+joints are the 5 Nm wrist pitch and yaw actuators during hand-to-hand contact,
+for 0.01 to 1.7 s of clip time at the filed speed (`05_test GT`: right wrist
+yaw for 0.1 s at 0.5x; `15_val GT`: left wrist pitch for 1.7 s at 0.5x;
+`12_val GT`: left wrist pitch 1.5 s and yaw 1.0 s at 0.25x). On `07_test GT`,
+`09_train GT` and `12_val GT` the worst joint is the left shoulder roll at the
+shoulder-to-torso contact, before and after the re-clock. Peak contact forces
+stay in the range they were in. The wrist position residual of 23 to 33 mm on
+every clip is the re-clock's cost with collision rows active, about three
+times the collision-off floor ([sanitize.md](../sanitize.md#wrist-clock)).
+
+**Open.** Filing policy: re-file at the previously filed speeds by override,
+as the current safe set was filed, or run each on the rig first. `02_test
+Ours` should not be re-filed as re-solved; `10_val Ours` and `11_val GT` are
+partial.
 
 ## Not the fix
 
