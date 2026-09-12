@@ -26,7 +26,7 @@ the main image. Nothing here imports `mujoco`.
 | --- | --- |
 | 1. wrists phase through each other, no collision checking | Checks all 3576 non-adjacent geometry pairs of `g1_29_wuji2.urdf` per frame with coal, and carries every pair it finds into the frame's own IK solve as a separation constraint — so the arm is held out of a contact rather than pushed out of one. It is the URDF and not the MJCF because the two answer different questions: `clip_audit.py` measures the reaction force of a contact (its peak pairs are routinely hand-to-hand), while what a clearance check needs is whether the meshes overlap at all. |
 | 2. branch flipping, torque and velocity spikes | Re-solves each frame from the previous one, shoulder to elbow first and then the wrist, and bounds the per-frame step by the URDF velocity limit. A joint jump the wrist pose did not follow is detected as a flip and the source elbow is distrusted for the length of it. |
-| 3. wrist rotation drift, hands inverted by the end | Measures each wrist joint's end-to-start rotation and reports it. **Correction is opt-in** (`--max-drift-deg`) — see below. |
+| 3. wrist rotation drift, hands inverted by the end | Measures each source wrist joint's end-to-start rotation, before the re-clock, and reports it. **Correction is opt-in** (`--max-drift-deg`) — see below. |
 
 ## Pipeline
 
@@ -43,7 +43,16 @@ the main image. Nothing here imports `mujoco`.
    same rotation and the only difference is whether it can be commanded.
 3. **extract** the wrist placement and elbow position every source frame
    implies, by forward kinematics (`model.targets`). The poses, not the joint
-   angles, are what the sanitized clip preserves.
+   angles, are what the sanitized clip preserves. When the clip's provenance
+   says the source was solved against the bundle's legacy hand mount, each
+   wrist placement is then rotated about its own +x by
+   `reclock.BUNDLE_WRIST_CLOCK_DEG` (+90 left, -90 right; fitted at +86/-101
+   over all 30 trajectories, 90 mirrored assumed pending the authors' mount
+   transform, [docs/issues/wrist-clock-2026-09-11.md](../../docs/issues/wrist-clock-2026-09-11.md)).
+   The first frame is seeded with `reclock.closed_form_wrist`, the exact
+   three-joint orientation answer, so the solve starts on the right branch;
+   the closed form is not used for the clip itself because it moves the wrist
+   link 5 cm on the pitch joint's lever, which the IK does not.
 4. **detect flips**: a joint step over `--flip-step-deg` across which the wrist
    pose moved less than `--flip-pose-pos-mm` / `--flip-pose-ori-deg`. Joints
    jumped, pose did not — that is a solver changing branch, not a human

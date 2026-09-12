@@ -125,12 +125,17 @@ def make_bundle(root: Path, sample: str = "synth", method: str = "Ours", frames:
                 flip_frame: Optional[int] = None, flip_deg: float = 100.0,
                 write_manifest: bool = True, body_q_override: Optional[np.ndarray] = None,
                 keypoints_shape_override: Optional[tuple] = None,
-                omit_source_frames: bool = False) -> Path:
+                omit_source_frames: bool = False,
+                detected_hand_model: Optional[str] = None,
+                model_path: Optional[str] = None) -> Path:
     """Write <root>/samples/<sample>/<method>/... and <root>/MANIFEST.sha256; return the method dir.
 
     spike_frame: a single-frame bump of spike_rad on left_shoulder_pitch.
     flip_frame: from that frame on, right_shoulder_pitch is offset by flip_deg
     (a persistent step, the shape of an estimator orientation flip).
+    detected_hand_model / model_path: the real bundle's target_meta.json
+    carries "detected_hand_model": "legacy_wuji" and the solver's model path;
+    given, they are written, otherwise the keys are absent as in the sweep sample.
     """
     root = Path(root)
     method_dir = root / "samples" / sample / method
@@ -160,6 +165,10 @@ def make_bundle(root: Path, sample: str = "synth", method: str = "Ours", frames:
         "end_behavior": "hold_last_target",
         "joint_actuator_order": {"body_actuators": BODY_ACTUATORS},
     }
+    if detected_hand_model is not None:
+        meta["detected_hand_model"] = detected_hand_model
+    if model_path is not None:
+        meta["model"] = model_path
     if omit_source_frames:
         # RobotSTAR_demos/sweep-test writes its keypoints on the body frame grid
         # and its generator emits no source_frames/source_fps.

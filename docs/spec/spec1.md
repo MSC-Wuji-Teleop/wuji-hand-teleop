@@ -49,7 +49,9 @@ read-only next to it (`docker-compose.yml`).
 ```json
 {
   "tool": "prepare_clip/1",
-  "source": {"sample": "11_val_a5yNwUSiYpA_9-3-rgb_front", "method": "Ours", "bundle_manifest_sha256": "..."},
+  "source": {"sample": "11_val_a5yNwUSiYpA_9-3-rgb_front", "method": "Ours", "bundle_manifest_sha256": "...",
+             "method_dir": "...", "time_scale": 1.0,
+             "detected_hand_model": "legacy_wuji", "model": ".../scene_43dof_wuji_y90.xml"},
   "frames": 190, "rate_hz": 50.0,
   "arm_joint_names": {"left": ["left_shoulder_pitch", "..."], "right": ["..."]},
   "hand_joint_names": {"left": ["l_thumb_cmc_flex", "..."], "right": ["r_thumb_cmc_flex", "..."]},
@@ -128,6 +130,17 @@ refuses unless `--allow-flips` is given, and records that it was. Legs and waist
 clip: `g1_world_output` commands arm joints only, and the waist stays under
 the robot's onboard controller. The audit holds the waist at zero for the
 same reason.
+
+The bundle's wrist angles were solved against the authors' model, which
+mounts the hand 90 deg from this rig's adapter about the forearm axis (left
++90, right -90 on `wrist_yaw_link`;
+[wrist-clock-2026-09-11.md](../issues/wrist-clock-2026-09-11.md)). This tool
+does not correct that. It copies `detected_hand_model` and `model` from
+`target_meta.json` into `clip.json` and warns; `tools/sanitize_clip.py`
+re-clocks the extracted wrist placement before its IK
+([sanitize.md](../sanitize.md#wrist-clock)). A legacy-hand clip's verdict
+from this tool is provisional until that has run and the clip has been
+re-audited.
 
 **2. Retarget hands.** For each body frame `i`, take hand keypoint frame
 `round(i * (T_hand - 1) / (T_body - 1))` (the same mapping the sim publisher

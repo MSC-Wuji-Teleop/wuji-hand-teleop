@@ -18,7 +18,8 @@ RobotSTAR_demos/samples/<sample>/{GT,Ours}
     │  tools/prepare_clip.py     smooth arms, retarget hands, audit in MuJoCo
     ▼
 clips/{safe,rejected}/<clip>/    arm_q.npz, hand_q20.npz, clip.json
-    │  tools/sanitize_clip.py    THIS STAGE
+    │  tools/sanitize_clip.py    THIS STAGE. Mandatory for a bundle clip:
+    │                            it re-clocks the wrists (see Wrist clock)
     ▼
 <out>/<clip>/                    same layout + sanitize.json
     │  tools/clip_audit.py       re-audit. Mandatory (see below)
@@ -58,10 +59,12 @@ input's order, and unknown keys pass through.
 | Field | Means | Act on it? |
 | --- | --- | --- |
 | `unwrap.wraps_removed` | 2π jumps taken out, only where the result still fits the joint's range | No |
-| `unwrap.wrist_drift` | Each wrist joint's end-to-start rotation | Past 90° it prints `DRIFT`. Your call per clip |
+| `unwrap.wrist_drift` | Each **source** wrist joint's end-to-start rotation, measured before the re-clock. On a re-clocked clip the output's wrist joints split the same wrist rotation differently (pitch and yaw roughly trade places, roll differs too), so read it as the source's drift | Past 90° it prints `DRIFT`. Your call per clip |
 | `flips.detected` / `gated_frames` | Branch flips found, and frames run without the elbow task | A large gated count means the source elbow is untrustworthy |
-| `ik.max_wrist_*_residual` | Worst pose error against what the source implied | ~0 on a clean clip. Millimetres mean limits, the step bound or a contact got in the way |
+| `ik.max_wrist_*_residual` | Worst pose error against what the source implied | ~0 on a clean unclocked clip; millimetres then mean limits, the step bound or a contact got in the way. On a re-clocked bundle clip a few mm of wrist position are inherent (median 1 to 9 mm, max 4 to 17 mm on the safe clips with collision off; elbow 18 to 45 mm): the rotated wrist placement and the source elbow position have no common 7-joint solution, and stage 3 splits the difference (wrist 1, elbow 0.5) while holding orientation to about 0.01 deg |
+| `ik.frames_not_converged` | Frames whose solve did not reach the 1e-6 m / 1e-6 rad test | Meaningful only on an unclocked clip. On a re-clocked clip it is near the frame count for the reason above; judge the clip on the residual maxima, not this count |
 | `ik.frames_at_joint_limit` / `at_step_bound` | Frames each joint spent on a bound | Usually a source outside the URDF range (`source.arm_values_outside_joint_limits`) |
+| `wrist_clock.applied` / `deg` / `reason` | Whether the extracted wrist placements were re-clocked, by how much per side, and why | On a bundle clip `applied` must be true; see Wrist clock. Absent: the report was written before 2026-09-11 and the clip is not re-clocked |
 | `hand.clamped_values` | Hand angles clamped into range | Fix the retargeter, not this |
 | `collision.failures` | Frame, time, pair and state for every defect left | The decision list. Exit 3 |
 | `collision.near_miss` | Inside the clearance, never touching | Normally nothing — signing brings the hands close on purpose |
@@ -100,6 +103,49 @@ does not fix: 1585 intra-hand pair-frames, and so the MuJoCo verdict — the
 clip stays rejected at all three speeds. Arm saturation drops (0.104 → 0.027
 at 1x). Hands inside each other are not an arm problem.
 
+## Wrist clock
+
+The bundle's arm joints were solved against its authors' model, which mounts
+the hand on the G1 wrist 90 deg from this rig's adapter about the forearm
+axis. Replayed as shipped they reproduce the bundle's wrist *link* and put the
+*hand* 90 deg off, left and right in opposite senses
+([wrist-clock-2026-09-11.md](issues/wrist-clock-2026-09-11.md)).
+
+This stage corrects it where the geometry lives: each frame's extracted
+`wrist_yaw_link` placement is rotated about its own +x by the clock angle
+before the arm is re-solved, so the IK puts the hand where the bundle meant
+it and keeps the wrist where the bundle put it. The angles are
+`reclock.BUNDLE_WRIST_CLOCK_DEG`, +90 left and -90 right. It is not a
+`wrist_roll` offset: the G1 wrist is roll, pitch, yaw along that axis, so the
+correction also swaps the roles of pitch and yaw. Adding 90 deg to roll is
+off by a median 88 deg over the bundle.
+
+| `--wrist-clock` | Does |
+| --- | --- |
+| `auto` (default) | Applies the bundle clock when `clip.json` `source.detected_hand_model` is `legacy_wuji` (`prepare_clip.py` writes it from `target_meta.json`); otherwise nothing |
+| `bundle` | Forces the bundle clock, for a clip prepared before the key existed |
+| `none` | Forces it off |
+| `--wrist-clock=LEFT_DEG,RIGHT_DEG` | Any two angles, for a source solved against some other mount. The `=` form is needed when `LEFT_DEG` is negative, or argparse reads the value as a flag |
+
+The report says what happened under `wrist_clock`, and the stderr summary
+prints one `wrist clock:` line. A flat npz has no `clip.json`, and a clip
+directory whose `source` block lacks `detected_hand_model` or carries null
+(the sweep clip, `90_sweep_joints_GT`) passes through unchanged unless the
+flag says otherwise.
+
+What the re-clock costs. The rotated wrist placement and the source elbow
+position no longer share an exact 7-joint solution, so every re-clocked
+bundle clip carries a small wrist position residual with nothing binding:
+median 1 to 9 mm and max 4 to 17 mm over the safe clips with collision off,
+with the elbow 18 to 45 mm off its source position and orientation held to
+about 0.01 deg. Where a wrist range binds (about 7 percent of side-frames
+over the bundle, concentrated in six trajectories) the IK gives up
+orientation as well, 13 to 27 deg on the right hand of `02_test Ours` and
+`10_val Ours`; where several wrist joints pin at once (`02_test GT`,
+`03_test GT` and `Ours`, `14_val Ours`) it gives up centimetres of position
+too. Read both `ik.max_wrist_pos_residual_mm` and
+`ik.max_wrist_ori_residual_deg` at filing time.
+
 ## Re-audit before filing. Always
 
 The tool writes no verdict, and copies `verdict`, `safe_speeds` and `audit`
@@ -133,6 +179,7 @@ Exit 3 is normal on real bundle clips.
 | `--max-step-deg` | none | `15` reproduces `prepare_clip.py`'s clamp |
 | `--max-drift-deg` | inf | You have decided the end pose is drift, not intent |
 | `--no-collision` | off | Fast pose-fidelity check, ~1.5 s a clip |
+| `--wrist-clock` | `auto` | `bundle` for a clip whose `clip.json` predates the provenance key; `none` to inspect a bundle clip unclocked; `--wrist-clock=L,R` for another mount (the `=` form when `L` is negative) |
 
 ## Runtime and tests
 
@@ -142,7 +189,7 @@ on 8 cores keeps the cores busy but stretches per-clip latency, so run it
 detached.
 
 ```bash
-python3 -m pytest tools/tests/test_sanitize_*.py -q     # 72 tests, ~10 s
+python3 -m pytest tools/tests/test_sanitize_*.py -q     # 88 tests, ~10 s
 ```
 
 Needs Pinocchio, coal and the URDF; skips cleanly without them.

@@ -468,7 +468,8 @@ SPEC_PER_SPEED_KEYS = ["pass", "peak_arm_torque_ratio", "peak_contact_force_n", 
 def _check_clip_json(meta, speeds=(1.0, 0.5, 0.25)):
     assert list(meta) == SPEC_TOP_KEYS
     assert meta["tool"] == "prepare_clip/1"
-    assert list(meta["source"]) == ["sample", "method", "bundle_manifest_sha256", "method_dir", "time_scale"]
+    assert list(meta["source"]) == ["sample", "method", "bundle_manifest_sha256", "method_dir", "time_scale",
+                                    "detected_hand_model", "model"]
     assert isinstance(meta["frames"], int) and isinstance(meta["rate_hz"], float)
     assert meta["arm_joint_names"] == ca.ARM_JOINT_NAMES
     assert meta["hand_joint_names"] == ca.HAND_JOINT_NAMES
@@ -799,3 +800,39 @@ def test_a_safe_clip_reports_the_fastest_passing_speed_not_the_fastest_audited(r
     for o in outcomes:
         if o.verdict == "safe":
             assert o.reported_speed == max(o.safe_speeds)
+
+
+# -- bundle provenance: the hand model the source was solved against -----------
+
+def test_read_bundle_records_the_hand_model_and_model_path_when_present(bundle_root):
+    plain = pc.read_bundle(make_bundle(bundle_root, sample="plain"))
+    assert plain.hand_model is None and plain.reference_model is None
+
+    legacy = pc.read_bundle(make_bundle(bundle_root, sample="legacy",
+                                        detected_hand_model="legacy_wuji",
+                                        model_path="/x/g1/scene_43dof_wuji_y90.xml"))
+    assert legacy.hand_model == "legacy_wuji"
+    assert legacy.reference_model == "/x/g1/scene_43dof_wuji_y90.xml"
+
+    # clip.json carries both under source, so the sanitizer can gate on them.
+    meta = pc.build_clip_json(legacy, legacy.frames, {}, {}, {}, [], pc.VERDICT_REJECTED)
+    assert meta["source"]["detected_hand_model"] == "legacy_wuji"
+    assert meta["source"]["model"] == "/x/g1/scene_43dof_wuji_y90.xml"
+    plain_meta = pc.build_clip_json(plain, plain.frames, {}, {}, {}, [], pc.VERDICT_REJECTED)
+    assert plain_meta["source"]["detected_hand_model"] is None
+    assert plain_meta["source"]["model"] is None
+
+
+def test_a_legacy_hand_bundle_warns_and_writes_its_provenance(rig, fake_retargeter_factory, bundle_root,
+                                                              tmp_path, capsys):
+    """The bundle's wrist clock is off this rig's; prepare_one says so and records the source."""
+    method_dir = make_bundle(bundle_root, detected_hand_model="legacy_wuji",
+                             model_path="/x/g1/scene_43dof_wuji_y90.xml")
+    outcome = pc.prepare_one(method_dir, tmp_path / "clips", pc.Options(speeds=(1.0,)), rig,
+                             fake_retargeter_factory)
+    err = capsys.readouterr().err
+    assert "warning: source solved against the legacy_wuji hand mount" in err
+    assert "sanitize_clip.py" in err
+    meta = json.loads((outcome.clip_dir / "clip.json").read_text())
+    assert meta["source"]["detected_hand_model"] == "legacy_wuji"
+    assert meta["source"]["model"] == "/x/g1/scene_43dof_wuji_y90.xml"
