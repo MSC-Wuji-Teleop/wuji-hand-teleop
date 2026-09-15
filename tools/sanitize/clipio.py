@@ -50,6 +50,13 @@ REPORT_FILE = "sanitize.json"
 # clip.json key the sanitize report block is added under.
 DIR_META_SANITIZE_KEY = "sanitize"
 
+# Per-frame collision lists, which sanitize.json already holds in full beside
+# clip.json. Repeating them inside clip.json made the block a verbatim copy of
+# the report: 4.7 MB of the 8.1 MB of clip.json across clips/safe, and 88
+# percent of the largest single file. The embedded block carries their lengths
+# and names the report instead; read the entries from sanitize.json.
+DIR_META_COLLISION_LIST_KEYS = ("failures", "near_miss", "unfixable")
+
 # Fallback rate for a flat npz without one; every bundle sample ships at this.
 DEFAULT_RATE_HZ = 50.0
 
@@ -199,6 +206,26 @@ def _read_dir(path: Path) -> Clip:
     return Clip(arm=arm, hand=hand, rate_hz=rate_hz, layout=LAYOUT_DIR, path=path, meta=meta)
 
 
+def meta_report(report: Dict) -> Dict:
+    """The sanitize report as it goes into clip.json, without the per-frame lists.
+
+    sanitize.json is written in full beside clip.json, so embedding the
+    collision entries a second time only doubles the file. Each list becomes
+    ``{"count": N, "in": "sanitize.json"}``; everything else is copied as is.
+    """
+    block = dict(report)
+    collision = block.get("collision")
+    if not isinstance(collision, dict):
+        return block
+    collision = dict(collision)
+    for key in DIR_META_COLLISION_LIST_KEYS:
+        entries = collision.get(key)
+        if isinstance(entries, list):
+            collision[key] = {"count": len(entries), "in": REPORT_FILE}
+    block["collision"] = collision
+    return block
+
+
 def write_clip(clip: Clip, out: Path, report: Optional[Dict] = None) -> List[Path]:
     """Write the clip back in its own layout. Returns the paths written."""
     out = Path(out)
@@ -245,7 +272,7 @@ def _write_dir(clip: Clip, out: Path, report: Optional[Dict]) -> List[Path]:
     if meta:
         # The copied verdict describes the input; the sanitize block says re-audit.
         if report is not None:
-            meta[DIR_META_SANITIZE_KEY] = report
+            meta[DIR_META_SANITIZE_KEY] = meta_report(report)
         meta_path = out / DIR_META_FILE
         meta_path.write_text(json.dumps(meta, indent=1, sort_keys=False) + "\n")
         written.append(meta_path)

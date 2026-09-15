@@ -1,0 +1,131 @@
+{
+ "1.0": {
+  "pass": false,
+  "peak_arm_torque_ratio": 1.0,
+  "peak_contact_force_n": 30.96057331562607,
+  "peak_contact_pair": [
+   "left_wuji_l_index_finger_proximal_abd",
+   "right_wuji_r_pinky_proximal"
+  ],
+  "contact_frame_fraction": 1.0,
+  "arm_saturation_fraction": 0.055,
+  "hand_saturation_fraction": 0.29,
+  "tracking_rmse_rad": {
+   "arms": 0.06311220918603203,
+   "hands": 0.1662318105871341
+  },
+  "top_contact_pairs": [
+   [
+    "left_wuji_l_index_finger_proximal_abd",
+    "right_wuji_r_pinky_proximal",
+    30.96057331562607
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "left_wuji_l_thumb_middle",
+    30.493500532345564
+   ],
+   [
+    "left_wuji_l_thumb_middle",
+    "right_wuji_r_ring_finger_proximal_abd",
+    19.476058757451675
+   ],
+   [
+    "left_wuji_l_thumb_middle",
+    "right_wuji_r_middle_finger_proximal",
+    18.355997048909135
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "right_wuji_r_pinky_middle",
+    17.101334194865704
+   ]
+  ]
+ },
+ "0.5": {
+  "pass": false,
+  "peak_arm_torque_ratio": 1.0,
+  "peak_contact_force_n": 21.94808405213882,
+  "peak_contact_pair": [
+   "left_wuji_l_thumb_middle",
+   "right_wuji_r_ring_finger_proximal_abd"
+  ],
+  "contact_frame_fraction": 1.0,
+  "arm_saturation_fraction": 0.04,
+  "hand_saturation_fraction": 0.165,
+  "tracking_rmse_rad": {
+   "arms": 0.04340699839752822,
+   "hands": 0.14921061903392935
+  },
+  "top_contact_pairs": [
+   [
+    "left_wuji_l_thumb_middle",
+    "right_wuji_r_ring_finger_proximal_abd",
+    21.94808405213882
+   ],
+   [
+    "left_wuji_l_thumb_middle",
+    "right_wuji_r_ring_finger_proximal",
+    20.69660526232534
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "right_wuji_r_pinky_middle",
+    19.142019538080103
+   ],
+   [
+    "left_wuji_l_thumb_proximal_abd",
+    "right_wuji_r_ring_finger_proximal_abd",
+    18.85536746531232
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "right_wuji_r_pinky_proximal_abd",
+    16.576731578833265
+   ]
+  ]
+ },
+ "0.25": {
+  "pass": false,
+  "peak_arm_torque_ratio": 1.0,
+  "peak_contact_force_n": 39.1100635152463,
+  "peak_contact_pair": [
+   "left_wuji_l_thumb_middle",
+   "right_wuji_r_ring_finger_proximal_abd"
+  ],
+  "contact_frame_fraction": 1.0,
+  "arm_saturation_fraction": 0.04,
+  "hand_saturation_fraction": 0.24,
+  "tracking_rmse_rad": {
+   "arms": 0.03240403760636188,
+   "hands": 0.14938457366616278
+  },
+  "top_contact_pairs": [
+   [
+    "left_wuji_l_thumb_middle",
+    "right_wuji_r_ring_finger_proximal_abd",
+    39.1100635152463
+   ],
+   [
+    "left_wuji_l_thumb_distal",
+    "right_wuji_r_ring_finger_proximal_abd",
+    17.858721406349755
+   ],
+   [
+    "left_wuji_l_thumb_proximal_abd",
+    "right_wuji_r_ring_finger_proximal_abd",
+    17.783997560764956
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "right_wuji_r_pinky_proximal_abd",
+    17.12860984509391
+   ],
+   [
+    "left_wuji_l_index_finger_proximal",
+    "right_wuji_r_middle_finger_proximal",
+    15.360824125607124
+   ]
+  ]
+ }
+}

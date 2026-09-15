@@ -13,23 +13,154 @@ measured constant: [`../tools/sanitize/README.md`](../tools/sanitize/README.md).
 
 ## Where it sits
 
-```
-RobotSTAR_demos/samples/<sample>/{GT,Ours}
-    │  tools/prepare_clip.py     smooth arms, retarget hands, audit in MuJoCo
-    ▼
-clips/{safe,rejected}/<clip>/    arm_q.npz, hand_q20.npz, clip.json
-    │  tools/sanitize_clip.py    THIS STAGE. Mandatory for a bundle clip:
-    │                            it re-clocks the wrists (see Wrist clock)
-    ▼
-<out>/<clip>/                    same layout + sanitize.json
-    │  tools/clip_audit.py       re-audit. Mandatory (see below)
-    ▼
-clips/safe/<clip>/               filed, playable
+```mermaid
+flowchart TD
+    SRC["<b>RobotSTAR_demos/samples/&lt;sample&gt;/ GT and Ours</b><br/>bundle arm joints (legacy hand mount)<br/>+ hand keypoints"]
+    SRC -->|"tools/prepare_clip.py"| S1
+
+    S1["<b>Step 1. Prepare</b><br/>smooth arms, retarget hands to Hand 2,<br/>dynamic audit in MuJoCo, write clip.json"]
+    S1 -->|"verdict: rejected"| REJ["clips/rejected/&lt;clip&gt;/"]
+    S1 -->|"verdict: safe"| PRE["<b>prepared clip</b><br/>arm_q.npz, hand_q20.npz, clip.json<br/>wrists still on the bundle's clock"]
+
+    PRE -->|"tools/sanitize_clip.py --wrist-clock bundle"| S2
+    S2["<b>Step 2. Sanitize</b><br/>re-clock the wrist placements,<br/>re-solve the arms under limits,<br/>step bound and collision clearance"]
+    S2 --> CAND["<b>clips/candidate/&lt;clip&gt;/</b><br/>new arm_q.npz + sanitize.json<br/>clip.json verdict / safe_speeds are<br/>STILL the pre-sanitize ones"]
+
+    CAND -->|"tools/clip_audit.py"| S3
+    S3["<b>Step 3. Re-audit</b><br/>dynamic MuJoCo replay at 1.0, 0.5, 0.25x<br/>gate: torque ratio &le; 0.8 AND contact &le; 80 N"]
+    S3 --> RA["reaudit.json<br/>per-speed pass / fail"]
+
+    RA --> S4
+    S4["<b>Step 4. Review</b><br/>watch replay_1.0x_reclocked.mp4 and<br/>side_by_side_1.0x.mp4 against the bundle video"]
+
+    S4 --> S5{"<b>Step 5. File</b><br/>merge reaudit.json into clip.json:<br/>audit.per_speed, safe_speeds, verdict,<br/>override block if the gate failed"}
+    S5 -->|"accepted"| SAFE["<b>clips/safe/&lt;clip&gt;/</b><br/>playable by replay_publisher"]
+    S5 -->|"not accepted"| REJ2["clips/rejected/&lt;clip&gt;/"]
+
+    style S2 fill:#e8f0fe,stroke:#4a76c7,stroke-width:2px,color:#1a1a1a
+    style S5 fill:#fff3cd,stroke:#c7a34a,stroke-width:2px,color:#1a1a1a
+    style SAFE fill:#e6f4ea,stroke:#4a9c6a,stroke-width:2px,color:#1a1a1a
+    style REJ fill:#fdecea,stroke:#c74a4a,color:#1a1a1a
+    style REJ2 fill:#fdecea,stroke:#c74a4a,color:#1a1a1a
 ```
 
-Hand joints pass through untouched (clamped to the URDF limits, nothing else) —
-regenerating them is the retargeter's job. Legs and waist are read, never
-written.
+| Step | What runs it | Detail |
+| --- | --- | --- |
+| 1. Prepare | `tools/prepare_clip.py` | [Step 1](#step-1-prepare), [spec1.md](spec/spec1.md#offline-toolsprepare_clippy) |
+| 2. Sanitize | `tools/sanitize_clip.py` | [Step 2](#step-2-sanitize), [Running it](#running-it), [Wrist clock](#wrist-clock), [Clearance](#clearance-is-part-of-the-solve) |
+| 3. Re-audit | `tools/clip_audit.py` | [Step 3](#step-3-re-audit), [Reading the report](#reading-the-report) |
+| 4. Review | a person, in a video player | [Step 4](#step-4-review) |
+| 5. File | a person, editing `clip.json` | [Step 5](#step-5-file-candidate-to-safe) |
+
+Hand joints pass through the sanitizer untouched (clamped to the URDF limits,
+nothing else). Regenerating them is the retargeter's job, in step 1. Legs and
+waist are read, never written.
+
+## The five steps
+
+### Step 1. Prepare
+
+`tools/prepare_clip.py` turns one bundle sample into a clip directory: it
+low-passes the arm joints (6 Hz Butterworth, 15 deg per frame step clamp),
+retargets the bundle's hand keypoints to Hand 2 with the production
+retargeter, replays the result dynamically in MuJoCo with the G1 node's gains,
+and writes `arm_q.npz`, `hand_q20.npz` and `clip.json`.
+
+**Constraints.** A single-frame arm step of 45 deg or more is refused outright
+as an estimator orientation flip. Everything else is judged by the audit gate
+in step 3, which prepare runs itself.
+
+**It does not fix the wrist clock.** Prepare records the bundle's
+`detected_hand_model` in `clip.json` `source` and stops there. Its own verdict
+on a legacy-hand clip is advisory: the hand it audited faces 90 deg the wrong
+way.
+
+**Next:** step 2, for any clip whose source is a bundle sample.
+
+### Step 2. Sanitize
+
+`tools/sanitize_clip.py`. This stage. Mandatory for a bundle clip, because it
+is where the wrist re-clock is applied. It re-solves the arm joints frame by
+frame against `g1_29_wuji2.urdf`, seeded from the previous frame, with joint
+limits, a velocity step bound and collision separation rows in the solve.
+
+**Constraints.** Clearance 5 mm on 3576 geometry pairs; separation weight 3
+against pose tasks at 1; a 5 deg trust region (`--avoid-budget-deg`) around
+the pose-faithful answer. `wrist_clock.applied` must be `true` on a bundle
+clip. Exit 3 (frames not cleared) is normal and is not a failure.
+
+**Cost.** The re-clock trades wrist position accuracy for a correctly oriented
+hand: see [what the re-clock costs](#wrist-clock).
+
+**Next:** step 3, always. The tool writes no verdict.
+
+### Step 3. Re-audit
+
+`tools/clip_audit.py` on the sanitizer's output, at 1.0x, 0.5x and 0.25x.
+This is the only measurement that describes the sanitized joint data.
+
+**The gate.** A speed passes when **both** hold:
+
+| | Threshold | Constant |
+| --- | --- | --- |
+| `peak_arm_torque_ratio` | at or below **0.8** | `DEFAULT_MAX_ARM_TORQUE_RATIO` |
+| `peak_contact_force_n` | at or below **80 N** | `DEFAULT_MAX_CONTACT_FORCE_N` |
+
+Nothing else in the report is a gate. `contact_frame_fraction`,
+`arm_saturation_fraction` and `tracking_rmse_rad` are context for step 4.
+
+**Next:** step 4. Write the result to `reaudit.json` in the candidate
+directory. Do not edit `clip.json` yet.
+
+### Step 4. Review
+
+Render the sanitized clip and watch it. The candidate directories carry
+`replay_1.0x_reclocked.mp4` and `side_by_side_1.0x.mp4` (the source video, the
+bundle's own simulation, ours) for exactly this.
+
+**What you are checking**, in order:
+
+1. Do the palms match the bundle video? That is what the re-clock was for.
+   Sample the same times the figure in
+   [wrist-clock-2026-09-11.md](issues/wrist-clock-2026-09-11.md) uses.
+2. Does the motion still read as the same gesture after the re-solve?
+3. Where the clip fails the gate, is the failure the known benign one (wrist
+   pitch or yaw actuators saturating for a fraction of a second during
+   hand-to-hand contact) or something structural (a shoulder driven into the
+   torso, an arm sweeping through the body)?
+
+**Next:** step 5.
+
+### Step 5. File, candidate to safe
+
+Nothing before this point writes a verdict. The sanitizer **copies
+`verdict`, `safe_speeds` and `audit` through from its input**, where they
+describe the input's joint data, and `replay/clip.py::load_clip` reads exactly
+those fields. A candidate directory whose `clip.json` still says
+`"verdict": "safe"` is saying that about the pre-sanitize arms.
+
+Filing is a person editing `clip.json`:
+
+1. Replace `audit.per_speed` with the contents of `reaudit.json`, and set
+   `audit.reaudited_after` to the sanitizer's `tool` string.
+2. Set `safe_speeds` to the speeds you accept, and `verdict` to `safe` or
+   `rejected`.
+3. If any accepted speed did not pass the gate in step 3, write an `override`
+   block saying who accepted it and why, with the numbers you accepted:
+   `filed_by`, `filed_at`, `reason`, `filed_speed`,
+   `accepted_peak_arm_torque_ratio`, `accepted_peak_contact_force_n`,
+   `accepted_peak_contact_pair`, `thresholds`, `reaudit_passed_at`.
+4. Move the directory to `clips/safe/`. `load_clip` refuses a clip whose
+   parent directory is not named `safe` (`PLAYABLE_PARENT_DIR_NAMES`), and
+   refuses any clip whose `verdict` is not `safe` or whose `safe_speeds` is
+   empty.
+
+**Most of the current safe set is filed by override, not by the gate.** Of the
+18 bundle clips in `clips/safe/` today, 11 already read a torque ratio of 1.00
+at their filed speed before the re-clock and were accepted on human review in
+the MuJoCo viewer. The gate is a filter, not the decision. What the override
+is for is recording which numbers a person looked at and accepted, so the next
+person can disagree with a specific figure rather than with a judgement.
 
 ## The three defects
 
@@ -53,6 +184,12 @@ python3 tools/clip_audit.py <out>/<clip>             # then always this
 A clip directory gets `sanitize.json` beside it and a `"sanitize"` block in
 `clip.json`; a flat npz gets `OUT_sanitize.json`. Arm columns come back in the
 input's order, and unknown keys pass through.
+
+`sanitize.json` is the full report. The block in `clip.json` is the same
+thing with the three per-frame collision lists replaced by their lengths,
+`{"count": N, "in": "sanitize.json"}`, because repeating them made `clip.json`
+a second copy of the report and up to 1.4 MB. Read `collision.failures`,
+`near_miss` and `unfixable` from `sanitize.json`.
 
 ## Reading the report
 
@@ -140,20 +277,30 @@ median 1 to 9 mm and max 4 to 17 mm over the safe clips with collision off,
 with the elbow 18 to 45 mm off its source position and orientation held to
 about 0.01 deg. Where a wrist range binds (about 7 percent of side-frames
 over the bundle, concentrated in six trajectories) the IK gives up
-orientation as well, 13 to 27 deg on the right hand of `02_test Ours` and
-`10_val Ours`; where several wrist joints pin at once (`02_test GT`,
+orientation as well; where several wrist joints pin at once (`02_test GT`,
 `03_test GT` and `Ours`, `14_val Ours`) it gives up centimetres of position
 too. Read both `ik.max_wrist_pos_residual_mm` and
 `ik.max_wrist_ori_residual_deg` at filing time.
 
+With collision rows active the wrist position residual is about three times
+that floor, 23 to 33 mm on every one of the 18 re-solved bundle clips, and
+the orientation residual is under 10 deg on 13 of them. The exceptions are
+the trajectories that pin a wrist roll: `10_val Ours` (26 deg, 245 of 590
+frames pinned), `11_val GT` (49 deg, 17 frames) and `02_test Ours`, where the
+solve breaks outright at 279 mm and 160 deg on 655 of 760 frames and the
+clip is not usable as re-solved. Per-clip numbers:
+[wrist-clock-2026-09-11.md](issues/wrist-clock-2026-09-11.md#re-solve-results-2026-09-11).
+
 ## Re-audit before filing. Always
 
 The tool writes no verdict, and copies `verdict`, `safe_speeds` and `audit`
-through from the input — where they describe the input's joint data.
+through from the input, where they describe the input's joint data.
 `replay/clip.py::load_clip` reads exactly those fields.
 
-So: re-audit, decide, update `clip.json`, then move the clip. Write the output
-under `clips/candidate/` while you do, because `load_clip` refuses a clip whose
+So: re-audit ([step 3](#step-3-re-audit)), review
+([step 4](#step-4-review)), then update `clip.json` and move the clip
+([step 5](#step-5-file-candidate-to-safe)). Write the sanitizer's output under
+`clips/candidate/` while you do, because `load_clip` refuses a clip whose
 parent directory is not one it recognises.
 
 ## Exit codes
