@@ -11,7 +11,9 @@ Order of work, per docs/spec/RoboSTAR_dropin_fix.md:
     2. remove 2pi wraps from the arm joints and cap the accumulated wrist
        drift (unwrap);
     3. extract the wrist placement and elbow position every source frame
-       implies, by forward kinematics on the model (model.targets);
+       implies, by forward kinematics on the model (model.targets), and
+       re-clock the wrist placement to this rig's hand mount when the source
+       was solved against another one (reclock, --wrist-clock);
     4. find the branch flips: a joint jump the wrist pose did not follow
        (unwrap.detect_flips), and gate the elbow task for their duration;
     5. re-solve every frame, shoulder to elbow then elbow to wrist, seeded
@@ -47,7 +49,7 @@ import numpy as np
 
 from clip_audit import ARM_JOINT_NAMES, SIDES, sha256_file
 
-from . import clipio, collision as coll, ik as ik_mod, unwrap as unwrap_mod
+from . import clipio, collision as coll, ik as ik_mod, reclock, unwrap as unwrap_mod
 from .model import NUM_ARM_JOINTS, SanitizeModel
 from .report import EXIT_REFUSED, Failure, Report
 
@@ -137,6 +139,18 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--drift-warn-deg", type=float, default=unwrap_mod.DEFAULT_DRIFT_WARN_DEG,
                    help="measured drift that earns a line on stderr (default: %(default).1f)")
 
+    g = p.add_argument_group("wrist clock")
+    g.add_argument("--wrist-clock", default=reclock.CLOCK_AUTO,
+                   help="rotate each extracted wrist placement about its forearm axis before "
+                        "the solve, for a source solved against another hand mount: "
+                        f"'{reclock.CLOCK_AUTO}' applies the bundle clock "
+                        f"({reclock.BUNDLE_WRIST_CLOCK_DEG['left']:+.0f}, "
+                        f"{reclock.BUNDLE_WRIST_CLOCK_DEG['right']:+.0f} deg) when clip.json "
+                        f"says the source is the {reclock.BUNDLE_HAND_MODEL} model, "
+                        f"'{reclock.CLOCK_BUNDLE}' and '{reclock.CLOCK_NONE}' force it on or "
+                        "off, --wrist-clock=LEFT_DEG,RIGHT_DEG sets the angles (the = form is "
+                        "needed when LEFT_DEG is negative) (default: %(default)s)")
+
     p.add_argument("-v", "--verbose", action="store_true",
                    help="print every failing contact rather than one line per "
                         "failing frame, and a line per constrained frame")
@@ -156,7 +170,7 @@ def _options_dict(args: argparse.Namespace) -> dict:
             "flip_pose_ori_deg": args.flip_pose_ori_deg,
             "elbow_rejoin_mm": args.elbow_rejoin_mm, "ik_iters": args.ik_iters,
             "max_drift_deg": args.max_drift_deg, "drift_window": args.drift_window,
-            "drift_warn_deg": args.drift_warn_deg}
+            "drift_warn_deg": args.drift_warn_deg, "wrist_clock": args.wrist_clock}
 
 
 def sanitize(clip: clipio.Clip, args: argparse.Namespace,
@@ -167,6 +181,8 @@ def sanitize(clip: clipio.Clip, args: argparse.Namespace,
     bind sys.stderr at import time and escape any later redirection.
     """
     stream = sys.stderr if stream is None else stream
+    # Resolved before the model loads: a bad --wrist-clock is refused at once.
+    clock, clock_reason = reclock.clock_for_clip(args.wrist_clock, clip.meta)
     sm = SanitizeModel(urdf=args.urdf, build_geometry=not args.no_collision)
 
     checker: Optional[coll.CollisionChecker] = None
@@ -188,6 +204,11 @@ def sanitize(clip: clipio.Clip, args: argparse.Namespace,
                     drift_warn_deg=args.drift_warn_deg, drift_cap_deg=args.max_drift_deg)
     if checker is not None:
         report.collision = checker.as_dict()
+    report.wrist_clock = {"applied": clock is not None,
+                          "deg": dict(clock) if clock is not None else None,
+                          "reason": clock_reason}
+    print(f"      wrist clock: {'none' if clock is None else clock} ({clock_reason})",
+          file=stream)
 
     # -- hands: clamped to the URDF limits, otherwise passed through -------
     hand: Dict[str, np.ndarray] = {}
@@ -224,13 +245,13 @@ def sanitize(clip: clipio.Clip, args: argparse.Namespace,
             (source[side] < sm.arm_lower[cols] - 1e-9) | (source[side] > sm.arm_upper[cols] + 1e-9)))
     report.source["arm_values_outside_joint_limits"] = out_of_limits
 
-    # -- the poses the source implies --------------------------------------
+    # -- the poses the source implies, re-clocked to this rig's mount ------
     targets: List[Dict[str, object]] = []
     wrist_poses: Dict[str, List[object]] = {s: [] for s in SIDES}
     for k in range(clip.frames):
         q = sm.configuration(arm={s: source[s][k] for s in SIDES},
                              hand={s: hand[s][k] for s in SIDES})
-        frame_targets = sm.targets(q)
+        frame_targets = reclock.reclock_targets(sm.pin, sm.targets(q), clock)
         targets.append(frame_targets)
         for side in SIDES:
             wrist_poses[side].append(frame_targets[side].wrist)
@@ -267,7 +288,11 @@ def sanitize(clip: clipio.Clip, args: argparse.Namespace,
 
     for k in range(clip.frames):
         frame_hand = {s: hand[s][k] for s in SIDES}
-        seed = (sm.join_arm({s: source[s][0] for s in SIDES}) if previous is None else previous)
+        # Frame 0 starts from the source wrists re-clocked in closed form, so the
+        # solve begins on the right branch; every later frame starts from the last.
+        seed = (reclock.closed_form_seed(sm.join_arm({s: source[s][0] for s in SIDES}), clock,
+                                         sm.arm_lower, sm.arm_upper)
+                if previous is None else previous)
 
         elbow_enabled: Dict[str, bool] = {}
         for side in SIDES:

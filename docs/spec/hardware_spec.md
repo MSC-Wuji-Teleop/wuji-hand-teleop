@@ -129,6 +129,14 @@ sit that much closer to the wrist than the rig's, and every contact distance in
 a clip audit is short by the same amount. The plate's mass is not modelled
 either, which is the smaller error of the two.
 
+**The RobotSTAR bundle assumes a different clock.** Its solver's model,
+`scene_43dof_wuji_y90.xml`, mounts the legacy Wuji hand 90 deg from this
+adapter about the forearm axis: left +90, right -90 about `wrist_yaw_link`
++x, fitted at +86 and -101 over the 30 bundle trajectories. Bundle wrist
+angles replayed as shipped put the hands 90 deg off; `tools/sanitize_clip.py`
+re-clocks them. Measurement and the options weighed:
+[wrist-clock-2026-09-11.md](../issues/wrist-clock-2026-09-11.md).
+
 ### Input devices
 
 | Device | Details |

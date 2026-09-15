@@ -76,6 +76,15 @@ BUNDLE_HAND_GLOB = "*_human_targets_v5.npz"
 BUNDLE_MANIFEST_FILE = "MANIFEST.sha256"
 BUNDLE_METHODS = ("GT", "Ours")
 
+# target_meta.json keys copied into clip.json "source" so the sanitizer can
+# tell a bundle solved against the legacy hand mount from anything else.
+# Such a source's wrist angles are 90 deg off this rig's hand clock and the
+# clip must go through tools/sanitize_clip.py before it is filed
+# (docs/issues/wrist-clock-2026-09-11.md).
+BUNDLE_HAND_MODEL_KEY = "detected_hand_model"
+BUNDLE_MODEL_KEY = "model"
+LEGACY_HAND_MODEL = "legacy_wuji"
+
 # MediaPipe hand landmarks per hand, the keypoint file's second dimension.
 NUM_KEYPOINTS = 21
 
@@ -254,6 +263,9 @@ class BundleTrajectory:
     arm_q: Dict[str, np.ndarray]
     keypoints: Dict[str, np.ndarray]
     manifest_sha256: Optional[str]
+    # target_meta.json "detected_hand_model" and "model", as shipped; None when absent.
+    hand_model: Optional[str] = None
+    reference_model: Optional[str] = None
 
     @property
     def rate_hz(self) -> float:
@@ -319,6 +331,8 @@ def read_bundle(method_dir: Path) -> BundleTrajectory:
         # than refusing a sample the tool can read perfectly well.
         source_frames = int(meta["source_frames"]) if "source_frames" in meta else None
         target_fps = float(meta["target_fps"])
+        hand_model = str(meta[BUNDLE_HAND_MODEL_KEY]) if meta.get(BUNDLE_HAND_MODEL_KEY) is not None else None
+        reference_model = str(meta[BUNDLE_MODEL_KEY]) if meta.get(BUNDLE_MODEL_KEY) is not None else None
         time_scale = float(meta.get("time_scale", 1))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise PrepareError(f"{meta_path}: cannot read ({exc!r})") from exc
@@ -365,7 +379,8 @@ def read_bundle(method_dir: Path) -> BundleTrajectory:
         sample=method_dir.parent.name, method=method_dir.name, method_dir=method_dir,
         frames=frames, source_frames=source_frames, target_fps=target_fps, time_scale=time_scale,
         arm_q=arm_q, keypoints=keypoints,
-        manifest_sha256=clip_audit.sha256_file(manifest) if manifest else None)
+        manifest_sha256=clip_audit.sha256_file(manifest) if manifest else None,
+        hand_model=hand_model, reference_model=reference_model)
 
 
 # ---------------------------------------------------------------------------
@@ -715,6 +730,8 @@ def build_clip_json(traj: BundleTrajectory, n_frames: int, sanitize_block: dict,
             "bundle_manifest_sha256": traj.manifest_sha256,
             "method_dir": str(Path(traj.method_dir).resolve()),
             "time_scale": float(traj.time_scale),
+            BUNDLE_HAND_MODEL_KEY: traj.hand_model,
+            BUNDLE_MODEL_KEY: traj.reference_model,
         },
         "frames": int(n_frames),
         "rate_hz": float(traj.rate_hz),
@@ -797,6 +814,10 @@ def prepare_one(method_dir: Path, out_root: Path, opts: Options, rig: AuditRig,
     rate_hz = traj.rate_hz
     thresholds = opts.thresholds()
     log(f"{name}: {traj.frames} frames at {rate_hz:g} Hz, {traj.source_frames} keypoint frames")
+    if traj.hand_model == LEGACY_HAND_MODEL:
+        log(f"{name}: warning: source solved against the {LEGACY_HAND_MODEL} hand mount; its wrist "
+            f"clock is 90 deg off this rig, so this verdict is provisional until "
+            f"tools/sanitize_clip.py has re-clocked the clip (docs/issues/wrist-clock-2026-09-11.md)")
 
     # 1. Sanitize arms: trim first, then refuse flips, filter, clamp.
     arm14 = trim_frames(stack_sides(traj.arm_q), opts.trim_start, opts.trim_end)

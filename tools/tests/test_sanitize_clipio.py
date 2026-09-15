@@ -138,6 +138,32 @@ def test_dir_round_trip_writes_three_files_and_a_sanitize_block(tmp_path):
         assert handle["left"].shape == (8, 7)
 
 
+def test_clip_json_summarises_the_collision_lists_sanitize_json_keeps_them(tmp_path):
+    """The per-frame entries live in sanitize.json; clip.json carries counts."""
+    clip = clipio.read_clip(make_dir(tmp_path / "clip"))
+    out = tmp_path / "out"
+    failures = [{"frame": i, "class": "cross_side"} for i in range(4)]
+    report = {"tool": "sanitize/1",
+              "collision": {"pairs_checked": 3576, "failures": failures,
+                            "near_miss": [{"frame": 9}], "unfixable": []}}
+    clipio.write_clip(clip, out, report=report)
+
+    meta = json.loads((out / "clip.json").read_text())["sanitize"]
+    assert meta["collision"]["failures"] == {"count": 4, "in": "sanitize.json"}
+    assert meta["collision"]["near_miss"] == {"count": 1, "in": "sanitize.json"}
+    assert meta["collision"]["unfixable"] == {"count": 0, "in": "sanitize.json"}
+    assert meta["collision"]["pairs_checked"] == 3576   # scalars are untouched
+
+    full = json.loads((out / "sanitize.json").read_text())
+    assert full["collision"]["failures"] == failures
+    assert report["collision"]["failures"] is failures  # the caller's dict is not mutated
+
+
+def test_meta_report_passes_through_a_report_with_no_collision_section():
+    report = {"tool": "sanitize/1", "verdict": {"failures": 0}}
+    assert clipio.meta_report(report) == report
+
+
 def test_dir_without_clip_json_uses_the_default_rate(tmp_path):
     clip = clipio.read_clip(make_dir(tmp_path / "clip", meta=False))
     assert clip.rate_hz == clipio.DEFAULT_RATE_HZ

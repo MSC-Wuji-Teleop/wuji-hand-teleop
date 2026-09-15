@@ -140,6 +140,8 @@ class Report:
         self.flips: Dict[str, List[dict]] = {s: [] for s in SIDES}
         self.gated_frames: Dict[str, int] = {s: 0 for s in SIDES}
         self.hand_clamped: Dict[str, int] = {s: 0 for s in SIDES}
+        # Filled by the CLI once the flag is resolved against the clip's provenance.
+        self.wrist_clock: dict = {"applied": False, "deg": None, "reason": ""}
 
         self.collision: dict = {}
         self.failures: List[Failure] = []
@@ -288,6 +290,7 @@ class Report:
             "frames": self.frames,
             "rate_hz": self.rate_hz,
             "unwrap": {"wraps_removed": self.wraps, "wrist_drift": self.drift},
+            "wrist_clock": self.wrist_clock,
             "flips": {"detected": self.flips, "gated_frames": self.gated_frames},
             "ik": {
                 "max_wrist_pos_residual_mm": round(1e3 * float(self._pos_err.max()), 4)
