@@ -1,11 +1,13 @@
 # Replayed clips: hands rotated 90 deg about the forearm
 
-**Status:** 2026-09-12, `alex_dev`. Analysis done; the fix is committed
+**Status:** 2026-09-15, `alex_dev`. Analysis done; the fix is committed
 (`32e8bf0`: `tools/sanitize/reclock.py`, `tools/sanitize_clip.py --wrist-clock`,
 [sanitize.md](../sanitize.md#wrist-clock), `prepare_clip.py` recording the
-bundle's `detected_hand_model`). All 18 safe bundle clips are re-solved into
-`clips/candidate/` with side-by-side videos ([results](#re-solve-results-2026-09-11));
-none is re-filed. Not run on hardware.
+bundle's `detected_hand_model`). All 18 safe bundle clips were re-solved into
+`clips/candidate/` with side-by-side videos ([results](#re-solve-results-2026-09-11)).
+**16 are re-filed** ([filing](#filing-2026-09-15)); `02_test Ours` and
+`04_test GT` are held and their pre-re-clock copies in `clips/safe/` are marked
+`"verdict": "void"`. Not run on hardware.
 
 ## What is wrong
 
@@ -199,10 +201,44 @@ stay in the range they were in. The wrist position residual of 23 to 33 mm on
 every clip is the re-clock's cost with collision rows active, about three
 times the collision-off floor ([sanitize.md](../sanitize.md#wrist-clock)).
 
-**Open.** Filing policy: re-file at the previously filed speeds by override,
-as the current safe set was filed, or run each on the rig first. `02_test
-Ours` should not be re-filed as re-solved; `10_val Ours` and `11_val GT` are
-partial.
+**Open.** `10_val Ours` and `11_val GT` are partial: both are filed, with the
+residual recorded in their `override`.
+
+## Filing, 2026-09-15
+
+Reviewed against `side_by_side_1.0x.mp4` per clip. 16 filed at the previously
+filed speeds by override, which is how the pre-re-clock safe set was filed;
+every one is over the 0.8 torque ratio, so every one carries an `override`
+block naming the numbers accepted. Each filed `clip.json` keeps the
+pre-re-clock filing under `superseded_override`.
+
+Held, and still in `clips/candidate/`:
+
+| clip | why |
+|---|---|
+| `02_test Ours` | the re-solve's IK broke: 279 mm / 160 deg worst wrist residual, right wrist roll pinned on 655 of 760 frames |
+| `04_test GT` | arm-to-torso contact reaches 95 N at 0.5x, over the 80 N gate (70 N at 1.0x, 78 N at 0.25x) |
+
+Their pre-re-clock copies stay in `clips/safe/` with `"verdict": "void"`,
+`safe_speeds` emptied and a `voided` block, so `load_clip` refuses them. The
+directories should be deleted once the held candidates are resolved.
+
+**Arm-to-torso contact is the open safety question**, and it is not a wrist
+clock problem: the same shoulder-to-torso press is in the pre-sanitize
+`clips/summary.md` rejections at 94 to 233 N. It is invisible in a render,
+which is why four clips reviewed as fine carry it. Filed with it accepted:
+
+| clip | filed | arm-to-torso peak at the filed speed |
+|---|---|---|
+| `07_test GT` | 0.25x | 204 N (178 N at 0.5x, the lower reading) |
+| `07_test Ours` | 0.25x | 133 N |
+| `09_train GT` | 0.25x | 164 N |
+| `12_val GT` | 0.25x | 107 N |
+| `14_val GT` | 0.5x | 86 N total peak (71 N at 0.25x, inside the gate) |
+
+The four `Ours`/`GT` counterparts asked for at review (`09_train Ours`,
+`10_val GT`, `11_val Ours`, `14_val Ours`) are not prepared: they are rejected
+at step 1 and need a prepare, sanitize and audit pass.
 
 ## Not the fix
 
