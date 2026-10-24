@@ -65,7 +65,7 @@
     <mesh name="right_wrist_roll_link" file="meshes/g1/right_wrist_roll_link.STL"/>
     <mesh name="right_wrist_pitch_link" file="meshes/g1/right_wrist_pitch_link.STL"/>
     <mesh name="right_wrist_yaw_link" file="meshes/g1/right_wrist_yaw_link.STL"/>
-    <mesh name="left_wuji_l_mount" content_type="model/stl" file="meshes/wuji/left/l_mount.STL"/>
+    <mesh name="left_wuji_l_mount" content_type="model/stl" file="meshes/wuji/left/l_mount_no_cross.STL"/>
     <mesh name="left_wuji_l_wrist" content_type="model/stl" file="meshes/wuji/left/l_wrist.STL"/>
     <mesh name="left_wuji_l_thumb_proximal" content_type="model/stl" file="meshes/wuji/left/l_thumb_proximal.STL"/>
     <mesh name="left_wuji_l_thumb_proximal_abd" content_type="model/stl" file="meshes/wuji/left/l_thumb_proximal_abd.STL"/>
@@ -92,7 +92,7 @@
     <mesh name="left_wuji_l_pinky_middle" content_type="model/stl" file="meshes/wuji/left/l_pinky_middle.STL"/>
     <mesh name="left_wuji_l_pinky_distal" content_type="model/stl" file="meshes/wuji/left/l_pinky_distal.STL"/>
     <mesh name="left_wuji_l_pinky_tip_sensor_frame" content_type="model/stl" file="meshes/wuji/left/l_pinky_tip_sensor_frame.STL"/>
-    <mesh name="right_wuji_r_mount" content_type="model/stl" file="meshes/wuji/right/r_mount.STL"/>
+    <mesh name="right_wuji_r_mount" content_type="model/stl" file="meshes/wuji/right/r_mount_no_cross.STL"/>
     <mesh name="right_wuji_r_wrist" content_type="model/stl" file="meshes/wuji/right/r_wrist.STL"/>
     <mesh name="right_wuji_r_thumb_proximal" content_type="model/stl" file="meshes/wuji/right/r_thumb_proximal.STL"/>
     <mesh name="right_wuji_r_thumb_proximal_abd" content_type="model/stl" file="meshes/wuji/right/r_thumb_proximal_abd.STL"/>
@@ -264,7 +264,7 @@
                           <geom class="visual" mesh="left_wrist_yaw_link"/>
                           <geom class="collision" mesh="left_wrist_yaw_link"/>
                           <body name="left_wuji_l_mount" childclass="wuji" pos="0.0415 0 0" quat="0.707107 0 -0.707107 0">
-                            <inertial pos="-0.00285742 0.00108288 -0.0169809" quat="0.0612621 0.833624 -0.182752 -0.517609" mass="0.069" diaginertia="2.6039e-05 2.50857e-05 1.69216e-05"/>
+                            <inertial pos="-0.00416796 0.00157829 -0.0236213" quat="-0.0053358 0.987607 -0.0272837 0.154468" mass="0.047308" diaginertia="5.62189e-06 1.30387e-05 1.35894e-05"/>
                             <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.75 0.75 0.75 1" density="0" mesh="left_wuji_l_mount"/>
                             <geom type="mesh" group="2" rgba="0.8 0.6 1 0.3" mesh="left_wuji_l_mount"/>
                             <body name="left_wuji_l_wrist" pos="0.003 -0.00030011 -0.0285">
@@ -466,7 +466,7 @@
                           <geom class="visual" mesh="right_wrist_yaw_link"/>
                           <geom class="collision" mesh="right_wrist_yaw_link"/>
                           <body name="right_wuji_r_mount" childclass="wuji" pos="0.0415 0 0" quat="0.707107 0 -0.707107 0">
-                            <inertial pos="-0.00285956 -0.00108266 -0.0169824" quat="-0.517511 -0.182921 0.833642 0.0613389" mass="0.069" diaginertia="2.60409e-05 2.50871e-05 1.69216e-05"/>
+                            <inertial pos="-0.00416924 -0.00157802 -0.0236235" quat="0.987594 -0.00497799 -0.154546 0.0273726" mass="0.0473079" diaginertia="5.62151e-06 1.30404e-05 1.35915e-05"/>
                             <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.75 0.75 0.75 1" density="0" mesh="right_wuji_r_mount"/>
                             <geom type="mesh" group="2" rgba="0.8 0.6 1 0.3" mesh="right_wuji_r_mount"/>
                             <body name="right_wuji_r_wrist" pos="0.003 0.00025016 -0.0285" quat="1 0 0 8.1995e-06">

@@ -119,9 +119,14 @@ models use for it, matching between MJCF and URDF in each variant:
 clock 0 is correct there, and the hands sit the way the model says they do. The
 23-DoF numbers are the derived ones and have never been on a robot.
 
-`meshes/wuji/{left,right}/{l,r}_mount.STL` in `g1_wuji2_description` is the
-**vendor Hand 2 mount** that ships inside the `*_with_mount` models (0.069 kg,
-41.84 mm tall), not this adapter.
+The **vendor Hand 2 mount** that ships inside the `*_with_mount` models
+(`{l,r}_mount.STL`, 0.069 kg, 41.84 mm tall) is two pieces: a cross-shaped
+plate on the arm side and a cup that holds the hand. On the rig the cross plate
+is removed and the adapter takes its place (2026-10-23). The composed models
+keep only the cup, `meshes/wuji/{left,right}/{l,r}_mount_no_cross.STL`: 47.3 g
+per side, at the uniform density (2828 kg/m^3) that reproduces the vendor's
+mass properties. The hand pose is unchanged. This is a hand edit of the
+generated files, so a regeneration must carry it.
 
 **One constant is still unmeasured: the plate's own thickness along wrist +x**,
 modelled as zero. If the physical adapter has stack height, the model's hands
